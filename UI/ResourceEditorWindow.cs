@@ -97,18 +97,48 @@ public class ResourceEditorWindow : Window
 
     private void InitializeComponents()
     {
-        // Search bar
+        // Menu bar
+        var menu = new MenuBar(new MenuBarItem[]
+        {
+            new MenuBarItem("_File", new MenuItem[]
+            {
+                new MenuItem("_Save", "Save all changes", () => SaveChanges(), null, null, Key.S | Key.CtrlMask),
+                new MenuItem("_Validate", "Run validation", () => ShowValidation(), null, null, Key.F6),
+                null!, // separator
+                new MenuItem("_Quit", "Exit editor", () => { if (ConfirmQuit()) Application.RequestStop(); }, null, null, Key.Q | Key.CtrlMask)
+            }),
+            new MenuBarItem("_Edit", new MenuItem[]
+            {
+                new MenuItem("_Add Key", "Add new translation key", () => AddNewKey(), null, null, Key.N | Key.CtrlMask),
+                new MenuItem("_Edit Key", "Edit selected key", () => { if (_tableView?.SelectedRow >= 0) EditKey(_dataTable.Rows[_tableView.SelectedRow]["Key"].ToString()!); }, null, null, Key.Enter),
+                new MenuItem("_Delete Key", "Delete selected key", () => DeleteSelectedKey(), null, null, Key.DeleteChar)
+            }),
+            new MenuBarItem("_Languages", new MenuItem[]
+            {
+                new MenuItem("_List", "Show all languages", () => ShowLanguageList(), null, null, Key.L | Key.CtrlMask),
+                new MenuItem("_Add New", "Add new language", () => AddLanguage(), null, null, Key.F2),
+                new MenuItem("_Remove", "Remove language", () => RemoveLanguage(), null, null, Key.F3)
+            }),
+            new MenuBarItem("_Help", new MenuItem[]
+            {
+                new MenuItem("_Shortcuts", "Show keyboard shortcuts", () => ShowHelp(), null, null, Key.F1)
+            })
+        });
+
+        Add(menu);
+
+        // Search bar (adjusted Y position for menu)
         var searchLabel = new Label
         {
             Text = "Search:",
             X = 1,
-            Y = 1
+            Y = 2
         };
 
         _searchField = new TextField
         {
             X = Pos.Right(searchLabel) + 1,
-            Y = 1,
+            Y = 2,
             Width = 40,
             Text = ""
         };
@@ -122,16 +152,16 @@ public class ResourceEditorWindow : Window
         // Help label
         var helpLabel = new Label
         {
-            Text = "Enter=Edit  Ctrl+N=Add  Del=Delete  Ctrl+S=Save  F1=Help  F6=Validate",
+            Text = "Enter=Edit  Ctrl+N=Add  Del=Delete  Ctrl+S=Save  F1=Help  F2=Add Lang  F3=Remove Lang",
             X = Pos.Right(_searchField) + 2,
-            Y = 1
+            Y = 2
         };
 
-        // TableView for keys and translations
+        // TableView for keys and translations (adjusted Y position for menu)
         _tableView = new TableView
         {
             X = 1,
-            Y = 3,
+            Y = 4,
             Width = Dim.Fill() - 1,
             Height = Dim.Fill() - 2,
             FullRowSelect = true,
@@ -199,6 +229,21 @@ public class ResourceEditorWindow : Window
             {
                 Application.RequestStop();
             }
+            e.Handled = true;
+        }
+        else if (e.KeyEvent.Key == (Key.L | Key.CtrlMask))
+        {
+            ShowLanguageList();
+            e.Handled = true;
+        }
+        else if (e.KeyEvent.Key == Key.F2)
+        {
+            AddLanguage();
+            e.Handled = true;
+        }
+        else if (e.KeyEvent.Key == Key.F3)
+        {
+            RemoveLanguage();
             e.Handled = true;
         }
     }
@@ -543,19 +588,330 @@ public class ResourceEditorWindow : Window
         MessageBox.Query("Validation", message, "OK");
     }
 
+    private void ShowLanguageList()
+    {
+        var dialog = new Dialog
+        {
+            Title = "Manage Languages",
+            Width = Dim.Percent(70),
+            Height = Dim.Percent(60)
+        };
+
+        var languageList = _resourceFiles.Select(rf =>
+        {
+            var code = string.IsNullOrEmpty(rf.Language.Code) ? "(default)" : rf.Language.Code;
+            var isDefault = rf.Language.IsDefault ? " [DEFAULT]" : "";
+            return $"{code,-12} {rf.Language.Name,-25} ({rf.Entries.Count,4} entries){isDefault}";
+        }).ToList();
+
+        var listView = new ListView(languageList)
+        {
+            X = 1,
+            Y = 1,
+            Width = Dim.Fill() - 1,
+            Height = Dim.Fill() - 4
+        };
+
+        var btnAdd = new Button("Add New (F2)")
+        {
+            X = 1,
+            Y = Pos.AnchorEnd(2)
+        };
+        btnAdd.Clicked += () => { Application.RequestStop(); AddLanguage(); };
+
+        var btnRemove = new Button("Remove (F3)")
+        {
+            X = Pos.Right(btnAdd) + 2,
+            Y = Pos.AnchorEnd(2)
+        };
+        btnRemove.Clicked += () => { Application.RequestStop(); RemoveLanguage(); };
+
+        var btnClose = new Button("Close")
+        {
+            X = Pos.Right(btnRemove) + 2,
+            Y = Pos.AnchorEnd(2)
+        };
+        btnClose.Clicked += () => Application.RequestStop();
+
+        dialog.Add(listView, btnAdd, btnRemove, btnClose);
+        Application.Run(dialog);
+    }
+
+    private void AddLanguage()
+    {
+        var dialog = new Dialog
+        {
+            Title = "Add New Language",
+            Width = 65,
+            Height = 16
+        };
+
+        var cultureLabel = new Label("Culture code (e.g., fr, de-DE, ja):") { X = 1, Y = 1 };
+        var cultureField = new TextField { X = 1, Y = 2, Width = 20 };
+        var statusLabel = new Label { X = 22, Y = 2, Width = Dim.Fill() - 1, ColorScheme = Colors.Base };
+
+        var copyFromLabel = new Label("Copy entries from:") { X = 1, Y = 4 };
+        var languageOptions = _resourceFiles.Select(rf =>
+            string.IsNullOrEmpty(rf.Language.Code) ? "Default" : $"{rf.Language.Code} ({rf.Language.Name})"
+        ).ToList();
+
+        var copyFromCombo = new ComboBox
+        {
+            X = 1,
+            Y = 5,
+            Width = 40,
+            Height = 5
+        };
+        copyFromCombo.SetSource(languageOptions);
+
+        var emptyCheckbox = new CheckBox("Create empty (no entries)")
+        {
+            X = 1,
+            Y = 7
+        };
+
+        var manager = new LanguageFileManager();
+        var discovery = new ResourceDiscovery();
+
+        cultureField.TextChanged += (oldValue) =>
+        {
+            var code = cultureField.Text.ToString();
+            if (string.IsNullOrWhiteSpace(code))
+            {
+                statusLabel.Text = "";
+                return;
+            }
+
+            if (manager.IsValidCultureCode(code, out var culture))
+            {
+                statusLabel.Text = $"✓ {culture!.DisplayName}";
+                statusLabel.ColorScheme = Colors.Dialog;
+            }
+            else
+            {
+                statusLabel.Text = "✗ Invalid code";
+                statusLabel.ColorScheme = Colors.Error;
+            }
+        };
+
+        var btnCreate = new Button("Create")
+        {
+            X = 1,
+            Y = Pos.AnchorEnd(2)
+        };
+
+        btnCreate.Clicked += () =>
+        {
+            var code = cultureField.Text.ToString();
+            if (string.IsNullOrWhiteSpace(code))
+            {
+                MessageBox.ErrorQuery("Error", "Culture code is required.", "OK");
+                return;
+            }
+
+            if (!manager.IsValidCultureCode(code, out var culture))
+            {
+                MessageBox.ErrorQuery("Error", $"Invalid culture code: {code}", "OK");
+                return;
+            }
+
+            var baseName = _resourceFiles[0].Language.BaseName;
+            var resourcePath = Path.GetDirectoryName(_resourceFiles[0].Language.FilePath) ?? "";
+
+            if (manager.LanguageFileExists(baseName, code, resourcePath))
+            {
+                MessageBox.ErrorQuery("Error", $"Language '{code}' already exists.", "OK");
+                return;
+            }
+
+            try
+            {
+                // Get source file
+                ResourceFile? sourceFile = null;
+                if (!emptyCheckbox.Checked)
+                {
+                    var selectedIdx = copyFromCombo.SelectedItem;
+                    sourceFile = _resourceFiles[selectedIdx];
+                }
+
+                // Create new language file
+                var newFile = manager.CreateLanguageFile(
+                    baseName,
+                    code,
+                    resourcePath,
+                    sourceFile,
+                    copyEntries: !emptyCheckbox.Checked
+                );
+
+                // Add to resource files list
+                _resourceFiles.Add(newFile);
+
+                // Rebuild DataTable with new column
+                var newDataTable = BuildDataTable();
+                _dataTable = newDataTable;
+                if (_tableView != null)
+                {
+                    _tableView.Table = _dataTable;
+                }
+
+                UpdateStatus();
+
+                MessageBox.Query("Success",
+                    $"Added {culture!.DisplayName} ({code}) language\n" +
+                    $"File: {Path.GetFileName(newFile.Language.FilePath)}",
+                    "OK");
+
+                Application.RequestStop();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.ErrorQuery("Error", $"Failed to create language:\n{ex.Message}", "OK");
+            }
+        };
+
+        var btnCancel = new Button("Cancel")
+        {
+            X = Pos.Right(btnCreate) + 2,
+            Y = Pos.AnchorEnd(2)
+        };
+        btnCancel.Clicked += () => Application.RequestStop();
+
+        dialog.Add(cultureLabel, cultureField, statusLabel, copyFromLabel, copyFromCombo, emptyCheckbox, btnCreate, btnCancel);
+        Application.Run(dialog);
+    }
+
+    private void RemoveLanguage()
+    {
+        var removableLanguages = _resourceFiles
+            .Where(rf => !rf.Language.IsDefault)
+            .ToList();
+
+        if (!removableLanguages.Any())
+        {
+            MessageBox.ErrorQuery("Error", "No languages to remove.\nCannot delete the default language.", "OK");
+            return;
+        }
+
+        var dialog = new Dialog
+        {
+            Title = "Remove Language",
+            Width = 65,
+            Height = 18
+        };
+
+        var label = new Label("Select language to remove:") { X = 1, Y = 1 };
+
+        var languageList = removableLanguages.Select(rf =>
+            $"{rf.Language.Code,-12} {rf.Language.Name,-25} ({rf.Entries.Count,4} entries)"
+        ).ToList();
+
+        var listView = new ListView(languageList)
+        {
+            X = 1,
+            Y = 2,
+            Width = Dim.Fill() - 1,
+            Height = Dim.Fill() - 5
+        };
+
+        var noBackupCheckbox = new CheckBox("Skip backup (not recommended)")
+        {
+            X = 1,
+            Y = Pos.AnchorEnd(3)
+        };
+
+        var btnRemove = new Button("Remove")
+        {
+            X = 1,
+            Y = Pos.AnchorEnd(2)
+        };
+
+        btnRemove.Clicked += () =>
+        {
+            var selectedIdx = listView.SelectedItem;
+            if (selectedIdx < 0 || selectedIdx >= removableLanguages.Count)
+            {
+                MessageBox.ErrorQuery("Error", "Please select a language to remove.", "OK");
+                return;
+            }
+
+            var rf = removableLanguages[selectedIdx];
+            var result = MessageBox.Query("Confirm Delete",
+                $"Delete {rf.Language.Name} ({rf.Language.Code})?\n\n" +
+                $"{rf.Entries.Count} entries will be lost.\n" +
+                $"File: {Path.GetFileName(rf.Language.FilePath)}",
+                "Delete", "Cancel");
+
+            if (result == 0)
+            {
+                try
+                {
+                    // Create backup if requested
+                    if (!noBackupCheckbox.Checked)
+                    {
+                        var backup = new BackupManager();
+                        backup.CreateBackup(rf.Language.FilePath);
+                    }
+
+                    // Delete the file
+                    var manager = new LanguageFileManager();
+                    manager.DeleteLanguageFile(rf.Language);
+
+                    // Remove from list
+                    _resourceFiles.Remove(rf);
+
+                    // Rebuild DataTable without this column
+                    var newDataTable = BuildDataTable();
+                    _dataTable = newDataTable;
+                    if (_tableView != null)
+                    {
+                        _tableView.Table = _dataTable;
+                    }
+
+                    UpdateStatus();
+
+                    MessageBox.Query("Success",
+                        $"Removed {rf.Language.Name} ({rf.Language.Code})",
+                        "OK");
+
+                    Application.RequestStop();
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.ErrorQuery("Error", $"Failed to remove language:\n{ex.Message}", "OK");
+                }
+            }
+        };
+
+        var btnCancel = new Button("Cancel")
+        {
+            X = Pos.Right(btnRemove) + 2,
+            Y = Pos.AnchorEnd(2)
+        };
+        btnCancel.Clicked += () => Application.RequestStop();
+
+        dialog.Add(label, listView, noBackupCheckbox, btnRemove, btnCancel);
+        Application.Run(dialog);
+    }
+
     private void ShowHelp()
     {
         var help = "Keyboard Shortcuts:\n\n" +
+                   "Key Management:\n" +
                    "Enter     - Edit selected key\n" +
                    "Ctrl+N    - Add new key\n" +
-                   "Del       - Delete selected key\n" +
+                   "Del       - Delete selected key\n\n" +
+                   "Language Management:\n" +
+                   "Ctrl+L    - List languages\n" +
+                   "F2        - Add new language\n" +
+                   "F3        - Remove language\n\n" +
+                   "File Operations:\n" +
                    "Ctrl+S    - Save changes\n" +
-                   "Ctrl+Q    - Quit editor\n" +
-                   "F1        - Show this help\n" +
-                   "F6        - Run validation\n\n" +
+                   "F6        - Run validation\n" +
+                   "Ctrl+Q    - Quit editor\n\n" +
                    "Navigation:\n" +
                    "↑/↓       - Move selection\n" +
-                   "PgUp/PgDn - Page up/down";
+                   "PgUp/PgDn - Page up/down\n" +
+                   "F1        - Show this help";
 
         MessageBox.Query("Help", help, "OK");
     }
@@ -586,7 +942,8 @@ public class ResourceEditorWindow : Window
     {
         var filteredCount = _dataTable.DefaultView.Count;
         var totalCount = _dataTable.Rows.Count;
-        var status = $"Keys: {filteredCount}/{totalCount}";
+        var langCount = _resourceFiles.Count;
+        var status = $"Keys: {filteredCount}/{totalCount} | Languages: {langCount}";
         if (_hasUnsavedChanges) status += " [MODIFIED]";
         return status;
     }

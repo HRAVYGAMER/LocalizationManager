@@ -37,7 +37,7 @@ public class ResourceFileParserTests
         Assert.NotNull(result);
         Assert.Equal(languageInfo, result.Language);
         Assert.NotEmpty(result.Entries);
-        Assert.Equal(4, result.Entries.Count); // Save, Cancel, Welcome, EmptyValue
+        Assert.Equal(5, result.Entries.Count); // Save, Cancel, Welcome, EmptyValue, TestDefaultKey
     }
 
     [Fact]
@@ -60,7 +60,7 @@ public class ResourceFileParserTests
         // Assert
         var saveEntry = result.Entries.FirstOrDefault(e => e.Key == "Save");
         Assert.NotNull(saveEntry);
-        Assert.Equal("Save", saveEntry.Value);
+        Assert.Equal("Save All", saveEntry.Value);
         Assert.Equal("Save button label", saveEntry.Comment);
     }
 

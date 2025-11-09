@@ -500,6 +500,9 @@ TestResults/
 # User-specific test data (keep example test data)
 # LocalizationManager.Tests/TestData/ should be committed
 
+.claude/
+[Cc]laude.md
+
 # Environment files
 .env
 .env.local

@@ -87,10 +87,8 @@ jobs:
           fi
 
           # Create temporary file with new unreleased section
-          cat > /tmp/unreleased.txt <<'EOF'
-## [Unreleased]
-
-EOF
+          echo "## [Unreleased]" > /tmp/unreleased.txt
+          echo "" >> /tmp/unreleased.txt
 
           # Add Fixed section if not empty
           if [ -n "${{ steps.commits.outputs.fixed }}" ]; then

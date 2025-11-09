@@ -18,7 +18,21 @@ Complete installation instructions for the Localization Resource Manager (LRM) o
 
 ## Quick Start
 
-**Choose your platform:**
+### Automated Installation (Linux Only)
+
+The easiest way to install LRM on Linux:
+
+```bash
+curl -sSL https://raw.githubusercontent.com/nickprotop/LocalizationManager/main/install-lrm.sh | bash
+```
+
+This script will:
+- ✅ Auto-detect your architecture (x64 or ARM64)
+- ✅ Download the latest release
+- ✅ Install to `~/.local/bin/lrm`
+- ✅ Verify the installation
+
+**Choose your platform for manual installation:**
 - [Linux (x64)](#linux-x64) - Intel/AMD processors
 - [Linux (ARM64)](#linux-arm64) - Raspberry Pi, ARM servers
 - [Windows (x64)](#windows-x64) - Intel/AMD processors

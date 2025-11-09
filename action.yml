@@ -1,0 +1,127 @@
+name: 'Localization Resource Manager'
+description: 'Manage, validate, and analyze .NET .resx localization files'
+author: 'Nikolaos Protopapas'
+
+branding:
+  icon: 'globe'
+  color: 'blue'
+
+inputs:
+  command:
+    description: 'LRM command to run (validate, stats, view, export, etc.)'
+    required: true
+  path:
+    description: 'Path to resource files directory'
+    required: false
+    default: '.'
+  args:
+    description: 'Additional arguments to pass to LRM'
+    required: false
+    default: ''
+  version:
+    description: 'LRM version to use (default: latest)'
+    required: false
+    default: 'latest'
+
+outputs:
+  exit-code:
+    description: 'Exit code from LRM command'
+    value: ${{ steps.run-lrm.outputs.exit-code }}
+  output:
+    description: 'Command output'
+    value: ${{ steps.run-lrm.outputs.output }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Download LRM
+      id: download
+      shell: bash
+      run: |
+        set -e
+
+        # Determine platform
+        if [[ "$RUNNER_OS" == "Linux" ]]; then
+          if [[ "$RUNNER_ARCH" == "X64" ]]; then
+            PLATFORM="linux-x64"
+          elif [[ "$RUNNER_ARCH" == "ARM64" ]]; then
+            PLATFORM="linux-arm64"
+          else
+            echo "Unsupported Linux architecture: $RUNNER_ARCH"
+            exit 1
+          fi
+        elif [[ "$RUNNER_OS" == "Windows" ]]; then
+          if [[ "$RUNNER_ARCH" == "X64" ]]; then
+            PLATFORM="win-x64"
+          elif [[ "$RUNNER_ARCH" == "ARM64" ]]; then
+            PLATFORM="win-arm64"
+          else
+            echo "Unsupported Windows architecture: $RUNNER_ARCH"
+            exit 1
+          fi
+        else
+          echo "Unsupported OS: $RUNNER_OS"
+          exit 1
+        fi
+
+        echo "Platform: $PLATFORM"
+
+        # Determine version to download
+        if [[ "${{ inputs.version }}" == "latest" ]]; then
+          VERSION=$(curl -s https://api.github.com/repos/nickprotop/LocalizationManager/releases/latest | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\1/')
+        else
+          VERSION="${{ inputs.version }}"
+        fi
+
+        echo "Version: $VERSION"
+
+        # Download URL
+        if [[ "$RUNNER_OS" == "Windows" ]]; then
+          FILENAME="lrm-${VERSION}-${PLATFORM}.zip"
+          URL="https://github.com/nickprotop/LocalizationManager/releases/download/v${VERSION}/${FILENAME}"
+
+          echo "Downloading from: $URL"
+          curl -L -o lrm.zip "$URL"
+          unzip -q lrm.zip -d lrm-bin
+          chmod +x lrm-bin/${PLATFORM}/lrm.exe
+          echo "lrm_path=$(pwd)/lrm-bin/${PLATFORM}/lrm.exe" >> $GITHUB_OUTPUT
+        else
+          FILENAME="lrm-${VERSION}-${PLATFORM}.tar.gz"
+          URL="https://github.com/nickprotop/LocalizationManager/releases/download/v${VERSION}/${FILENAME}"
+
+          echo "Downloading from: $URL"
+          curl -L -o lrm.tar.gz "$URL"
+          tar -xzf lrm.tar.gz
+          chmod +x ${PLATFORM}/lrm
+          echo "lrm_path=$(pwd)/${PLATFORM}/lrm" >> $GITHUB_OUTPUT
+        fi
+
+        echo "LRM downloaded successfully"
+
+    - name: Run LRM
+      id: run-lrm
+      shell: bash
+      run: |
+        set +e  # Don't exit on error, capture exit code
+
+        LRM_PATH="${{ steps.download.outputs.lrm_path }}"
+
+        # Run command and capture output
+        OUTPUT=$("$LRM_PATH" ${{ inputs.command }} --path "${{ inputs.path }}" ${{ inputs.args }} 2>&1)
+        EXIT_CODE=$?
+
+        # Save outputs
+        echo "exit-code=$EXIT_CODE" >> $GITHUB_OUTPUT
+
+        # Save output (handle multiline)
+        {
+          echo 'output<<EOF'
+          echo "$OUTPUT"
+          echo 'EOF'
+        } >> $GITHUB_OUTPUT
+
+        # Print output
+        echo "$OUTPUT"
+
+        # Exit with original code
+        exit $EXIT_CODE

@@ -437,8 +437,8 @@ jobs:
 
       - name: Download LRM
         run: |
-          wget https://github.com/nickprotop/LocalizationManager/releases/download/v0.6.0/lrm-0.6.0-linux-x64.tar.gz
-          tar -xzf lrm-0.6.0-linux-x64.tar.gz
+          wget https://github.com/nickprotop/LocalizationManager/releases/latest/download/lrm-linux-x64.tar.gz
+          tar -xzf lrm-linux-x64.tar.gz
           chmod +x lrm
 
       - name: Validate Resources

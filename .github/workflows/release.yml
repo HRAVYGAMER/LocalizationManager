@@ -73,11 +73,11 @@ jobs:
           echo "Previous tag: ${PREV_TAG:-none (first release)}"
 
           if [ -z "$PREV_TAG" ]; then
-            # First release - get all commits
-            COMMITS=$(git log --pretty=format:"- %s (%h)" --no-merges | head -20)
+            # First release - get all commits (excluding automated commits)
+            COMMITS=$(git log --pretty=format:"- %s (%h)" --no-merges | grep -v "\[skip ci\]" | grep -v "Update CHANGELOG" | grep -v "Bump version to" | head -20)
           else
-            # Get commits since last version tag
-            COMMITS=$(git log ${PREV_TAG}..HEAD --pretty=format:"- %s (%h)" --no-merges)
+            # Get commits since last version tag (excluding automated commits)
+            COMMITS=$(git log ${PREV_TAG}..HEAD --pretty=format:"- %s (%h)" --no-merges | grep -v "\[skip ci\]" | grep -v "Update CHANGELOG" | grep -v "Bump version to")
           fi
 
           # Build changelog for GitHub release
@@ -117,7 +117,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add LocalizationManager.csproj README.md CHANGELOG.md
+          git add LocalizationManager.csproj CHANGELOG.md
           git commit -m "Bump version to ${{ steps.version.outputs.version }} [skip ci]"
 
       - name: Push version commit to main
@@ -150,10 +150,10 @@ jobs:
 
             Choose the appropriate version for your platform:
 
-            - **Linux (x64):** `lrm-${{ steps.version.outputs.version }}-linux-x64.tar.gz`
-            - **Linux (ARM64):** `lrm-${{ steps.version.outputs.version }}-linux-arm64.tar.gz` *(Raspberry Pi, etc.)*
-            - **Windows (x64):** `lrm-${{ steps.version.outputs.version }}-win-x64.zip`
-            - **Windows (ARM64):** `lrm-${{ steps.version.outputs.version }}-win-arm64.zip`
+            - **Linux (x64):** `lrm-linux-x64.tar.gz`
+            - **Linux (ARM64):** `lrm-linux-arm64.tar.gz` *(Raspberry Pi, etc.)*
+            - **Windows (x64):** `lrm-win-x64.zip`
+            - **Windows (ARM64):** `lrm-win-arm64.zip`
 
             ## 📖 Installation
 
@@ -163,10 +163,10 @@ jobs:
 
             ✅ All 21 tests passing
           files: |
-            publish/lrm-${{ steps.version.outputs.version }}-linux-x64.tar.gz
-            publish/lrm-${{ steps.version.outputs.version }}-linux-arm64.tar.gz
-            publish/lrm-${{ steps.version.outputs.version }}-win-x64.zip
-            publish/lrm-${{ steps.version.outputs.version }}-win-arm64.zip
+            publish/lrm-linux-x64.tar.gz
+            publish/lrm-linux-arm64.tar.gz
+            publish/lrm-win-x64.zip
+            publish/lrm-win-arm64.zip
           draft: false
           prerelease: false
 

@@ -32,10 +32,10 @@ publish/
 ├── win-arm64/
 │   ├── lrm.exe          # ARM Windows executable
 │   └── README.txt
-├── lrm-0.6.0-linux-x64.tar.gz
-├── lrm-0.6.0-linux-arm64.tar.gz
-├── lrm-0.6.0-win-x64.zip
-└── lrm-0.6.0-win-arm64.zip
+├── lrm-linux-x64.tar.gz
+├── lrm-linux-arm64.tar.gz
+├── lrm-win-x64.zip
+└── lrm-win-arm64.zip
 ```
 
 ## Installation
@@ -61,7 +61,7 @@ lrm --version
 ```
 
 ### Windows
-1. Extract `lrm-0.6.0-win-x64.zip`
+1. Extract `lrm-win-x64.zip`
 2. Move `lrm.exe` to a directory in your PATH
    - Or add the directory to PATH in System Environment Variables
 3. Open Command Prompt or PowerShell:

@@ -118,17 +118,13 @@ update_readme() {
         return
     fi
 
-    # Update header version (**Version:** X.Y.Z)
-    sed -i "s|\*\*Version:\*\* $old_version|\*\*Version:\*\* $new_version|g" "$README_FILE"
+    # Note: README.md no longer needs version updates
+    # - Archive names are now static (lrm-linux-x64.tar.gz) without version numbers
+    # - Documentation uses /latest/ download URLs
+    # - No version-specific references in README
+    # This keeps the codebase clean - version is only in LocalizationManager.csproj and CHANGELOG.md
 
-    # Update features header (### ✅ Current (vX.Y.Z))
-    sed -i "s|### ✅ Current (v$old_version)|### ✅ Current (v$new_version)|g" "$README_FILE"
-
-    # Update GitHub release URLs (v0.6.0 → v0.7.0)
-    sed -i "s|/v$old_version/|/v$new_version/|g" "$README_FILE"
-
-    # Update archive filenames (lrm-0.6.0- → lrm-0.7.0-)
-    sed -i "s|lrm-$old_version-|lrm-$new_version-|g" "$README_FILE"
+    echo "  Skipping README.md (no version-specific content)"
 }
 
 # Main script

@@ -130,10 +130,10 @@ print_step "Creating distribution archives..."
 for platform in "${platforms[@]}"; do
     if [[ $platform == win-* ]]; then
         exe_name="lrm.exe"
-        archive_name="lrm-${VERSION}-${platform}.zip"
+        archive_name="lrm-${platform}.zip"
     else
         exe_name="lrm"
-        archive_name="lrm-${VERSION}-${platform}.tar.gz"
+        archive_name="lrm-${platform}.tar.gz"
     fi
 
     # Create README for distribution

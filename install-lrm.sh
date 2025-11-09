@@ -41,22 +41,11 @@ fi
 
 echo -e "${GREEN}✓${NC} Detected platform: $PLATFORM"
 
-# Get latest version
-echo "Fetching latest version..."
-VERSION=$(curl -s https://api.github.com/repos/nickprotop/LocalizationManager/releases/latest | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\1/')
+# Download URL (using latest release)
+FILENAME="lrm-${PLATFORM}.tar.gz"
+URL="https://github.com/nickprotop/LocalizationManager/releases/latest/download/${FILENAME}"
 
-if [[ -z "$VERSION" ]]; then
-    echo -e "${RED}Error: Could not fetch latest version${NC}"
-    exit 1
-fi
-
-echo -e "${GREEN}✓${NC} Latest version: v$VERSION"
-
-# Download URL
-FILENAME="lrm-${VERSION}-${PLATFORM}.tar.gz"
-URL="https://github.com/nickprotop/LocalizationManager/releases/download/v${VERSION}/${FILENAME}"
-
-echo "Downloading LRM..."
+echo "Downloading latest LRM..."
 TEMP_DIR=$(mktemp -d)
 cd "$TEMP_DIR"
 

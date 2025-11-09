@@ -54,10 +54,10 @@ Requires `sudo` privileges. Makes `lrm` available to all users.
 ```bash
 # Download the latest release
 cd /tmp
-wget https://github.com/nickprotop/LocalizationManager/releases/download/v0.6.0/lrm-0.6.0-linux-x64.tar.gz
+wget https://github.com/nickprotop/LocalizationManager/releases/latest/download/lrm-linux-x64.tar.gz
 
 # Extract the archive
-tar -xzf lrm-0.6.0-linux-x64.tar.gz
+tar -xzf lrm-linux-x64.tar.gz
 
 # Install to system binary directory
 sudo cp lrm /usr/local/bin/
@@ -65,10 +65,9 @@ sudo chmod +x /usr/local/bin/lrm
 
 # Verify installation
 lrm --version
-# Output: 0.6.0
 
 # Clean up
-rm lrm-0.6.0-linux-x64.tar.gz
+rm lrm-linux-x64.tar.gz
 ```
 
 #### Option 2: User-local Installation
@@ -78,8 +77,8 @@ No `sudo` required. Only available to current user.
 ```bash
 # Download and extract
 cd /tmp
-wget https://github.com/nickprotop/LocalizationManager/releases/download/v0.6.0/lrm-0.6.0-linux-x64.tar.gz
-tar -xzf lrm-0.6.0-linux-x64.tar.gz
+wget https://github.com/nickprotop/LocalizationManager/releases/latest/download/lrm-linux-x64.tar.gz
+tar -xzf lrm-linux-x64.tar.gz
 
 # Create user binary directory if it doesn't exist
 mkdir -p ~/.local/bin
@@ -101,7 +100,7 @@ source ~/.zshrc
 lrm --version
 
 # Clean up
-rm lrm-0.6.0-linux-x64.tar.gz
+rm lrm-linux-x64.tar.gz
 ```
 
 ### Linux (ARM64)
@@ -112,10 +111,10 @@ Follow the same steps as Linux x64, but use the ARM64 archive:
 
 ```bash
 # Download ARM64 version
-wget https://github.com/nickprotop/LocalizationManager/releases/download/v0.6.0/lrm-0.6.0-linux-arm64.tar.gz
+wget https://github.com/nickprotop/LocalizationManager/releases/latest/download/lrm-linux-arm64.tar.gz
 
 # Extract and install (same steps as x64)
-tar -xzf lrm-0.6.0-linux-arm64.tar.gz
+tar -xzf lrm-linux-arm64.tar.gz
 sudo cp lrm /usr/local/bin/
 sudo chmod +x /usr/local/bin/lrm
 
@@ -134,11 +133,11 @@ lrm --version
 #### Option 1: Install to Program Files (Recommended)
 
 1. **Download the release:**
-   - Go to: https://github.com/nickprotop/LocalizationManager/releases/tag/v0.6.0
-   - Download: `lrm-0.6.0-win-x64.zip`
+   - Go to: https://github.com/nickprotop/LocalizationManager/releases/latest
+   - Download: `lrm-win-x64.zip`
 
 2. **Extract the archive:**
-   - Right-click `lrm-0.6.0-win-x64.zip`
+   - Right-click `lrm-win-x64.zip`
    - Select "Extract All..."
    - Extract to: `C:\Program Files\LRM\`
 
@@ -154,11 +153,10 @@ lrm --version
 4. **Verify installation:**
    - Open Command Prompt or PowerShell (new window)
    - Run: `lrm --version`
-   - Output: `0.6.0`
 
 #### Option 2: Portable Installation
 
-1. Extract `lrm-0.6.0-win-x64.zip` to any folder
+1. Extract `lrm-win-x64.zip` to any folder
 2. Run `lrm.exe` from that folder with full path:
    ```cmd
    C:\path\to\lrm\lrm.exe --version
@@ -181,7 +179,7 @@ lrm --version
 **For ARM 64-bit processors (ARM-based Windows devices)**
 
 Follow the same steps as Windows x64, but download:
-- `lrm-0.6.0-win-arm64.zip`
+- `lrm-win-arm64.zip`
 
 ---
 
@@ -245,10 +243,10 @@ publish/
 ├── linux-arm64/lrm
 ├── win-x64/lrm.exe
 ├── win-arm64/lrm.exe
-├── lrm-0.6.0-linux-x64.tar.gz
-├── lrm-0.6.0-linux-arm64.tar.gz
-├── lrm-0.6.0-win-x64.zip
-└── lrm-0.6.0-win-arm64.zip
+├── lrm-linux-x64.tar.gz
+├── lrm-linux-arm64.tar.gz
+├── lrm-win-x64.zip
+└── lrm-win-arm64.zip
 ```
 
 ### Build Single Platform

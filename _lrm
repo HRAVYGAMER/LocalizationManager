@@ -1,0 +1,102 @@
+#compdef lrm
+# Zsh completion script for lrm (Localization Resource Manager)
+#
+# Installation:
+#   1. Copy this file to a directory in your $fpath (e.g., /usr/share/zsh/site-functions/_lrm)
+#   2. Or add the containing directory to your fpath in ~/.zshrc:
+#      fpath=(~/.zsh/completions $fpath)
+#   3. Run: compinit
+#   4. Restart your shell or run: exec zsh
+
+_lrm() {
+    local -a commands
+    commands=(
+        'validate:Validate resource files for missing keys, duplicates, and empty values'
+        'stats:Display statistics about resource files and translation coverage'
+        'view:View details of a specific localization key'
+        'add:Add a new localization key to all language files'
+        'update:Update values for an existing localization key'
+        'delete:Delete a localization key from all language files'
+        'export:Export resource files to CSV format'
+        'import:Import translations from CSV format'
+        'edit:Launch interactive TUI editor for resource files'
+    )
+
+    local -a global_opts
+    global_opts=(
+        '(-p --path)'{-p,--path}'[Path to Resources folder]:directory:_directories'
+        '(-h --help)'{-h,--help}'[Show help information]'
+    )
+
+    _arguments -C \
+        '1: :->command' \
+        '*:: :->args' \
+        && return 0
+
+    case $state in
+        command)
+            _describe -t commands 'lrm commands' commands
+            _arguments $global_opts
+            ;;
+        args)
+            case $words[1] in
+                validate)
+                    _arguments $global_opts
+                    ;;
+                stats)
+                    _arguments $global_opts
+                    ;;
+                view)
+                    _arguments \
+                        '1:key name' \
+                        '--show-comments[Show comments for the key]' \
+                        '--format[Output format]:format:(table json simple)' \
+                        $global_opts
+                    ;;
+                add)
+                    _arguments \
+                        '1:key name' \
+                        '*'{-l,--lang}'[Language value (code:value)]:langvalue' \
+                        '--comment[Add comment]:comment' \
+                        '--no-backup[Skip backup creation]' \
+                        $global_opts
+                    ;;
+                update)
+                    _arguments \
+                        '1:key name' \
+                        '*'{-l,--lang}'[Language value (code:value)]:langvalue' \
+                        '--comment[Update comment]:comment' \
+                        '(-i --interactive)'{-i,--interactive}'[Interactive mode]' \
+                        '(-y --yes)'{-y,--yes}'[Skip confirmation]' \
+                        '--no-backup[Skip backup creation]' \
+                        $global_opts
+                    ;;
+                delete)
+                    _arguments \
+                        '1:key name' \
+                        '(-y --yes)'{-y,--yes}'[Skip confirmation]' \
+                        '--no-backup[Skip backup creation]' \
+                        $global_opts
+                    ;;
+                export)
+                    _arguments \
+                        '(-o --output)'{-o,--output}'[Output CSV file]:file:_files' \
+                        '--include-status[Include validation status column]' \
+                        $global_opts
+                    ;;
+                import)
+                    _arguments \
+                        '1:CSV file:_files -g "*.csv"' \
+                        '--overwrite[Overwrite existing values]' \
+                        '--no-backup[Skip backup creation]' \
+                        $global_opts
+                    ;;
+                edit)
+                    _arguments $global_opts
+                    ;;
+            esac
+            ;;
+    esac
+}
+
+_lrm "$@"

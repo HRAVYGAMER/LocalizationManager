@@ -1,5 +1,12 @@
 # Localization Resource Manager (LRM)
 
+[![CI](https://github.com/nickprotop/LocalizationManager/actions/workflows/ci.yml/badge.svg)](https://github.com/nickprotop/LocalizationManager/actions/workflows/ci.yml)
+[![Release](https://github.com/nickprotop/LocalizationManager/actions/workflows/release.yml/badge.svg)](https://github.com/nickprotop/LocalizationManager/actions/workflows/release.yml)
+[![GitHub release (latest by date)](https://img.shields.io/github/v/release/nickprotop/LocalizationManager)](https://github.com/nickprotop/LocalizationManager/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![.NET](https://img.shields.io/badge/.NET-9.0-512BD4)](https://dotnet.microsoft.com/download/dotnet/9.0)
+[![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20Windows-blue)](https://github.com/nickprotop/LocalizationManager#installation)
+
 A powerful C# .NET 9 console utility for managing .resx localization files with auto-discovery, validation, and rich CLI interface.
 
 **Author:** Nikolaos Protopapas

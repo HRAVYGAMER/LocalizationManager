@@ -74,8 +74,8 @@ public class ResourceDiscovery
                     languages.Add(new LanguageInfo
                     {
                         BaseName = baseName,
-                        Code = "en", // Assume English as default
-                        Name = "English (Default)",
+                        Code = "",
+                        Name = "Default",
                         IsDefault = true,
                         FilePath = file
                     });

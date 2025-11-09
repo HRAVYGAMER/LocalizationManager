@@ -76,7 +76,7 @@ public class AddCommandIntegrationTests : IDisposable
         var newKey = "Delete";
         var values = new Dictionary<string, string>
         {
-            { "en", "Delete" },
+            { "", "Delete" },
             { "el", "Διαγραφή" }
         };
 
@@ -147,7 +147,7 @@ public class AddCommandIntegrationTests : IDisposable
         var keyToUpdate = "Save";
         var newValues = new Dictionary<string, string>
         {
-            { "en", "Save Changes" },
+            { "", "Save Changes" },
             { "el", "Αποθήκευση Αλλαγών" }
         };
 
@@ -202,6 +202,81 @@ public class AddCommandIntegrationTests : IDisposable
             var entry = file.Entries.FirstOrDefault(e => e.Key == keyToDelete);
 
             Assert.Null(entry);
+        }
+    }
+
+    [Fact]
+    public void AddKey_UsingDefaultAlias_Success()
+    {
+        // Arrange
+        var languages = _discovery.DiscoverLanguages(_testDirectory);
+        var newKey = "NewKeyWithDefaultAlias";
+        var values = new Dictionary<string, string>
+        {
+            { "", "Default Value" },
+            { "el", "Ελληνική Τιμή" }
+        };
+
+        // Act
+        var resourceFiles = new List<ResourceFile>();
+        foreach (var lang in languages)
+        {
+            var file = _parser.Parse(lang);
+            file.Entries.Add(new ResourceEntry
+            {
+                Key = newKey,
+                Value = values[lang.Code],
+                Comment = "Test with default alias"
+            });
+            _parser.Write(file);
+            resourceFiles.Add(file);
+        }
+
+        // Assert - Re-read and verify
+        var verifyLanguages = _discovery.DiscoverLanguages(_testDirectory);
+        foreach (var lang in verifyLanguages)
+        {
+            var file = _parser.Parse(lang);
+            var entry = file.Entries.FirstOrDefault(e => e.Key == newKey);
+
+            Assert.NotNull(entry);
+            Assert.Equal(values[lang.Code], entry.Value);
+        }
+    }
+
+    [Fact]
+    public void UpdateKey_UsingDefaultAlias_Success()
+    {
+        // Arrange
+        var languages = _discovery.DiscoverLanguages(_testDirectory);
+        var keyToUpdate = "Save";
+        var newValues = new Dictionary<string, string>
+        {
+            { "", "Save with Default Alias" },
+            { "el", "Αποθήκευση με Default Alias" }
+        };
+
+        // Act
+        foreach (var lang in languages)
+        {
+            var file = _parser.Parse(lang);
+            var entry = file.Entries.FirstOrDefault(e => e.Key == keyToUpdate);
+            if (entry != null)
+            {
+                entry.Value = newValues[lang.Code];
+            }
+            _parser.Write(file);
+        }
+
+        // Assert
+        var verifyLanguages = _discovery.DiscoverLanguages(_testDirectory);
+        foreach (var lang in verifyLanguages)
+        {
+            var file = _parser.Parse(lang);
+            var entry = file.Entries.FirstOrDefault(e => e.Key == keyToUpdate);
+
+            Assert.NotNull(entry);
+            Assert.Equal(newValues[lang.Code], entry.Value);
         }
     }
 

@@ -41,7 +41,7 @@ public class ResourceDiscoveryTests
         // Assert
         var defaultLang = languages.FirstOrDefault(l => l.IsDefault);
         Assert.NotNull(defaultLang);
-        Assert.Equal("en", defaultLang.Code);
+        Assert.Equal("", defaultLang.Code);
         Assert.Contains("Default", defaultLang.Name);
     }
 

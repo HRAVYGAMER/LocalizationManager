@@ -38,7 +38,7 @@ public class AddCommandSettings : BaseCommandSettings
     public required string Key { get; set; }
 
     [CommandOption("-l|--lang <LANGVALUE>")]
-    [Description("Language value in format 'code:\"value\"' (e.g., --lang en:\"Save\" --lang el:\"Αποθήκευση\"). Use quotes for values. Can be used multiple times.")]
+    [Description("Language value in format 'code:\"value\"' (e.g., --lang default:\"Save\" --lang el:\"Αποθήκευση\"). Use 'default' for default language. Can be used multiple times.")]
     public string[]? LanguageValues { get; set; }
 
     [CommandOption("-i|--interactive")]
@@ -118,6 +118,12 @@ public class AddCommand : Command<AddCommandSettings>
 
                     var code = parts[0].Trim();
                     var value = parts[1];
+
+                    // Normalize "default" alias to empty string
+                    if (code.Equals("default", StringComparison.OrdinalIgnoreCase))
+                    {
+                        code = "";
+                    }
 
                     // Validate language code exists
                     var matchingLang = languages.FirstOrDefault(l => l.Code.Equals(code, StringComparison.OrdinalIgnoreCase));

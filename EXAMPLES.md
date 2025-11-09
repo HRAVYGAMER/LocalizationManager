@@ -131,12 +131,12 @@ lrm add WelcomeMessage
 ```bash
 # Add with all language values
 lrm add WelcomeMessage \
-  --lang en:"Welcome to our application" \
+  --lang default:"Welcome to our application" \
   --lang el:"Καλώς ήρθατε στην εφαρμογή μας"
 
 # Short form
 lrm add WelcomeMessage \
-  -l en:"Welcome to our application" \
+  -l default:"Welcome to our application" \
   -l el:"Καλώς ήρθατε στην εφαρμογή μας"
 ```
 
@@ -144,7 +144,7 @@ lrm add WelcomeMessage \
 ```bash
 # Add with descriptive comment
 lrm add SaveButton \
-  --lang en:"Save Changes" \
+  --lang default:"Save Changes" \
   --lang el:"Αποθήκευση Αλλαγών" \
   --comment "Main save button in editor"
 ```
@@ -153,9 +153,9 @@ lrm add SaveButton \
 ```bash
 # Script to add multiple keys
 declare -A keys=(
-    ["Save"]="en:\"Save\" el:\"Αποθήκευση\""
-    ["Cancel"]="en:\"Cancel\" el:\"Ακύρωση\""
-    ["Delete"]="en:\"Delete\" el:\"Διαγραφή\""
+    ["Save"]="default:\"Save\" el:\"Αποθήκευση\""
+    ["Cancel"]="default:\"Cancel\" el:\"Ακύρωση\""
+    ["Delete"]="default:\"Delete\" el:\"Διαγραφή\""
 )
 
 for key in "${!keys[@]}"; do
@@ -167,7 +167,7 @@ done
 ### Partial Values (Some Languages Only)
 ```bash
 # Add English first, will prompt for Greek
-lrm add NewFeature --lang en:"New experimental feature"
+lrm add NewFeature --lang default:"New experimental feature"
 
 # The tool will prompt:
 # Ελληνικά (el): [you type the translation here]
@@ -180,11 +180,11 @@ lrm add NewFeature --lang en:"New experimental feature"
 ### Update Specific Languages
 ```bash
 # Update only English value (Greek remains unchanged)
-lrm update SaveButton --lang en:"Save All Changes"
+lrm update SaveButton --lang default:"Save All Changes"
 
 # Update both languages
 lrm update SaveButton \
-  --lang en:"Save All Changes" \
+  --lang default:"Save All Changes" \
   --lang el:"Αποθήκευση Όλων των Αλλαγών"
 ```
 
@@ -211,7 +211,7 @@ lrm update SaveButton --comment "Updated: Primary save action button"
 ```bash
 # Update with confirmation (shows preview)
 lrm update WelcomeMessage \
-  --lang en:"Welcome back!" \
+  --lang default:"Welcome back!" \
   --lang el:"Καλώς ήρθες πάλι!"
 
 # You'll see a preview and confirmation prompt
@@ -221,7 +221,7 @@ lrm update WelcomeMessage \
 ```bash
 # Update without confirmation prompt
 lrm update SaveButton \
-  --lang en:"Save" \
+  --lang default:"Save" \
   --lang el:"Αποθήκευση" \
   -y
 ```
@@ -461,19 +461,19 @@ You're adding a "Dark Mode" toggle to your app.
 ```bash
 # Step 1: Add all necessary keys
 lrm add DarkMode \
-  -l en:"Dark Mode" \
+  -l default:"Dark Mode" \
   -l el:"Σκοτεινή Λειτουργία"
 
 lrm add DarkModeDescription \
-  -l en:"Switch to dark theme" \
+  -l default:"Switch to dark theme" \
   -l el:"Εναλλαγή σε σκοτεινό θέμα"
 
 lrm add EnableDarkMode \
-  -l en:"Enable" \
+  -l default:"Enable" \
   -l el:"Ενεργοποίηση"
 
 lrm add DisableDarkMode \
-  -l en:"Disable" \
+  -l default:"Disable" \
   -l el:"Απενεργοποίηση"
 
 # Step 2: Validate everything is correct
@@ -559,7 +559,7 @@ You found a typo in production and need to fix it quickly.
 ```bash
 # Step 1: Quick update without backup (we'll use git)
 lrm update ButtonLabel \
-  -l en:"Correct Spelling" \
+  -l default:"Correct Spelling" \
   -l el:"Σωστή Ορθογραφία" \
   -y --no-backup
 
@@ -583,10 +583,10 @@ git push
 ### Always Use Quotes
 ```bash
 # ✅ GOOD - Always use quotes
-lrm add Key --lang en:"Value with spaces"
+lrm add Key --lang default:"Value with spaces"
 
 # ❌ BAD - May break on special characters
-lrm add Key --lang en:Value with spaces
+lrm add Key --lang default:Value with spaces
 ```
 
 ### Validate Before Committing
@@ -598,7 +598,7 @@ lrm validate && git add Resources/*.resx && git commit -m "Update translations"
 ### Use Backups for Safety
 ```bash
 # Default behavior creates backups
-lrm update Key -l en:"New value"
+lrm update Key -l default:"New value"
 
 # Backups are in .backups/ folder
 ls .backups/

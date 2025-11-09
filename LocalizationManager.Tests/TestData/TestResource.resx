@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
   <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
     <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
@@ -59,7 +59,7 @@
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <data name="Save" xml:space="preserve">
-    <value>Save</value>
+    <value>Save All</value>
     <comment>Save button label</comment>
   </data>
   <data name="Cancel" xml:space="preserve">
@@ -70,5 +70,8 @@
   </data>
   <data name="EmptyValue" xml:space="preserve">
     <value></value>
+  </data>
+  <data name="TestDefaultKey" xml:space="preserve">
+    <value>Test Default</value>
   </data>
 </root>

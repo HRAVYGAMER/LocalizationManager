@@ -14,6 +14,9 @@ This document provides detailed information about all LRM commands, their option
 - [export](#export) - Export to CSV
 - [import](#import) - Import from CSV
 - [edit](#edit) - Interactive TUI editor
+- [add-language](#add-language) - Create new language file
+- [remove-language](#remove-language) - Delete language file
+- [list-languages](#list-languages) - List all languages
 
 ---
 
@@ -177,7 +180,8 @@ Key: SaveButton
 
 **Options:**
 - `-p, --path <PATH>` - Resource folder path
-- `-l, --lang <CODE:VALUE>` - Language value (e.g., `en:"Save"`) - can be used multiple times
+- `-l, --lang <CODE:VALUE>` - Language value (e.g., `default:"Save"`, `el:"Σώσει"`) - can be used multiple times
+  - Use `default` for the default language file (the one without a culture code)
 - `-i, --interactive` - Interactive mode (prompts for all language values)
 - `--comment <COMMENT>` - Add comment to the key
 - `--no-backup` - Skip automatic backup creation
@@ -188,13 +192,13 @@ Key: SaveButton
 lrm add NewKey -i
 
 # Non-interactive with all values
-lrm add NewKey --lang en:"Value" --lang el:"Τιμή"
+lrm add NewKey --lang default:"Value" --lang el:"Τιμή"
 
 # Add with comment
 lrm add SaveButton -i --comment "Button label for save action"
 
 # Quick add without backup
-lrm add TestKey -l en:"Test" -l el:"Δοκιμή" --no-backup
+lrm add TestKey -l default:"Test" -l el:"Δοκιμή" --no-backup
 ```
 
 **Interactive mode workflow:**
@@ -214,7 +218,8 @@ lrm add TestKey -l en:"Test" -l el:"Δοκιμή" --no-backup
 
 **Options:**
 - `-p, --path <PATH>` - Resource folder path
-- `-l, --lang <CODE:VALUE>` - Language value (e.g., `en:"Save Changes"`) - can be used multiple times
+- `-l, --lang <CODE:VALUE>` - Language value (e.g., `default:"Save Changes"`, `el:"Αποθήκευση"`) - can be used multiple times
+  - Use `default` for the default language file (the one without a culture code)
 - `--comment <COMMENT>` - Update the comment
 - `-i, --interactive` - Interactive mode (prompts for each language)
 - `-y, --yes` - Skip confirmation prompt
@@ -223,7 +228,7 @@ lrm add TestKey -l en:"Test" -l el:"Δοκιμή" --no-backup
 **Examples:**
 ```bash
 # Update specific languages
-lrm update SaveButton --lang en:"Save Changes" --lang el:"Αποθήκευση Αλλαγών"
+lrm update SaveButton --lang default:"Save Changes" --lang el:"Αποθήκευση Αλλαγών"
 
 # Interactive mode
 lrm update SaveButton -i
@@ -410,6 +415,237 @@ lrm edit --path ../Resources
 │ ...            │ ...          │ ...           │ ...         │
 └────────────────┴──────────────┴───────────────┴─────────────┘
 ```
+
+---
+
+## add-language
+
+**Description:** Create a new language resource file with culture-specific translations.
+
+**Arguments:** None
+
+**Options:**
+- `-p, --path <PATH>` - Resource folder path
+- `-c, --culture <CODE>` - Culture code (e.g., `fr`, `fr-FR`, `de`, `el`, `ja`) (required)
+- `--base-name <NAME>` - Base resource file name (auto-detected if not specified)
+- `--copy-from <CODE>` - Copy entries from specific language (default: copies from default language)
+- `--empty` - Create empty language file with no entries
+- `--no-backup` - Skip creating backups
+- `-y, --yes` - Skip confirmation prompts
+
+**Culture Code Format:**
+- ISO 639-1 language codes: `en`, `fr`, `de`, `el`, `ja`, etc.
+- Regional variants: `fr-FR`, `fr-CA`, `en-US`, `en-GB`, etc.
+
+**Examples:**
+```bash
+# Add French language (copies from default)
+lrm add-language --culture fr
+
+# Add French Canadian (copy from French)
+lrm add-language -c fr-CA --copy-from fr
+
+# Create empty German language file
+lrm add-language -c de --empty
+
+# Add language without confirmation
+lrm add-language -c es -y
+
+# Specify base name when multiple resource files exist
+lrm add-language -c fr --base-name MyResources
+```
+
+**Workflow:**
+1. Validates culture code
+2. Discovers existing languages
+3. Auto-detects or validates base name
+4. Checks if language already exists
+5. Loads source language entries (default or specified)
+6. Creates backup of source file
+7. Creates new language file
+8. Copies entries if requested
+
+**Output example:**
+```
+► Validating culture code 'fr'...
+✓ Culture code valid: French
+✓ Using base name: Resources
+► Copying 252 entries from default language...
+✓ Created: Resources.fr.resx
+✓ Added French (fr) language
+Tip: Use 'lrm update' or 'lrm edit' to add translations
+```
+
+---
+
+## remove-language
+
+**Description:** Delete a language resource file with safety checks and automatic backup.
+
+**Arguments:** None
+
+**Options:**
+- `-p, --path <PATH>` - Resource folder path
+- `-c, --culture <CODE>` - Culture code to remove (required)
+- `--base-name <NAME>` - Base resource file name (auto-detected if not specified)
+- `-y, --yes` - Skip confirmation prompt
+- `--no-backup` - Skip creating backups
+
+**Safety Features:**
+- Prevents deletion of default language file
+- Shows preview of file to be deleted
+- Requires confirmation (unless `-y` flag used)
+- Creates timestamped backup before deletion
+
+**Examples:**
+```bash
+# Remove French language (with confirmation)
+lrm remove-language --culture fr
+
+# Remove without confirmation
+lrm remove-language -c fr -y
+
+# Remove specific base name
+lrm remove-language -c fr --base-name MyResources
+
+# Remove without backup (not recommended)
+lrm remove-language -c fr -y --no-backup
+```
+
+**Confirmation prompt example:**
+```
+► Validating culture code 'fr'...
+
+⚠ Warning: This will permanently delete the following file:
+
+┌──────────┬────────────────────────────┐
+│ Property │ Value                      │
+├──────────┼────────────────────────────┤
+│ File     │ Resources.fr.resx          │
+│ Language │ French (fr)                │
+│ Entries  │ 252                        │
+│ Path     │ ./Resources/Resources.fr.resx │
+└──────────┴────────────────────────────┘
+
+Delete this language file? [y/N]:
+```
+
+**Output example:**
+```
+✓ Backup created: Resources.fr.20251109_172342.resx
+✓ Deleted Resources.fr.resx
+✓ Removed French (fr) language
+```
+
+**Error cases:**
+- Cannot delete default language (no culture code in filename)
+- Language file not found
+- Invalid culture code
+
+---
+
+## list-languages
+
+**Description:** List all available language files with statistics and coverage information.
+
+**Arguments:** None
+
+**Options:**
+- `-p, --path <PATH>` - Resource folder path
+- `--format <FORMAT>` - Output format: `table` (default), `simple`, or `json`
+
+**Information displayed:**
+- Base resource file name
+- Language name and code
+- File name
+- Entry count
+- Translation coverage percentage
+
+**Output Formats:**
+
+### Table (default)
+```bash
+lrm list-languages
+```
+```
+Resource Files: Resources
+
+┌───────────────┬─────────┬────────────────────┬─────────┬──────────┐
+│ Language      │ Code    │ File               │ Entries │ Coverage │
+├───────────────┼─────────┼────────────────────┼─────────┼──────────┤
+│ Default       │ (default)│ Resources.resx     │ 252     │ 100% ✓   │
+│ Ελληνικά (el) │ el      │ Resources.el.resx  │ 252     │ 100% ✓   │
+│ français (fr) │ fr      │ Resources.fr.resx  │ 248     │ 98%      │
+└───────────────┴─────────┴────────────────────┴─────────┴──────────┘
+
+Total: 3 languages
+```
+
+### Simple
+```bash
+lrm list-languages --format simple
+```
+```
+Resource Files: Resources
+  (default)    Default               252 entries  100%
+  el           Ελληνικά (el)         252 entries  100%
+  fr           français (fr)         248 entries   98%
+Total: 3 languages
+```
+
+### JSON
+```bash
+lrm list-languages --format json
+```
+```json
+[
+  {
+    "baseName": "Resources",
+    "language": "Default",
+    "code": "(default)",
+    "fileName": "Resources.resx",
+    "entries": 252,
+    "coverage": 100
+  },
+  {
+    "baseName": "Resources",
+    "language": "Ελληνικά (el)",
+    "code": "el",
+    "fileName": "Resources.el.resx",
+    "entries": 252,
+    "coverage": 100
+  },
+  {
+    "baseName": "Resources",
+    "language": "français (fr)",
+    "code": "fr",
+    "fileName": "Resources.fr.resx",
+    "entries": 248,
+    "coverage": 98
+  }
+]
+```
+
+**Examples:**
+```bash
+# List all languages (table format)
+lrm list-languages
+
+# JSON output for scripting
+lrm list-languages --format json
+
+# Simple format for quick overview
+lrm list-languages --format simple
+
+# List languages in specific path
+lrm list-languages --path ./Resources
+```
+
+**Use cases:**
+- Quick overview of available translations
+- Check translation coverage
+- Export language list as JSON for automation
+- Identify incomplete translations
 
 ---
 

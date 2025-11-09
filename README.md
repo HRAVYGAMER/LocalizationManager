@@ -52,6 +52,7 @@ LRM solves this by providing:
 ## Features
 
 - **Interactive Terminal UI** - Visual editing with keyboard shortcuts
+- **Language Management** - Add/remove language files with validation
 - **Validation** - Detect missing translations, duplicates, empty values
 - **Statistics** - Translation coverage with progress bars
 - **CSV Import/Export** - Work with translators using spreadsheets
@@ -101,6 +102,12 @@ lrm view SaveButton
 
 # Add a new key
 lrm add NewKey -i
+
+# List all languages
+lrm list-languages
+
+# Add a new language
+lrm add-language --culture fr
 
 # Export to CSV
 lrm export -o translations.csv

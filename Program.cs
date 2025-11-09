@@ -39,7 +39,7 @@ app.Configure(config =>
     // Add helpful description
     config.AddExample(new[] { "validate", "--help" });
     config.AddExample(new[] { "view", "SaveButton", "--format", "json" });
-    config.AddExample(new[] { "add", "NewKey", "--lang", "en:\"Save Changes\"", "--lang", "el:\"Αποθήκευση Αλλαγών\"" });
+    config.AddExample(new[] { "add", "NewKey", "--lang", "default:\"Save Changes\"", "--lang", "el:\"Αποθήκευση Αλλαγών\"" });
 
     config.AddCommand<ValidateCommand>("validate")
         .WithDescription("Validate resource files for missing keys, duplicates, and empty values")
@@ -61,17 +61,17 @@ app.Configure(config =>
 
     config.AddCommand<AddCommand>("add")
         .WithDescription("Add a new localization key to all language files")
-        .WithExample(new[] { "add", "NewKey", "--lang", "en:\"Save Changes\"", "--lang", "el:\"Αποθήκευση Αλλαγών\"" })
+        .WithExample(new[] { "add", "NewKey", "--lang", "default:\"Save Changes\"", "--lang", "el:\"Αποθήκευση Αλλαγών\"" })
         .WithExample(new[] { "add", "SaveButton", "-i" })
-        .WithExample(new[] { "add", "SaveButton", "--lang", "en:\"Save\"", "--comment", "Button label for save action" })
-        .WithExample(new[] { "add", "NewKey", "-l", "en:\"English value\"", "--no-backup" });
+        .WithExample(new[] { "add", "SaveButton", "--lang", "default:\"Save\"", "--comment", "Button label for save action" })
+        .WithExample(new[] { "add", "NewKey", "-l", "default:\"English value\"", "--no-backup" });
 
     config.AddCommand<UpdateCommand>("update")
         .WithDescription("Update values for an existing localization key")
-        .WithExample(new[] { "update", "SaveButton", "--lang", "en:\"Save Changes\"", "--lang", "el:\"Αποθήκευση Αλλαγών\"" })
+        .WithExample(new[] { "update", "SaveButton", "--lang", "default:\"Save Changes\"", "--lang", "el:\"Αποθήκευση Αλλαγών\"" })
         .WithExample(new[] { "update", "SaveButton", "-i" })
         .WithExample(new[] { "update", "SaveButton", "--comment", "Updated comment" })
-        .WithExample(new[] { "update", "SaveButton", "-l", "en:\"New value\"", "-y", "--no-backup" });
+        .WithExample(new[] { "update", "SaveButton", "-l", "default:\"New value\"", "-y", "--no-backup" });
 
     config.AddCommand<DeleteCommand>("delete")
         .WithDescription("Delete a localization key from all language files")
@@ -96,6 +96,22 @@ app.Configure(config =>
         .WithExample(new[] { "edit" })
         .WithExample(new[] { "edit", "--path", "../Resources" })
         .WithExample(new[] { "edit", "-p", "./Resources" });
+
+    config.AddCommand<AddLanguageCommand>("add-language")
+        .WithDescription("Create a new language resource file")
+        .WithExample(new[] { "add-language", "--culture", "fr" })
+        .WithExample(new[] { "add-language", "-c", "fr-CA", "--copy-from", "fr" })
+        .WithExample(new[] { "add-language", "-c", "de", "--empty" });
+
+    config.AddCommand<RemoveLanguageCommand>("remove-language")
+        .WithDescription("Delete a language resource file")
+        .WithExample(new[] { "remove-language", "--culture", "fr" })
+        .WithExample(new[] { "remove-language", "-c", "fr", "-y" });
+
+    config.AddCommand<ListLanguagesCommand>("list-languages")
+        .WithDescription("List all available language files")
+        .WithExample(new[] { "list-languages" })
+        .WithExample(new[] { "list-languages", "--format", "json" });
 });
 
 int result;

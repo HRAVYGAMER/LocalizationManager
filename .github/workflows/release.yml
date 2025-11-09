@@ -95,7 +95,7 @@ jobs:
 
             ## 🧪 Verified
 
-            ✅ All 21 tests passing
+            ✅ All tests passing
           files: |
             publish/lrm-linux-x64.tar.gz
             publish/lrm-linux-arm64.tar.gz

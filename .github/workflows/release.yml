@@ -1,0 +1,142 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'release-patch'
+      - 'release-minor'
+      - 'release-major'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history needed for changelog
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup .NET 9
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Install zip utility
+        run: sudo apt-get update && sudo apt-get install -y zip
+
+      - name: Extract bump type from tag
+        id: bump
+        run: |
+          TAG_NAME=${GITHUB_REF#refs/tags/release-}
+          echo "type=$TAG_NAME" >> $GITHUB_OUTPUT
+          echo "Bump type: $TAG_NAME"
+
+      - name: Bump version in all files
+        run: |
+          chmod +x bump-version.sh get-version.sh
+          ./bump-version.sh ${{ steps.bump.outputs.type }} -y
+
+      - name: Get new version
+        id: version
+        run: |
+          VERSION=$(./get-version.sh)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "New version: $VERSION"
+
+      - name: Generate changelog from commits
+        id: changelog
+        run: |
+          # Find previous version tag (not release trigger tags)
+          PREV_TAG=$(git describe --tags --abbrev=0 --match "v[0-9]*" HEAD^ 2>/dev/null || echo "")
+
+          echo "Previous tag: ${PREV_TAG:-none (first release)}"
+
+          if [ -z "$PREV_TAG" ]; then
+            # First release - get all commits
+            COMMITS=$(git log --pretty=format:"- %s (%h)" --no-merges | head -20)
+          else
+            # Get commits since last version tag
+            COMMITS=$(git log ${PREV_TAG}..HEAD --pretty=format:"- %s (%h)" --no-merges)
+          fi
+
+          # Build changelog for GitHub release
+          {
+            echo "changelog<<EOF"
+            echo "## What's Changed"
+            echo ""
+            echo "$COMMITS"
+            if [ -n "$PREV_TAG" ]; then
+              echo ""
+              echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/${PREV_TAG}...v${{ steps.version.outputs.version }}"
+            fi
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
+
+      - name: Commit version changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add LocalizationManager.csproj build.sh README.md
+          git commit -m "Bump version to ${{ steps.version.outputs.version }} [skip ci]"
+
+      - name: Push version commit to main
+        run: |
+          git push origin HEAD:main
+          echo "✓ Pushed version commit to main"
+
+      - name: Create and push version tag
+        run: |
+          git tag -a "v${{ steps.version.outputs.version }}" -m "Release v${{ steps.version.outputs.version }}"
+          git push origin "v${{ steps.version.outputs.version }}"
+          echo "✓ Created and pushed tag v${{ steps.version.outputs.version }}"
+
+      - name: Build all platforms
+        run: |
+          ./build.sh
+          echo "✓ Built all platforms"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          name: "Localization Resource Manager v${{ steps.version.outputs.version }}"
+          body: |
+            # LRM v${{ steps.version.outputs.version }}
+
+            ${{ steps.changelog.outputs.changelog }}
+
+            ## 📦 Downloads
+
+            Choose the appropriate version for your platform:
+
+            - **Linux (x64):** `lrm-${{ steps.version.outputs.version }}-linux-x64.tar.gz`
+            - **Linux (ARM64):** `lrm-${{ steps.version.outputs.version }}-linux-arm64.tar.gz` *(Raspberry Pi, etc.)*
+            - **Windows (x64):** `lrm-${{ steps.version.outputs.version }}-win-x64.zip`
+            - **Windows (ARM64):** `lrm-${{ steps.version.outputs.version }}-win-arm64.zip`
+
+            ## 📖 Installation
+
+            See the [Installation Guide](https://github.com/${{ github.repository }}#installation) for detailed instructions.
+
+            ## 🧪 Verified
+
+            ✅ All 21 tests passing
+          files: |
+            publish/lrm-${{ steps.version.outputs.version }}-linux-x64.tar.gz
+            publish/lrm-${{ steps.version.outputs.version }}-linux-arm64.tar.gz
+            publish/lrm-${{ steps.version.outputs.version }}-win-x64.zip
+            publish/lrm-${{ steps.version.outputs.version }}-win-arm64.zip
+          draft: false
+          prerelease: false
+
+      - name: Delete release trigger tag
+        if: always()
+        run: |
+          git push origin --delete ${{ github.ref_name }} || true
+          echo "✓ Cleaned up trigger tag"

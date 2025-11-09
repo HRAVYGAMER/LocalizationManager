@@ -15,7 +15,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Script configuration
-VERSION="0.6.0"
+VERSION="0.6.1"
 PROJECT_NAME="LocalizationManager"
 OUTPUT_DIR="publish"
 

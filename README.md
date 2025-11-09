@@ -138,7 +138,7 @@ See [COMMANDS.md](COMMANDS.md) for complete command reference with all options a
 **Using the official action (recommended):**
 ```yaml
 - name: Validate .resx files
-  uses: nickprotop/LocalizationManager@v1
+  uses: nickprotop/LocalizationManager@v0
   with:
     command: validate
     path: ./Resources

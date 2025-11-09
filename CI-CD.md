@@ -31,13 +31,13 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Validate .resx files
-        uses: nickprotop/LocalizationManager@v1
+        uses: nickprotop/LocalizationManager@v0
         with:
           command: validate
           path: ./Resources
 
       - name: Check translation coverage
-        uses: nickprotop/LocalizationManager@v1
+        uses: nickprotop/LocalizationManager@v0
         with:
           command: stats
           path: ./Resources
@@ -162,7 +162,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: nickprotop/LocalizationManager@v1
+      - uses: nickprotop/LocalizationManager@v0
         with:
           command: validate
           path: ./Resources
@@ -171,7 +171,7 @@ jobs:
 ### 2. Export Translations for Review
 
 ```yaml
-- uses: nickprotop/LocalizationManager@v1
+- uses: nickprotop/LocalizationManager@v0
   with:
     command: export
     path: ./Resources
@@ -218,7 +218,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: nickprotop/LocalizationManager@v1
+      - uses: nickprotop/LocalizationManager@v0
         with:
           command: validate
           path: ./Resources
@@ -240,12 +240,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: nickprotop/LocalizationManager@v1
+      - uses: nickprotop/LocalizationManager@v0
         with:
           command: stats
           path: ./Resources
 
-      - uses: nickprotop/LocalizationManager@v1
+      - uses: nickprotop/LocalizationManager@v0
         with:
           command: export
           path: ./Resources

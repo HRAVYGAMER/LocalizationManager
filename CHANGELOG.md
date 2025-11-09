@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- Fix GitHub Action version references from @v1 to @v0
 - Fix action.yml to use static filenames without version numbers
 
 ### Added

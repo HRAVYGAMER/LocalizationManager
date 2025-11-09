@@ -500,6 +500,9 @@ TestResults/
 # User-specific test data (keep example test data)
 # LocalizationManager.Tests/TestData/ should be committed
 
+# Test build output
+LocalizationManager.Tests/build/
+
 .claude/
 [Cc]laude.md
 

@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- ResourceFileParser now preserves original file order when writing .resx files
+- ResourceFileParser no longer removes XML schema declarations
+- Write operations now perform in-place updates, minimizing git diffs
+
+### Added
+- Demo GIF showcasing all LRM features
+- 5 new comprehensive tests for file preservation (Write_ShouldPreserveOriginalOrder, etc.)
+- Demo script (demo.sh) with automatic backup/restore mechanism
+- Demo GIF creation guide in CONTRIBUTING.md
+- Assets folder for media files
+
+### Changed
+- ResourceFileParser.Write() now updates entries in-place instead of recreating all elements
+
 ## [0.6.2] - 2025-01-09
 
 ### Added

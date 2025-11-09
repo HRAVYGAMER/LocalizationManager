@@ -13,7 +13,6 @@ NC='\033[0m' # No Color
 
 # Files to update
 CSPROJ_FILE="LocalizationManager.csproj"
-README_FILE="README.md"
 
 # Function to display usage
 usage() {
@@ -108,24 +107,6 @@ update_csproj() {
     sed -i "s|<FileVersion>$old_assembly</FileVersion>|<FileVersion>$new_assembly</FileVersion>|g" "$CSPROJ_FILE"
 }
 
-# Function to update README.md
-update_readme() {
-    local old_version=$1
-    local new_version=$2
-
-    if [ ! -f "$README_FILE" ]; then
-        echo -e "${YELLOW}⚠ Warning: $README_FILE not found, skipping${NC}"
-        return
-    fi
-
-    # Note: README.md no longer needs version updates
-    # - Archive names are now static (lrm-linux-x64.tar.gz) without version numbers
-    # - Documentation uses /latest/ download URLs
-    # - No version-specific references in README
-    # This keeps the codebase clean - version is only in LocalizationManager.csproj and CHANGELOG.md
-
-    echo "  Skipping README.md (no version-specific content)"
-}
 
 # Main script
 main() {
@@ -169,7 +150,6 @@ main() {
     echo ""
     echo "Files to update:"
     echo -e "  ${BLUE}•${NC} $CSPROJ_FILE"
-    [ -f "$README_FILE" ] && echo -e "  ${BLUE}•${NC} $README_FILE"
     echo ""
 
     # Confirmation prompt (unless -y flag)
@@ -188,11 +168,6 @@ main() {
 
     update_csproj "$CURRENT_VERSION" "$NEW_VERSION"
     echo -e "${GREEN}✓${NC} Updated $CSPROJ_FILE"
-
-    if [ -f "$README_FILE" ]; then
-        update_readme "$CURRENT_VERSION" "$NEW_VERSION"
-        echo -e "${GREEN}✓${NC} Updated $README_FILE"
-    fi
 
     # Success message
     echo ""

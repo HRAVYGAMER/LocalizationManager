@@ -265,11 +265,11 @@ main() {
 
     print_success "Generated CHANGELOG from commits"
 
-    # Amend the bump commit to include CHANGELOG changes
-    print_step "Including CHANGELOG in version commit..."
-    git add CHANGELOG.md
-    git commit --amend --no-edit
-    print_success "Amended version commit with CHANGELOG"
+    # Create version bump commit
+    print_step "Creating version bump commit..."
+    git add LocalizationManager.csproj CHANGELOG.md
+    git commit -m "Bump version to v${NEW_VERSION}"
+    print_success "Created version bump commit"
 
     # Store commit SHA for potential rollback
     BUMP_COMMIT=$(git rev-parse HEAD)

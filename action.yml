@@ -66,19 +66,19 @@ runs:
 
         echo "Platform: $PLATFORM"
 
-        # Determine version to download
+        # Determine download URL based on version
         if [[ "${{ inputs.version }}" == "latest" ]]; then
-          VERSION=$(curl -s https://api.github.com/repos/nickprotop/LocalizationManager/releases/latest | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\1/')
+          # Use /latest/download for static filenames
+          BASE_URL="https://github.com/nickprotop/LocalizationManager/releases/latest/download"
         else
-          VERSION="${{ inputs.version }}"
+          # Use specific version tag
+          BASE_URL="https://github.com/nickprotop/LocalizationManager/releases/download/v${{ inputs.version }}"
         fi
 
-        echo "Version: $VERSION"
-
-        # Download URL
+        # Download URL (static filenames without version)
         if [[ "$RUNNER_OS" == "Windows" ]]; then
-          FILENAME="lrm-${VERSION}-${PLATFORM}.zip"
-          URL="https://github.com/nickprotop/LocalizationManager/releases/download/v${VERSION}/${FILENAME}"
+          FILENAME="lrm-${PLATFORM}.zip"
+          URL="${BASE_URL}/${FILENAME}"
 
           echo "Downloading from: $URL"
           curl -L -o lrm.zip "$URL"
@@ -86,8 +86,8 @@ runs:
           chmod +x lrm-bin/${PLATFORM}/lrm.exe
           echo "lrm_path=$(pwd)/lrm-bin/${PLATFORM}/lrm.exe" >> $GITHUB_OUTPUT
         else
-          FILENAME="lrm-${VERSION}-${PLATFORM}.tar.gz"
-          URL="https://github.com/nickprotop/LocalizationManager/releases/download/v${VERSION}/${FILENAME}"
+          FILENAME="lrm-${PLATFORM}.tar.gz"
+          URL="${BASE_URL}/${FILENAME}"
 
           echo "Downloading from: $URL"
           curl -L -o lrm.tar.gz "$URL"

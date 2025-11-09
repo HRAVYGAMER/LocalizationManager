@@ -13,7 +13,6 @@ NC='\033[0m' # No Color
 
 # Files to update
 CSPROJ_FILE="LocalizationManager.csproj"
-BUILD_SCRIPT="build.sh"
 README_FILE="README.md"
 
 # Function to display usage
@@ -109,20 +108,6 @@ update_csproj() {
     sed -i "s|<FileVersion>$old_assembly</FileVersion>|<FileVersion>$new_assembly</FileVersion>|g" "$CSPROJ_FILE"
 }
 
-# Function to update build.sh
-update_build_script() {
-    local old_version=$1
-    local new_version=$2
-
-    if [ ! -f "$BUILD_SCRIPT" ]; then
-        echo -e "${YELLOW}⚠ Warning: $BUILD_SCRIPT not found, skipping${NC}"
-        return
-    fi
-
-    # Update VERSION variable
-    sed -i "s|VERSION=\"$old_version\"|VERSION=\"$new_version\"|g" "$BUILD_SCRIPT"
-}
-
 # Function to update README.md
 update_readme() {
     local old_version=$1
@@ -188,7 +173,6 @@ main() {
     echo ""
     echo "Files to update:"
     echo -e "  ${BLUE}•${NC} $CSPROJ_FILE"
-    [ -f "$BUILD_SCRIPT" ] && echo -e "  ${BLUE}•${NC} $BUILD_SCRIPT"
     [ -f "$README_FILE" ] && echo -e "  ${BLUE}•${NC} $README_FILE"
     echo ""
 
@@ -208,11 +192,6 @@ main() {
 
     update_csproj "$CURRENT_VERSION" "$NEW_VERSION"
     echo -e "${GREEN}✓${NC} Updated $CSPROJ_FILE"
-
-    if [ -f "$BUILD_SCRIPT" ]; then
-        update_build_script "$CURRENT_VERSION" "$NEW_VERSION"
-        echo -e "${GREEN}✓${NC} Updated $BUILD_SCRIPT"
-    fi
 
     if [ -f "$README_FILE" ]; then
         update_readme "$CURRENT_VERSION" "$NEW_VERSION"

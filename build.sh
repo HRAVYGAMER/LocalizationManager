@@ -15,9 +15,15 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Script configuration
-VERSION="0.6.2"
 PROJECT_NAME="LocalizationManager"
 OUTPUT_DIR="publish"
+
+# Get version dynamically from .csproj (single source of truth)
+if [ -x "./get-version.sh" ]; then
+    VERSION=$(./get-version.sh)
+else
+    VERSION="unknown"
+fi
 
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════════╗${NC}"
 echo -e "${BLUE}║  Localization Resource Manager (LRM) - Build Script v${VERSION}  ║${NC}"

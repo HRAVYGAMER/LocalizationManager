@@ -78,11 +78,31 @@ jobs:
             echo "EOF"
           } >> $GITHUB_OUTPUT
 
+      - name: Update CHANGELOG.md
+        run: |
+          VERSION=${{ steps.version.outputs.version }}
+          DATE=$(date +%Y-%m-%d)
+
+          # Create new version section with current date
+          sed -i "s/## \[Unreleased\]/## [Unreleased]\n\n## [$VERSION] - $DATE/" CHANGELOG.md
+
+          # Update version comparison links at bottom
+          PREV_TAG=$(git describe --tags --abbrev=0 --match "v[0-9]*" HEAD^ 2>/dev/null || echo "")
+          if [ -n "$PREV_TAG" ]; then
+            # Update [Unreleased] link
+            sed -i "s|\[Unreleased\]:.*|[Unreleased]: https://github.com/${{ github.repository }}/compare/v$VERSION...HEAD|" CHANGELOG.md
+            # Add new version link
+            sed -i "/\[Unreleased\]:/a [$VERSION]: https://github.com/${{ github.repository }}/compare/${PREV_TAG}...v$VERSION" CHANGELOG.md
+          else
+            # First release
+            sed -i "/\[Unreleased\]:/a [$VERSION]: https://github.com/${{ github.repository }}/releases/tag/v$VERSION" CHANGELOG.md
+          fi
+
       - name: Commit version changes
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add LocalizationManager.csproj README.md
+          git add LocalizationManager.csproj README.md CHANGELOG.md
           git commit -m "Bump version to ${{ steps.version.outputs.version }} [skip ci]"
 
       - name: Push version commit to main

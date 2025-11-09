@@ -96,21 +96,37 @@ dotnet publish \
 Version is defined in `LocalizationManager.csproj`:
 
 ```xml
-<Version>0.6.0</Version>
-<AssemblyVersion>0.6.0.0</AssemblyVersion>
-<FileVersion>0.6.0.0</FileVersion>
+<Version>0.6.3</Version>
+<AssemblyVersion>0.6.3.0</AssemblyVersion>
+<FileVersion>0.6.3.0</FileVersion>
 ```
 
-To release a new version:
-1. Update version numbers in `.csproj`
-2. Update `VERSION` in `build.sh`
-3. Run `./build.sh`
-4. Test the executables
-5. Tag the release in git:
-   ```bash
-   git tag -a v0.6.0 -m "Release v0.6.0"
-   git push origin v0.6.0
-   ```
+### Creating a Release (Maintainers Only)
+
+Use the automated release script:
+
+```bash
+# Patch release (0.6.3 → 0.6.4)
+./release.sh patch
+
+# Minor release (0.6.3 → 0.7.0)
+./release.sh minor
+
+# Major release (0.6.3 → 1.0.0)
+./release.sh major
+```
+
+The script will:
+1. Verify working directory is clean and on main branch
+2. Check push permissions to remote
+3. Bump version in `LocalizationManager.csproj` and `CHANGELOG.md`
+4. Create version commit and tag (e.g., `v0.6.4`)
+5. Push atomically to GitHub
+6. Trigger GitHub Actions to build and create release
+
+**On failure:** All changes are automatically rolled back.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed release process documentation.
 
 ## Build Requirements
 
@@ -144,11 +160,9 @@ chmod +x publish/linux-x64/lrm
 
 Before releasing:
 - [ ] All tests passing (`dotnet test`)
-- [ ] Version updated in `.csproj` and `build.sh`
-- [ ] Build script runs successfully (`./build.sh`)
-- [ ] Linux executable tested (`./publish/linux-x64/lrm --version`)
-- [ ] Command functionality verified (`lrm validate --path TestData`)
-- [ ] Archives contain correct files
-- [ ] README files generated correctly
-- [ ] Git tag created
-- [ ] Release notes prepared
+- [ ] Working directory is clean (no uncommitted changes)
+- [ ] On main branch
+- [ ] Release script runs successfully (`./release.sh patch/minor/major`)
+- [ ] GitHub Actions workflow completes successfully
+- [ ] Release artifacts available on GitHub
+- [ ] Download and test released binaries

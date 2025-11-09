@@ -3,19 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - 'release-patch'
-      - 'release-minor'
-      - 'release-major'
-  workflow_dispatch:
-    inputs:
-      bump_type:
-        description: 'Version bump type'
-        required: true
-        type: choice
-        options:
-          - patch
-          - minor
-          - major
+      - 'v*'  # Trigger on version tags (v0.6.4, v1.0.0, etc.)
 
 permissions:
   contents: write
@@ -29,9 +17,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          ref: main  # Always checkout main branch, not the tag
           fetch-depth: 0  # Full history needed for changelog
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get version from tag
+        id: version
+        run: |
+          # Extract version from tag (v0.6.4 -> 0.6.4)
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Release version: $VERSION"
 
       - name: Setup .NET 9
         uses: actions/setup-dotnet@v3
@@ -40,29 +35,6 @@ jobs:
 
       - name: Install zip utility
         run: sudo apt-get update && sudo apt-get install -y zip
-
-      - name: Extract bump type from tag or input
-        id: bump
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            BUMP_TYPE="${{ inputs.bump_type }}"
-          else
-            BUMP_TYPE=${GITHUB_REF#refs/tags/release-}
-          fi
-          echo "type=$BUMP_TYPE" >> $GITHUB_OUTPUT
-          echo "Bump type: $BUMP_TYPE"
-
-      - name: Bump version in all files
-        run: |
-          chmod +x bump-version.sh get-version.sh
-          ./bump-version.sh ${{ steps.bump.outputs.type }} -y
-
-      - name: Get new version
-        id: version
-        run: |
-          VERSION=$(./get-version.sh)
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "New version: $VERSION"
 
       - name: Generate changelog from commits
         id: changelog
@@ -92,44 +64,6 @@ jobs:
             fi
             echo "EOF"
           } >> $GITHUB_OUTPUT
-
-      - name: Update CHANGELOG.md
-        run: |
-          VERSION=${{ steps.version.outputs.version }}
-          DATE=$(date +%Y-%m-%d)
-
-          # Create new version section with current date
-          sed -i "s/## \[Unreleased\]/## [Unreleased]\n\n## [$VERSION] - $DATE/" CHANGELOG.md
-
-          # Update version comparison links at bottom
-          PREV_TAG=$(git describe --tags --abbrev=0 --match "v[0-9]*" HEAD^ 2>/dev/null || echo "")
-          if [ -n "$PREV_TAG" ]; then
-            # Update [Unreleased] link
-            sed -i "s|\[Unreleased\]:.*|[Unreleased]: https://github.com/${{ github.repository }}/compare/v$VERSION...HEAD|" CHANGELOG.md
-            # Add new version link
-            sed -i "/\[Unreleased\]:/a [$VERSION]: https://github.com/${{ github.repository }}/compare/${PREV_TAG}...v$VERSION" CHANGELOG.md
-          else
-            # First release
-            sed -i "/\[Unreleased\]:/a [$VERSION]: https://github.com/${{ github.repository }}/releases/tag/v$VERSION" CHANGELOG.md
-          fi
-
-      - name: Commit version changes
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add LocalizationManager.csproj CHANGELOG.md
-          git commit -m "Bump version to ${{ steps.version.outputs.version }} [skip ci]"
-
-      - name: Push version commit to main
-        run: |
-          git push origin HEAD:main
-          echo "✓ Pushed version commit to main"
-
-      - name: Create and push version tag
-        run: |
-          git tag -a "v${{ steps.version.outputs.version }}" -m "Release v${{ steps.version.outputs.version }}"
-          git push origin "v${{ steps.version.outputs.version }}"
-          echo "✓ Created and pushed tag v${{ steps.version.outputs.version }}"
 
       - name: Build all platforms
         run: |
@@ -169,9 +103,3 @@ jobs:
             publish/lrm-win-arm64.zip
           draft: false
           prerelease: false
-
-      - name: Delete release trigger tag
-        if: always()
-        run: |
-          git push origin --delete ${{ github.ref_name }} || true
-          echo "✓ Cleaned up trigger tag"

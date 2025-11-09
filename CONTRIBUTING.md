@@ -233,22 +233,46 @@ public void Validate_ShouldDetectMissingKeys_WhenTranslationIsMissing()
 
 ## Release Process
 
-Releases are fully automated via GitHub Actions:
+Releases are created using the `release.sh` script:
 
-1. Maintainer pushes a release tag: `git tag release-patch && git push origin release-patch`
-   - Use `release-patch` for bug fixes (0.6.2 → 0.6.3)
-   - Use `release-minor` for new features (0.6.2 → 0.7.0)
-   - Use `release-major` for breaking changes (0.6.2 → 1.0.0)
+**For Maintainers:**
 
-2. GitHub Actions workflow automatically:
-   - Bumps version in `.csproj` and `README.md`
+```bash
+# Create a patch release (0.6.3 → 0.6.4)
+./release.sh patch
+
+# Create a minor release (0.6.3 → 0.7.0)
+./release.sh minor
+
+# Create a major release (0.6.3 → 1.0.0)
+./release.sh major
+```
+
+**What the script does:**
+
+1. **Pre-flight checks:**
+   - Verifies working directory is clean
+   - Confirms you're on main branch
+   - Tests remote connection and push permissions
+
+2. **Version bump:**
+   - Bumps version in `LocalizationManager.csproj`
    - Updates `CHANGELOG.md` with new version and date
-   - Commits version changes back to main
-   - Creates version tag (e.g., `v0.6.3`)
-   - Runs all tests
-   - Builds all 4 platforms (Linux/Windows x64/ARM64)
-   - Creates GitHub release with binaries and changelog
-   - Cleans up the trigger tag
+   - Creates a commit with version changes
+
+3. **Tag and push:**
+   - Creates version tag (e.g., `v0.6.4`)
+   - Pushes commit and tag atomically to GitHub
+
+4. **On push failure:**
+   - Automatically rolls back all changes
+   - No manual cleanup needed
+
+**GitHub Actions then:**
+- Triggers on the version tag
+- Runs all tests
+- Builds all 4 platforms (Linux/Windows x64/ARM64)
+- Creates GitHub release with binaries and changelog
 
 **Note:** Contributors don't need to worry about version numbers or releases. Maintainers handle the release process.
 
@@ -308,19 +332,17 @@ git commit -m "Added new export format"
 
 ### 3. Release Workflow (`.github/workflows/release.yml`)
 
-**Triggers:** Push of special tags: `release-patch`, `release-minor`, `release-major`
+**Triggers:** Push of version tags (e.g., `v0.6.4`, `v1.0.0`)
 
 **What it does:**
-- Bumps version in `.csproj` and `README.md`
-- Updates CHANGELOG.md with version and date
-- Commits version changes
-- Creates version tag (e.g., `v0.6.3`)
+- Extracts version from tag
+- Generates changelog from commits since last release
 - Runs all tests
-- Builds all 4 platforms
-- Creates GitHub release with binaries
-- Cleans up trigger tag
+- Builds all 4 platforms (Linux/Windows x64/ARM64)
+- Creates archives with static filenames (lrm-linux-x64.tar.gz, etc.)
+- Creates GitHub release with binaries and changelog
 
-**Note:** Only maintainers trigger releases.
+**Note:** Version tags are created by the `release.sh` script. Only maintainers create releases.
 
 ## Development Workflow
 
@@ -382,7 +404,7 @@ git pull upstream main  # or: git pull origin main
 ```
 
 **Also pull after releases:**
-- When a maintainer creates a release, version files are updated
+- When a maintainer creates a release, `LocalizationManager.csproj` and `CHANGELOG.md` are updated
 - Always sync before starting new work to avoid conflicts
 
 ### Commit Message Best Practices

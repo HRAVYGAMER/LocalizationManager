@@ -6,18 +6,15 @@ using System.Text.Json;
 using Spectre.Console;
 using Spectre.Console.Cli;
 using LocalizationManager.Core;
+using LocalizationManager.Core.Enums;
 
 namespace LocalizationManager.Commands;
 
 /// <summary>
 /// Settings for the list-languages command.
 /// </summary>
-public class ListLanguagesCommandSettings : BaseCommandSettings
+public class ListLanguagesCommandSettings : BaseFormattableCommandSettings
 {
-    [CommandOption("--format <FORMAT>")]
-    [Description("Output format: table, simple, json")]
-    [DefaultValue("table")]
-    public string Format { get; set; } = "table";
 }
 
 /// <summary>
@@ -85,21 +82,19 @@ public class ListLanguagesCommand : Command<ListLanguagesCommandSettings>
             }
 
             // Output based on format
-            switch (settings.Format.ToLower())
+            var format = settings.GetOutputFormat();
+            switch (format)
             {
-                case "table":
-                    DisplayTable(languageStats, settings);
-                    break;
-                case "simple":
-                    DisplaySimple(languageStats);
-                    break;
-                case "json":
+                case OutputFormat.Json:
                     DisplayJson(languageStats);
                     break;
+                case OutputFormat.Simple:
+                    DisplaySimple(languageStats);
+                    break;
+                case OutputFormat.Table:
                 default:
-                    AnsiConsole.MarkupLine($"[red]Invalid format: {settings.Format}[/]");
-                    AnsiConsole.MarkupLine("[grey]Valid formats: table, simple, json[/]");
-                    return 1;
+                    DisplayTable(languageStats, settings);
+                    break;
             }
 
             return 0;

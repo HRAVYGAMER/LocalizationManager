@@ -34,7 +34,7 @@ public class BaseCommandSettings : CommandSettings
     [Description("Path to the Resources folder (default: current directory)")]
     public string? ResourcePath { get; set; }
 
-    [CommandOption("-c|--config-file <PATH>")]
+    [CommandOption("--config-file <PATH>")]
     [Description("Path to configuration file (default: lrm.json in resource path)")]
     public string? ConfigFilePath { get; set; }
 

@@ -34,6 +34,9 @@ public class ValidateCommand : Command<BaseFormattableCommandSettings>
 {
     public override int Execute(CommandContext context, BaseFormattableCommandSettings settings, CancellationToken cancellationToken = default)
     {
+        // Load configuration if available
+        settings.LoadConfiguration();
+
         var resourcePath = settings.GetResourcePath();
         var format = settings.GetOutputFormat();
         var isTableFormat = format == OutputFormat.Table;
@@ -123,7 +126,7 @@ public class ValidateCommand : Command<BaseFormattableCommandSettings>
                     break;
                 case OutputFormat.Table:
                 default:
-                    DisplayTable(validationResult);
+                    DisplayTable(validationResult, settings);
                     break;
             }
 
@@ -155,8 +158,19 @@ public class ValidateCommand : Command<BaseFormattableCommandSettings>
         }
     }
 
-    private void DisplayTable(LocalizationManager.Core.Models.ValidationResult result)
+    private void DisplayConfigNotice(BaseFormattableCommandSettings settings)
     {
+        if (!string.IsNullOrEmpty(settings.LoadedConfigurationPath))
+        {
+            AnsiConsole.MarkupLine($"[dim]Using configuration from: {settings.LoadedConfigurationPath}[/]");
+            AnsiConsole.WriteLine();
+        }
+    }
+
+    private void DisplayTable(LocalizationManager.Core.Models.ValidationResult result, BaseFormattableCommandSettings settings)
+    {
+        DisplayConfigNotice(settings);
+
         if (result.IsValid)
         {
             AnsiConsole.MarkupLine("[green bold]✓ All validations passed![/]");

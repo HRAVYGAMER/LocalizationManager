@@ -27,6 +27,9 @@ public class ListLanguagesCommand : Command<ListLanguagesCommandSettings>
 {
     public override int Execute(CommandContext context, ListLanguagesCommandSettings settings, CancellationToken cancellationToken = default)
     {
+        // Load configuration if available
+        settings.LoadConfiguration();
+
         try
         {
             var discovery = new ResourceDiscovery();
@@ -85,7 +88,7 @@ public class ListLanguagesCommand : Command<ListLanguagesCommandSettings>
             switch (settings.Format.ToLower())
             {
                 case "table":
-                    DisplayTable(languageStats);
+                    DisplayTable(languageStats, settings);
                     break;
                 case "simple":
                     DisplaySimple(languageStats);
@@ -108,8 +111,19 @@ public class ListLanguagesCommand : Command<ListLanguagesCommandSettings>
         }
     }
 
-    private void DisplayTable(List<LanguageStats> stats)
+    private void DisplayConfigNotice(ListLanguagesCommandSettings settings)
     {
+        if (!string.IsNullOrEmpty(settings.LoadedConfigurationPath))
+        {
+            AnsiConsole.MarkupLine($"[dim]Using configuration from: {settings.LoadedConfigurationPath}[/]");
+            AnsiConsole.WriteLine();
+        }
+    }
+
+    private void DisplayTable(List<LanguageStats> stats, ListLanguagesCommandSettings settings)
+    {
+        DisplayConfigNotice(settings);
+
         // Group by base name
         var grouped = stats.GroupBy(s => s.BaseName);
 

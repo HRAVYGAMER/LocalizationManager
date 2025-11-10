@@ -65,12 +65,20 @@ public class ExportCommand : Command<ExportCommandSettings>
 {
     public override int Execute(CommandContext context, ExportCommandSettings settings, CancellationToken cancellationToken = default)
     {
+        // Load configuration if available
+        settings.LoadConfiguration();
+
         var resourcePath = settings.GetResourcePath();
         var format = settings.GetOutputFormat();
         var isTableFormat = format == OutputFormat.Table;
 
         if (isTableFormat)
         {
+            if (!string.IsNullOrEmpty(settings.LoadedConfigurationPath))
+            {
+                AnsiConsole.MarkupLine($"[dim]Using configuration from: {settings.LoadedConfigurationPath}[/]");
+                AnsiConsole.WriteLine();
+            }
             AnsiConsole.MarkupLine($"[blue]Scanning:[/] {resourcePath}");
             AnsiConsole.WriteLine();
         }

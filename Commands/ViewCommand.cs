@@ -46,6 +46,9 @@ public class ViewCommand : Command<ViewCommand.Settings>
 
     public override int Execute(CommandContext context, Settings settings, CancellationToken cancellationToken = default)
     {
+        // Load configuration if available
+        settings.LoadConfiguration();
+
         var resourcePath = settings.GetResourcePath();
 
         try
@@ -111,7 +114,7 @@ public class ViewCommand : Command<ViewCommand.Settings>
                     break;
                 case OutputFormat.Table:
                 default:
-                    DisplayTable(settings.Key, resourceFiles, settings.ShowComments);
+                    DisplayTable(settings.Key, resourceFiles, settings.ShowComments, settings);
                     break;
             }
 
@@ -129,8 +132,19 @@ public class ViewCommand : Command<ViewCommand.Settings>
         }
     }
 
-    private void DisplayTable(string key, List<Core.Models.ResourceFile> resourceFiles, bool showComments)
+    private void DisplayConfigNotice(Settings settings)
     {
+        if (!string.IsNullOrEmpty(settings.LoadedConfigurationPath))
+        {
+            AnsiConsole.MarkupLine($"[dim]Using configuration from: {settings.LoadedConfigurationPath}[/]");
+            AnsiConsole.WriteLine();
+        }
+    }
+
+    private void DisplayTable(string key, List<Core.Models.ResourceFile> resourceFiles, bool showComments, Settings settings)
+    {
+        DisplayConfigNotice(settings);
+
         AnsiConsole.MarkupLine($"[yellow]Key:[/] [bold]{key}[/]");
         AnsiConsole.WriteLine();
 

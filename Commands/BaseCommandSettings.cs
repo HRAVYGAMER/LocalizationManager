@@ -21,6 +21,7 @@
 
 using Spectre.Console.Cli;
 using System.ComponentModel;
+using LocalizationManager.Core.Configuration;
 
 namespace LocalizationManager.Commands;
 
@@ -33,11 +34,39 @@ public class BaseCommandSettings : CommandSettings
     [Description("Path to the Resources folder (default: current directory)")]
     public string? ResourcePath { get; set; }
 
+    [CommandOption("-c|--config-file <PATH>")]
+    [Description("Path to configuration file (default: lrm.json in resource path)")]
+    public string? ConfigFilePath { get; set; }
+
+    /// <summary>
+    /// Gets the loaded configuration, if any.
+    /// </summary>
+    public ConfigurationModel? LoadedConfiguration { get; private set; }
+
+    /// <summary>
+    /// Gets the path from which the configuration was loaded, if any.
+    /// </summary>
+    public string? LoadedConfigurationPath { get; private set; }
+
     /// <summary>
     /// Gets the resource path, defaulting to current directory if not specified.
     /// </summary>
     public string GetResourcePath()
     {
         return ResourcePath ?? Directory.GetCurrentDirectory();
+    }
+
+    /// <summary>
+    /// Loads configuration from file if available.
+    /// Should be called early in command execution.
+    /// </summary>
+    public void LoadConfiguration()
+    {
+        var (config, loadedFrom) = ConfigurationManager.LoadConfiguration(
+            ConfigFilePath,
+            GetResourcePath());
+
+        LoadedConfiguration = config;
+        LoadedConfigurationPath = loadedFrom;
     }
 }

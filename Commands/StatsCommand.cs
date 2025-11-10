@@ -34,6 +34,9 @@ public class StatsCommand : Command<BaseFormattableCommandSettings>
 {
     public override int Execute(CommandContext context, BaseFormattableCommandSettings settings, CancellationToken cancellationToken = default)
     {
+        // Load configuration if available
+        settings.LoadConfiguration();
+
         var resourcePath = settings.GetResourcePath();
         var format = settings.GetOutputFormat();
         var isTableFormat = format == OutputFormat.Table;
@@ -99,7 +102,7 @@ public class StatsCommand : Command<BaseFormattableCommandSettings>
                     break;
                 case OutputFormat.Table:
                 default:
-                    DisplayTable(resourceFiles);
+                    DisplayTable(resourceFiles, settings);
                     break;
             }
 
@@ -131,8 +134,19 @@ public class StatsCommand : Command<BaseFormattableCommandSettings>
         }
     }
 
-    private void DisplayTable(List<LocalizationManager.Core.Models.ResourceFile> resourceFiles)
+    private void DisplayConfigNotice(BaseFormattableCommandSettings settings)
     {
+        if (!string.IsNullOrEmpty(settings.LoadedConfigurationPath))
+        {
+            AnsiConsole.MarkupLine($"[dim]Using configuration from: {settings.LoadedConfigurationPath}[/]");
+            AnsiConsole.WriteLine();
+        }
+    }
+
+    private void DisplayTable(List<LocalizationManager.Core.Models.ResourceFile> resourceFiles, BaseFormattableCommandSettings settings)
+    {
+        DisplayConfigNotice(settings);
+
         // Create statistics table
         var table = new Table();
         table.Title = new TableTitle("[bold]Localization Statistics[/]");

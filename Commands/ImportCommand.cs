@@ -20,7 +20,9 @@
 // SOFTWARE.
 
 using LocalizationManager.Core;
+using LocalizationManager.Core.Enums;
 using LocalizationManager.Core.Models;
+using LocalizationManager.Core.Output;
 using LocalizationManager.Utils;
 using Spectre.Console;
 using Spectre.Console.Cli;
@@ -31,7 +33,7 @@ namespace LocalizationManager.Commands;
 /// <summary>
 /// Command to import translations from CSV format.
 /// </summary>
-public class ImportCommandSettings : BaseCommandSettings
+public class ImportCommandSettings : BaseFormattableCommandSettings
 {
     [CommandArgument(0, "<FILE>")]
     [Description("Input CSV file path")]
@@ -50,17 +52,32 @@ public class ImportCommand : Command<ImportCommandSettings>
 {
     public override int Execute(CommandContext context, ImportCommandSettings settings, CancellationToken cancellationToken = default)
     {
+        // Load configuration if available
+        settings.LoadConfiguration();
+
         var resourcePath = settings.GetResourcePath();
+        var format = settings.GetOutputFormat();
+        var isTableFormat = format == OutputFormat.Table;
 
         if (!File.Exists(settings.InputFile))
         {
-            AnsiConsole.MarkupLine($"[red]✗ File not found: {settings.InputFile}[/]");
+            if (isTableFormat)
+            {
+                AnsiConsole.MarkupLine($"[red]✗ File not found: {settings.InputFile}[/]");
+            }
+            else
+            {
+                Console.Error.WriteLine($"File not found: {settings.InputFile}");
+            }
             return 1;
         }
 
-        AnsiConsole.MarkupLine($"[blue]Reading CSV:[/] {settings.InputFile}");
-        AnsiConsole.MarkupLine($"[blue]Target:[/] {resourcePath}");
-        AnsiConsole.WriteLine();
+        if (isTableFormat)
+        {
+            AnsiConsole.MarkupLine($"[blue]Reading CSV:[/] {settings.InputFile}");
+            AnsiConsole.MarkupLine($"[blue]Target:[/] {resourcePath}");
+            AnsiConsole.WriteLine();
+        }
 
         try
         {
@@ -69,7 +86,14 @@ public class ImportCommand : Command<ImportCommandSettings>
 
             if (!csvData.Any())
             {
-                AnsiConsole.MarkupLine("[red]✗ CSV file is empty or invalid![/]");
+                if (isTableFormat)
+                {
+                    AnsiConsole.MarkupLine("[red]✗ CSV file is empty or invalid![/]");
+                }
+                else
+                {
+                    Console.Error.WriteLine("CSV file is empty or invalid!");
+                }
                 return 1;
             }
 
@@ -79,7 +103,14 @@ public class ImportCommand : Command<ImportCommandSettings>
 
             if (!languages.Any())
             {
-                AnsiConsole.MarkupLine("[red]✗ No .resx files found![/]");
+                if (isTableFormat)
+                {
+                    AnsiConsole.MarkupLine("[red]✗ No .resx files found![/]");
+                }
+                else
+                {
+                    Console.Error.WriteLine("No .resx files found!");
+                }
                 return 1;
             }
 
@@ -96,7 +127,14 @@ public class ImportCommand : Command<ImportCommandSettings>
                 }
                 catch (Exception ex)
                 {
-                    AnsiConsole.MarkupLine($"[red]✗ Error parsing {lang.Name}: {ex.Message}[/]");
+                    if (isTableFormat)
+                    {
+                        AnsiConsole.MarkupLine($"[red]✗ Error parsing {lang.Name}: {ex.Message}[/]");
+                    }
+                    else
+                    {
+                        Console.Error.WriteLine($"Error parsing {lang.Name}: {ex.Message}");
+                    }
                     return 1;
                 }
             }
@@ -104,24 +142,41 @@ public class ImportCommand : Command<ImportCommandSettings>
             // Create backups
             if (!settings.NoBackup)
             {
-                AnsiConsole.MarkupLine("[dim]Creating backups...[/]");
+                if (isTableFormat)
+                {
+                    AnsiConsole.MarkupLine("[dim]Creating backups...[/]");
+                }
                 var backupManager = new BackupManager();
                 var filePaths = resourceFiles.Select(rf => rf.Language.FilePath).ToList();
 
                 try
                 {
                     backupManager.CreateBackups(filePaths);
-                    AnsiConsole.MarkupLine("[dim green]✓ Backups created[/]");
+                    if (isTableFormat)
+                    {
+                        AnsiConsole.MarkupLine("[dim green]✓ Backups created[/]");
+                    }
                 }
                 catch (Exception ex)
                 {
-                    AnsiConsole.MarkupLine($"[yellow]⚠ Backup failed: {ex.Message}[/]");
-                    if (!AnsiConsole.Confirm("Continue without backup?"))
+                    if (isTableFormat)
                     {
+                        AnsiConsole.MarkupLine($"[yellow]⚠ Backup failed: {ex.Message}[/]");
+                        if (!AnsiConsole.Confirm("Continue without backup?"))
+                        {
+                            return 1;
+                        }
+                    }
+                    else
+                    {
+                        Console.Error.WriteLine($"Backup failed: {ex.Message}");
                         return 1;
                     }
                 }
-                AnsiConsole.WriteLine();
+                if (isTableFormat)
+                {
+                    AnsiConsole.WriteLine();
+                }
             }
 
             // Import data
@@ -136,30 +191,45 @@ public class ImportCommand : Command<ImportCommandSettings>
                 }
                 catch (Exception ex)
                 {
-                    AnsiConsole.MarkupLine($"[red]✗ Failed to write {resourceFile.Language.Name}: {ex.Message}[/]");
+                    if (isTableFormat)
+                    {
+                        AnsiConsole.MarkupLine($"[red]✗ Failed to write {resourceFile.Language.Name}: {ex.Message}[/]");
+                    }
+                    else
+                    {
+                        Console.Error.WriteLine($"Failed to write {resourceFile.Language.Name}: {ex.Message}");
+                    }
                     return 1;
                 }
             }
 
-            // Display summary
-            AnsiConsole.WriteLine();
-            var table = new Table();
-            table.AddColumn("Statistic");
-            table.AddColumn("Count");
-            table.AddRow("Total rows", stats.TotalRows.ToString());
-            table.AddRow("[green]Added[/]", $"[green]{stats.Added}[/]");
-            table.AddRow("[yellow]Updated[/]", $"[yellow]{stats.Updated}[/]");
-            table.AddRow("[dim]Skipped[/]", $"[dim]{stats.Skipped}[/]");
-
-            AnsiConsole.Write(table);
-            AnsiConsole.WriteLine();
-            AnsiConsole.MarkupLine("[green bold]✓ Import completed successfully[/]");
+            // Display summary based on format
+            switch (format)
+            {
+                case OutputFormat.Json:
+                    DisplayJson(stats);
+                    break;
+                case OutputFormat.Simple:
+                    DisplaySimple(stats);
+                    break;
+                case OutputFormat.Table:
+                default:
+                    DisplayTable(stats, settings);
+                    break;
+            }
 
             return 0;
         }
         catch (Exception ex)
         {
-            AnsiConsole.MarkupLine($"[red]✗ Unexpected error: {ex.Message}[/]");
+            if (isTableFormat)
+            {
+                AnsiConsole.MarkupLine($"[red]✗ Unexpected error: {ex.Message}[/]");
+            }
+            else
+            {
+                Console.Error.WriteLine($"Unexpected error: {ex.Message}");
+            }
             return 1;
         }
     }
@@ -300,6 +370,59 @@ public class ImportCommand : Command<ImportCommandSettings>
         }
 
         return stats;
+    }
+
+    private void DisplayConfigNotice(ImportCommandSettings settings)
+    {
+        if (!string.IsNullOrEmpty(settings.LoadedConfigurationPath))
+        {
+            AnsiConsole.MarkupLine($"[dim]Using configuration from: {settings.LoadedConfigurationPath}[/]");
+            AnsiConsole.WriteLine();
+        }
+    }
+
+    private void DisplayTable(ImportStats stats, ImportCommandSettings settings)
+    {
+        DisplayConfigNotice(settings);
+
+        AnsiConsole.WriteLine();
+        var table = new Table();
+        table.AddColumn("Statistic");
+        table.AddColumn("Count");
+        table.AddRow("Total rows", stats.TotalRows.ToString());
+        table.AddRow("[green]Added[/]", $"[green]{stats.Added}[/]");
+        table.AddRow("[yellow]Updated[/]", $"[yellow]{stats.Updated}[/]");
+        table.AddRow("[dim]Skipped[/]", $"[dim]{stats.Skipped}[/]");
+
+        AnsiConsole.Write(table);
+        AnsiConsole.WriteLine();
+        AnsiConsole.MarkupLine("[green bold]✓ Import completed successfully[/]");
+    }
+
+    private void DisplayJson(ImportStats stats)
+    {
+        var output = new
+        {
+            success = true,
+            totalRows = stats.TotalRows,
+            added = stats.Added,
+            updated = stats.Updated,
+            skipped = stats.Skipped
+        };
+
+        Console.WriteLine(OutputFormatter.FormatJson(output));
+    }
+
+    private void DisplaySimple(ImportStats stats)
+    {
+        Console.WriteLine("Import Summary");
+        Console.WriteLine("==============");
+        Console.WriteLine($"Total rows:  {stats.TotalRows}");
+        Console.WriteLine($"Added:       {stats.Added}");
+        Console.WriteLine($"Updated:     {stats.Updated}");
+        Console.WriteLine($"Skipped:     {stats.Skipped}");
+        Console.WriteLine();
+        Console.WriteLine("✓ Import completed successfully");
     }
 
     private class ImportStats

@@ -722,12 +722,16 @@ lrm delete UnusedKey2 -y
 You want to add French (fr) translations.
 
 ```bash
-# Step 1: Create the new .resx file (copy from default)
-cp SharedResource.resx SharedResource.fr.resx
+# Step 1: Add new language file (copies from default)
+lrm add-language -c fr
+
+# Alternative: Create empty language file
+lrm add-language -c fr --empty
 
 # Step 2: Verify LRM detects it
+lrm list-languages
 lrm stats
-# Should show French (fr) with 100% coverage (copied values)
+# Should show French (fr) with 100% coverage (if copied) or 0% (if empty)
 
 # Step 3: Export for translator
 lrm export --include-status -o french_translation.csv

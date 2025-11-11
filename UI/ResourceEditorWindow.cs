@@ -49,6 +49,7 @@ public class ResourceEditorWindow : Window
     private System.Timers.Timer? _searchDebounceTimer;
     private Dictionary<string, List<string>> _extraKeysByLanguage = new();
     private List<CheckBox> _languageCheckboxes = new();
+    private CheckBox? _regexCheckBox;
 
     public ResourceEditorWindow(List<ResourceFile> resourceFiles, ResourceFileParser parser)
     {
@@ -166,6 +167,60 @@ public class ResourceEditorWindow : Window
             Text = ""
         };
 
+        // Case-sensitive checkbox (on same line as search)
+        var caseSensitiveCheckBox = new CheckBox
+        {
+            Text = "Case-sensitive",
+            X = Pos.Right(_searchField) + 2,
+            Y = 2,
+            Checked = false
+        };
+        caseSensitiveCheckBox.Toggled += (prev) =>
+        {
+            _filterCriteria.CaseSensitive = caseSensitiveCheckBox.Checked;
+            Application.MainLoop.Invoke(() => ApplyFilters());
+        };
+
+        // Search scope toggle (Keys+Values / Keys Only) - on same line as search
+        var scopeButton = new Button
+        {
+            Text = "Keys+Values",
+            X = Pos.Right(caseSensitiveCheckBox) + 2,
+            Y = 2
+        };
+        scopeButton.Clicked += () =>
+        {
+            // Toggle between Keys+Values and Keys Only
+            if (_filterCriteria.Scope == SearchScope.KeysAndValues)
+            {
+                _filterCriteria.Scope = SearchScope.KeysOnly;
+                scopeButton.Text = "Keys Only";
+            }
+            else
+            {
+                _filterCriteria.Scope = SearchScope.KeysAndValues;
+                scopeButton.Text = "Keys+Values";
+            }
+            ApplyFilters();
+        };
+
+        // Regex checkbox (on same line as search)
+        _regexCheckBox = new CheckBox
+        {
+            Text = "Regex",
+            X = Pos.Right(scopeButton) + 2,
+            Y = 2,
+            Checked = false
+        };
+
+        _regexCheckBox.Toggled += (prev) =>
+        {
+            // When checked: use Regex mode
+            // When unchecked: use Wildcard mode (with auto-detection of wildcards vs substring)
+            _filterCriteria.Mode = _regexCheckBox.Checked ? FilterMode.Regex : FilterMode.Wildcard;
+            Application.MainLoop.Invoke(() => ApplyFilters());
+        };
+
         _searchField.TextChanged += (oldValue) =>
         {
             _searchText = _searchField.Text.ToString() ?? string.Empty;
@@ -184,77 +239,12 @@ public class ResourceEditorWindow : Window
             _searchDebounceTimer.Start();
         };
 
-        // Filter mode selector (Y=3, left side)
-        var modeLabel = new Label
-        {
-            Text = "Mode:",
-            X = 1,
-            Y = 3
-        };
-
-        var modeComboBox = new ComboBox
-        {
-            X = Pos.Right(modeLabel) + 1,
-            Y = 3,
-            Width = 12,
-            Text = "Substring"
-        };
-        modeComboBox.SetSource(new List<string> { "Substring", "Wildcard", "Regex" });
-        modeComboBox.SelectedItemChanged += (args) =>
-        {
-            _filterCriteria.Mode = args.Value switch
-            {
-                0 => FilterMode.Substring,
-                1 => FilterMode.Wildcard,
-                2 => FilterMode.Regex,
-                _ => FilterMode.Substring
-            };
-            Application.MainLoop.Invoke(() => ApplyFilters());
-        };
-
-        // Case-sensitive toggle
-        var caseSensitiveCheckBox = new CheckBox
-        {
-            Text = "Case-sensitive",
-            X = Pos.Right(modeComboBox) + 2,
-            Y = 3,
-            Checked = false
-        };
-        caseSensitiveCheckBox.Toggled += (prev) =>
-        {
-            _filterCriteria.CaseSensitive = caseSensitiveCheckBox.Checked;
-            Application.MainLoop.Invoke(() => ApplyFilters());
-        };
-
-        // Search scope toggle (Keys+Values / Keys Only)
-        var scopeButton = new Button
-        {
-            Text = "Keys+Values",
-            X = Pos.Right(caseSensitiveCheckBox) + 2,
-            Y = 3
-        };
-        scopeButton.Clicked += () =>
-        {
-            // Toggle between Keys+Values and Keys Only
-            if (_filterCriteria.Scope == SearchScope.KeysAndValues)
-            {
-                _filterCriteria.Scope = SearchScope.KeysOnly;
-                scopeButton.Text = "Keys Only";
-            }
-            else
-            {
-                _filterCriteria.Scope = SearchScope.KeysAndValues;
-                scopeButton.Text = "Keys+Values";
-            }
-            ApplyFilters();
-        };
-
-        // Language visibility controls (Y=4)
+        // Language visibility controls (Y=3)
         var langLabel = new Label
         {
             Text = "Show languages:",
             X = 1,
-            Y = 4
+            Y = 3
         };
 
         // Add checkboxes for first 3-4 languages
@@ -272,7 +262,7 @@ public class ResourceEditorWindow : Window
             {
                 Text = displayName,
                 X = currentX,
-                Y = 4,
+                Y = 3,
                 Checked = true // All visible by default
             };
 
@@ -302,28 +292,20 @@ public class ResourceEditorWindow : Window
         {
             Text = "More...",
             X = currentX,
-            Y = 4
+            Y = 3
         };
         moreButton.Clicked += () => ShowLanguageFilterDialog();
-
-        // Help label (moved to end of line)
-        var helpLabel = new Label
-        {
-            Text = "F1=Help  F2=Add Lang  F3=Remove Lang  F6=Validate",
-            X = Pos.Right(_searchField) + 2,
-            Y = 2
-        };
 
         // TableView for keys and translations (adjusted Y position for new controls)
         _tableView = new TableView
         {
             X = 1,
-            Y = 5,  // Moved down to Y=5 to make room for filter controls
+            Y = 4,  // Y=4 now (menu=0, search=2, languages=3, table=4)
             Width = Dim.Fill() - 1,
             Height = Dim.Fill() - 2,
             FullRowSelect = true,
             MultiSelect = false,
-            Table = _dataTable
+            Table = CreateDisplayTable(_dataTable)
         };
 
         _tableView.CellActivated += (args) =>
@@ -342,7 +324,7 @@ public class ResourceEditorWindow : Window
             }
         };
 
-        // Status bar
+        // Status bar (with help text)
         _statusLabel = new Label
         {
             Text = GetStatusText(),
@@ -351,8 +333,7 @@ public class ResourceEditorWindow : Window
             Width = Dim.Fill()
         };
 
-        Add(searchLabel, _searchField, helpLabel);
-        Add(modeLabel, modeComboBox, caseSensitiveCheckBox, scopeButton);
+        Add(searchLabel, _searchField, caseSensitiveCheckBox, scopeButton, _regexCheckBox);
         Add(langLabel);
         foreach (var checkbox in _languageCheckboxes)
         {
@@ -424,6 +405,24 @@ public class ResourceEditorWindow : Window
         // Update filter criteria with current search text
         _filterCriteria.SearchText = _searchText;
 
+        // Auto-detect wildcards and update mode (matching view command behavior)
+        // Only if user hasn't checked the Regex checkbox
+        if (_regexCheckBox != null && !_regexCheckBox.Checked)
+        {
+            // User is in Wildcard mode (unchecked)
+            if (!string.IsNullOrEmpty(_searchText) && ResourceFilterService.IsWildcardPattern(_searchText))
+            {
+                // Has wildcards - use wildcard mode
+                _filterCriteria.Mode = FilterMode.Wildcard;
+            }
+            else
+            {
+                // No wildcards - use substring mode
+                _filterCriteria.Mode = FilterMode.Substring;
+            }
+        }
+        // If user checked Regex checkbox, keep it as regex
+
         // Apply filters using the new service
         ApplyFilters();
     }
@@ -446,21 +445,8 @@ public class ResourceEditorWindow : Window
             // Apply the row filter to show only visible rows
             _dataTable.DefaultView.RowFilter = "_Visible = True";
 
-            // Create a new DataTable from the filtered view, preserving all columns
-            var columnNames = _dataTable.Columns.Cast<DataColumn>()
-                .Select(c => c.ColumnName)
-                .ToArray();
-            var filteredTable = _dataTable.DefaultView.ToTable(false, columnNames);
-
-            // Restore internal column settings
-            if (filteredTable.Columns.Contains("_Visible"))
-            {
-                filteredTable.Columns["_Visible"]!.ColumnMapping = MappingType.Hidden;
-            }
-            if (filteredTable.Columns.Contains("_HasExtraKey"))
-            {
-                filteredTable.Columns["_HasExtraKey"]!.ColumnMapping = MappingType.Hidden;
-            }
+            // Create display table without internal columns
+            var filteredTable = CreateDisplayTable(_dataTable);
 
             // Assign filtered table to TableView
             _tableView.Table = filteredTable;
@@ -471,21 +457,8 @@ public class ResourceEditorWindow : Window
             // If filtering fails (e.g., invalid regex), show all rows
             _dataTable.DefaultView.RowFilter = string.Empty;
 
-            // Create table with all columns preserved
-            var columnNames = _dataTable.Columns.Cast<DataColumn>()
-                .Select(c => c.ColumnName)
-                .ToArray();
-            var allRowsTable = _dataTable.DefaultView.ToTable(false, columnNames);
-
-            // Restore internal column settings
-            if (allRowsTable.Columns.Contains("_Visible"))
-            {
-                allRowsTable.Columns["_Visible"]!.ColumnMapping = MappingType.Hidden;
-            }
-            if (allRowsTable.Columns.Contains("_HasExtraKey"))
-            {
-                allRowsTable.Columns["_HasExtraKey"]!.ColumnMapping = MappingType.Hidden;
-            }
+            // Create display table without internal columns
+            var allRowsTable = CreateDisplayTable(_dataTable);
 
             _tableView.Table = allRowsTable;
             _tableView.SetNeedsDisplay();
@@ -499,6 +472,18 @@ public class ResourceEditorWindow : Window
         }
 
         UpdateStatus();
+    }
+
+    /// <summary>
+    /// Creates a display table from the source table, excluding internal columns (those starting with _)
+    /// </summary>
+    private DataTable CreateDisplayTable(DataTable sourceTable)
+    {
+        var columnNames = sourceTable.Columns.Cast<DataColumn>()
+            .Where(c => !c.ColumnName.StartsWith("_"))
+            .Select(c => c.ColumnName)
+            .ToArray();
+        return sourceTable.DefaultView.ToTable(false, columnNames);
     }
 
     private void EditKey(string key)
@@ -1184,6 +1169,10 @@ public class ResourceEditorWindow : Window
         }
 
         if (_hasUnsavedChanges) status += " [MODIFIED]";
+
+        // Add help shortcuts
+        status += " | F1=Help  F2=Add Lang  F3=Remove Lang  F6=Validate  Ctrl+S=Save  Ctrl+Q=Quit";
+
         return status;
     }
 

@@ -124,18 +124,37 @@ lrm view SaveButton --show-comments
 lrm view SaveButton --format json
 ```
 
-**Output example:**
+**Output example (table format):**
 ```
-Key: SaveButton
+Keys: 1
+Matched 1 key(s)
 
-┌──────────────────┬────────────────┐
-│ Language         │ Value          │
-├──────────────────┼────────────────┤
-│ English (default)│ Save           │
-│ Ελληνικά (el)    │ Αποθήκευση     │
-└──────────────────┴────────────────┘
+┌──────────────────┬──────────────────┬────────────────┐
+│ Key              │ Language         │ Value          │
+├──────────────────┼──────────────────┼────────────────┤
+│ SaveButton       │ English (default)│ Save           │
+│                  │ Ελληνικά (el)    │ Αποθήκευση     │
+└──────────────────┴──────────────────┴────────────────┘
 
-Present in 2/2 language(s), 0 empty value(s)
+Showing 1 key(s) across 2 language(s)
+```
+
+**Output example (JSON format):**
+```json
+{
+  "pattern": null,
+  "patternType": null,
+  "matchCount": 1,
+  "keys": [
+    {
+      "key": "SaveButton",
+      "translations": {
+        "default": "Save",
+        "el": "Αποθήκευση"
+      }
+    }
+  ]
+}
 ```
 
 ### View Multiple Keys with Wildcard Patterns
@@ -304,6 +323,7 @@ lrm view "Button\..*" --regex --format json | jq '.matchCount'
 ```json
 {
   "pattern": "Error\\..*",
+  "patternType": "regex",
   "matchCount": 5,
   "keys": [
     {
@@ -311,6 +331,13 @@ lrm view "Button\..*" --regex --format json | jq '.matchCount'
       "translations": {
         "default": "Item not found",
         "el": "Δεν βρέθηκε"
+      }
+    },
+    {
+      "key": "Error.Validation",
+      "translations": {
+        "default": "Invalid",
+        "el": "Άκυρο"
       }
     }
   ]
@@ -323,7 +350,7 @@ lrm view "Button\..*" --regex --format json | jq '.matchCount'
 lrm view "Success\..*" --regex --format simple
 
 # Output:
-# Pattern: Success\..*
+# Pattern: Success\..* (regex)
 # Matched 2 key(s)
 #
 # --- Success.Save ---
@@ -366,6 +393,136 @@ lrm view "Success\..*" --regex --show-comments
 # Audit all numbered items are translated
 lrm view "Item[0-9]+" --regex
 ```
+
+### Culture Filtering
+
+Filter which languages are displayed in the output:
+
+**Include specific cultures:**
+```bash
+# View only English translations
+lrm view "Error.*" --cultures en
+
+# View default and Greek translations
+lrm view "Button.*" --cultures default,el
+
+# View multiple specific cultures
+lrm view "Label.*" --cultures en,fr,el --sort
+```
+
+**Exclude specific cultures:**
+```bash
+# Show all cultures except French
+lrm view "Success.*" --exclude fr
+
+# Exclude default language
+lrm view "Error.*" --exclude default
+
+# Combine include and exclude
+lrm view "Button.*" --cultures default,el,fr --exclude fr  # Shows default and el only
+```
+
+**Use cases for culture filtering:**
+```bash
+# Review only French translations for completeness
+lrm view "*" --cultures fr --limit 100
+
+# Compare two specific languages side by side
+lrm view "Error.*" --cultures en,el
+
+# Check all keys excluding work-in-progress language
+lrm view "*" --exclude de --limit 50
+```
+
+### Keys-Only Output (for Automation)
+
+Get only key names without translation values - perfect for CI/CD scripts:
+
+**Explicit keys-only mode:**
+```bash
+# Get list of all Error keys
+lrm view "Error.*" --keys-only
+
+# Alternative syntax
+lrm view "Button.*" --no-translations
+
+# With sorting for consistent output
+lrm view "Label.*" --keys-only --sort
+```
+
+**Keys-only with JSON (for scripting):**
+```bash
+# Output as JSON array
+lrm view "Error.*" --keys-only --format json
+
+# Example output:
+# {
+#   "pattern": "Error.*",
+#   "patternType": "wildcard",
+#   "matchCount": 3,
+#   "keys": [
+#     {"key": "Error.NotFound", "translations": {}},
+#     {"key": "Error.Validation", "translations": {}},
+#     {"key": "Error.Unauthorized", "translations": {}}
+#   ]
+# }
+
+# Use with jq for processing
+lrm view "Button.*" --keys-only --format json | jq '.keys[].key'
+```
+
+**Auto keys-only (implicit):**
+```bash
+# When all cultures are excluded, automatically show keys only
+lrm view "*" --exclude default,en,el,fr --limit 50
+# Output: ⚠ All cultures filtered out - showing keys only
+```
+
+**Use cases for keys-only:**
+```bash
+# Get count of Error keys
+lrm view "Error.*" --keys-only --format json | jq '.matchCount'
+
+# Export all key names for documentation
+lrm view "*" --keys-only --format simple --no-limit > all-keys.txt
+
+# Check if specific pattern exists
+lrm view "Api.v2.*" --keys-only --format json | jq -e '.matchCount > 0'
+
+# Compare keys between versions (Git)
+lrm view "*" --keys-only --format simple --no-limit | sort > keys-current.txt
+git checkout v1.0 && lrm view "*" --keys-only --format simple --no-limit | sort > keys-v1.txt
+diff keys-current.txt keys-v1.txt
+```
+
+### Detecting Extra Keys in Translation Files
+
+When using culture filtering, the view command will warn you if translation files contain keys that don't exist in the default file:
+
+```bash
+# View Greek translations only
+lrm view "*" --cultures el
+
+# If el.resx has keys not in default, you'll see:
+# ⚠ Warning: Some filtered languages contain keys not in default:
+#   • Ελληνικά (el): 1 extra key(s)
+# Run 'lrm validate' to detect all inconsistencies
+```
+
+**Why this matters:**
+- The default language file should be the **master list** of all keys
+- Translation files should only contain translations of keys from default
+- Extra keys in translations indicate structural inconsistencies
+- These keys won't be accessible at runtime in most frameworks
+
+**How to fix:**
+1. Run `lrm validate` to see full details of all inconsistencies
+2. Either:
+   - **Add missing keys to default file** if they should exist
+   - **Remove extra keys from translation files** if they're mistakes
+3. Use `lrm sync` to automatically synchronize keys across languages
+
+**Note:** The warning only appears in Table and Simple output formats. JSON output remains machine-parseable without warnings.
 
 ---
 

@@ -8,7 +8,7 @@ using Xunit;
 
 namespace LocalizationManager.Tests.IntegrationTests;
 
-public class ViewCommandIntegrationTests : IDisposable
+public class ViewCommandIntegrationTests
 {
     private readonly string _testDirectory;
     private readonly ResourceFileParser _parser;
@@ -16,77 +16,11 @@ public class ViewCommandIntegrationTests : IDisposable
 
     public ViewCommandIntegrationTests()
     {
-        // Create temporary test directory
-        _testDirectory = Path.Combine(Path.GetTempPath(), $"LrmTests_{Guid.NewGuid()}");
-        Directory.CreateDirectory(_testDirectory);
+        // Use persistent TestData folder
+        _testDirectory = Path.Combine(AppContext.BaseDirectory, "TestData");
 
         _parser = new ResourceFileParser();
         _discovery = new ResourceDiscovery();
-
-        // Create initial test resource files
-        CreateInitialResourceFiles();
-    }
-
-    private void CreateInitialResourceFiles()
-    {
-        // Create default resource file with various keys
-        var defaultFile = new ResourceFile
-        {
-            Language = new LanguageInfo
-            {
-                BaseName = "TestResource",
-                Code = "",
-                Name = "English (Default)",
-                IsDefault = true,
-                FilePath = Path.Combine(_testDirectory, "TestResource.resx")
-            },
-            Entries = new List<ResourceEntry>
-            {
-                new() { Key = "Error.NotFound", Value = "Item not found", Comment = "Error message" },
-                new() { Key = "Error.Validation", Value = "Validation failed" },
-                new() { Key = "Error.Unauthorized", Value = "Access denied" },
-                new() { Key = "Success.Save", Value = "Saved successfully" },
-                new() { Key = "Success.Delete", Value = "Deleted successfully" },
-                new() { Key = "Button.Cancel", Value = "Cancel" },
-                new() { Key = "Button.Submit", Value = "Submit" },
-                new() { Key = "Label.Name", Value = "Name" },
-                new() { Key = "Label.Email", Value = "Email" },
-                new() { Key = "Item1", Value = "First item" },
-                new() { Key = "Item2", Value = "Second item" },
-                new() { Key = "Item3", Value = "Third item" }
-            }
-        };
-
-        // Create Greek resource file
-        var greekFile = new ResourceFile
-        {
-            Language = new LanguageInfo
-            {
-                BaseName = "TestResource",
-                Code = "el",
-                Name = "Ελληνικά (el)",
-                IsDefault = false,
-                FilePath = Path.Combine(_testDirectory, "TestResource.el.resx")
-            },
-            Entries = new List<ResourceEntry>
-            {
-                new() { Key = "Error.NotFound", Value = "Δεν βρέθηκε", Comment = "Error message" },
-                new() { Key = "Error.Validation", Value = "Αποτυχία επικύρωσης" },
-                new() { Key = "Error.Unauthorized", Value = "Άρνηση πρόσβασης" },
-                new() { Key = "Success.Save", Value = "Αποθηκεύτηκε επιτυχώς" },
-                new() { Key = "Success.Delete", Value = "Διαγράφηκε επιτυχώς" },
-                new() { Key = "Button.Cancel", Value = "Ακύρωση" },
-                new() { Key = "Button.Submit", Value = "Υποβολή" },
-                new() { Key = "Label.Name", Value = "Όνομα" },
-                new() { Key = "Label.Email", Value = "Email" },
-                new() { Key = "Item1", Value = "Πρώτο στοιχείο" },
-                new() { Key = "Item2", Value = "Δεύτερο στοιχείο" },
-                new() { Key = "Item3", Value = "Τρίτο στοιχείο" }
-            }
-        };
-
-        _parser.Write(defaultFile);
-        _parser.Write(greekFile);
     }
 
     [Fact]
@@ -337,7 +271,7 @@ public class ViewCommandIntegrationTests : IDisposable
             .ToList();
 
         // Assert
-        Assert.Equal(12, matchedKeys.Count); // All keys
+        Assert.Equal(17, matchedKeys.Count); // All keys
     }
 
     [Fact]
@@ -509,12 +443,369 @@ public class ViewCommandIntegrationTests : IDisposable
         Assert.False(Commands.ViewCommand.IsWildcardPattern("Test\\?Key"));
     }
 
-    public void Dispose()
+    // Culture Filtering Tests
+
+    [Fact]
+    public void ParseCultureCodes_ParsesCommaSeparatedCodes()
     {
-        // Cleanup test directory
-        if (Directory.Exists(_testDirectory))
+        // Arrange & Act
+        var result = Commands.ViewCommand.ParseCultureCodes("en,fr,el");
+
+        // Assert
+        Assert.Equal(3, result.Count);
+        Assert.Contains("en", result);
+        Assert.Contains("fr", result);
+        Assert.Contains("el", result);
+    }
+
+    [Fact]
+    public void ParseCultureCodes_HandlesWhitespaceAndDuplicates()
+    {
+        // Arrange & Act
+        var result = Commands.ViewCommand.ParseCultureCodes("en, fr , el, en");
+
+        // Assert
+        Assert.Equal(3, result.Count);
+        Assert.Contains("en", result);
+        Assert.Contains("fr", result);
+        Assert.Contains("el", result);
+    }
+
+    [Fact]
+    public void ParseCultureCodes_ReturnsEmptyForNullOrEmpty()
+    {
+        // Arrange & Act & Assert
+        Assert.Empty(Commands.ViewCommand.ParseCultureCodes(null));
+        Assert.Empty(Commands.ViewCommand.ParseCultureCodes(""));
+        Assert.Empty(Commands.ViewCommand.ParseCultureCodes("   "));
+    }
+
+    [Fact]
+    public void FilterResourceFiles_IncludesCultures()
+    {
+        // Arrange
+        var languages = _discovery.DiscoverLanguages(_testDirectory);
+        var files = languages.Select(l => _parser.Parse(l)).ToList();
+        var settings = new Commands.ViewCommand.Settings
         {
-            Directory.Delete(_testDirectory, true);
+            Key = "test",
+            Cultures = "el,fr"
+        };
+
+        // Act
+        var result = Commands.ViewCommand.FilterResourceFiles(files, settings, out var invalidCodes);
+
+        // Assert
+        Assert.Equal(2, result.Count);
+        Assert.Contains(result, f => f.Language.Code == "el");
+        Assert.Contains(result, f => f.Language.Code == "fr");
+        Assert.DoesNotContain(result, f => f.Language.IsDefault);
+        Assert.Empty(invalidCodes);
+    }
+
+    [Fact]
+    public void FilterResourceFiles_IncludesDefault()
+    {
+        // Arrange
+        var languages = _discovery.DiscoverLanguages(_testDirectory);
+        var files = languages.Select(l => _parser.Parse(l)).ToList();
+        var settings = new Commands.ViewCommand.Settings
+        {
+            Key = "test",
+            Cultures = "default,el"
+        };
+
+        // Act
+        var result = Commands.ViewCommand.FilterResourceFiles(files, settings, out var invalidCodes);
+
+        // Assert
+        Assert.Equal(2, result.Count);
+        Assert.Contains(result, f => f.Language.IsDefault);
+        Assert.Contains(result, f => f.Language.Code == "el");
+        Assert.Empty(invalidCodes);
+    }
+
+    [Fact]
+    public void FilterResourceFiles_ExcludesCultures()
+    {
+        // Arrange
+        var languages = _discovery.DiscoverLanguages(_testDirectory);
+        var files = languages.Select(l => _parser.Parse(l)).ToList();
+        var settings = new Commands.ViewCommand.Settings
+        {
+            Key = "test",
+            ExcludeCultures = "el"
+        };
+
+        // Act
+        var result = Commands.ViewCommand.FilterResourceFiles(files, settings, out var invalidCodes);
+
+        // Assert
+        Assert.Equal(2, result.Count);
+        Assert.DoesNotContain(result, f => f.Language.Code == "el");
+        Assert.Contains(result, f => f.Language.IsDefault);
+        Assert.Contains(result, f => f.Language.Code == "fr");
+        Assert.Empty(invalidCodes);
+    }
+
+    [Fact]
+    public void FilterResourceFiles_ExcludesDefault()
+    {
+        // Arrange
+        var languages = _discovery.DiscoverLanguages(_testDirectory);
+        var files = languages.Select(l => _parser.Parse(l)).ToList();
+        var settings = new Commands.ViewCommand.Settings
+        {
+            Key = "test",
+            ExcludeCultures = "default"
+        };
+
+        // Act
+        var result = Commands.ViewCommand.FilterResourceFiles(files, settings, out var invalidCodes);
+
+        // Assert
+        Assert.Equal(2, result.Count);
+        Assert.DoesNotContain(result, f => f.Language.IsDefault);
+        Assert.Contains(result, f => f.Language.Code == "el");
+        Assert.Contains(result, f => f.Language.Code == "fr");
+        Assert.Empty(invalidCodes);
+    }
+
+    [Fact]
+    public void FilterResourceFiles_CombinesIncludeAndExclude()
+    {
+        // Arrange
+        var languages = _discovery.DiscoverLanguages(_testDirectory);
+        var files = languages.Select(l => _parser.Parse(l)).ToList();
+        var settings = new Commands.ViewCommand.Settings
+        {
+            Key = "test",
+            Cultures = "default,el",
+            ExcludeCultures = "el"
+        };
+
+        // Act
+        var result = Commands.ViewCommand.FilterResourceFiles(files, settings, out var invalidCodes);
+
+        // Assert - Include filters first, then exclude removes el, leaving only default
+        Assert.Single(result);
+        Assert.Contains(result, f => f.Language.IsDefault);
+        Assert.DoesNotContain(result, f => f.Language.Code == "el");
+        Assert.Empty(invalidCodes);
+    }
+
+    [Fact]
+    public void FilterResourceFiles_DetectsInvalidCodes()
+    {
+        // Arrange
+        var languages = _discovery.DiscoverLanguages(_testDirectory);
+        var files = languages.Select(l => _parser.Parse(l)).ToList();
+        var settings = new Commands.ViewCommand.Settings
+        {
+            Key = "test",
+            Cultures = "en,de,zh"
+        };
+
+        // Act
+        var result = Commands.ViewCommand.FilterResourceFiles(files, settings, out var invalidCodes);
+
+        // Assert
+        Assert.Empty(result); // No files match en, de, or zh
+        Assert.Equal(3, invalidCodes.Count);
+        Assert.Contains("en", invalidCodes);
+        Assert.Contains("de", invalidCodes);
+        Assert.Contains("zh", invalidCodes);
+    }
+
+    [Fact]
+    public void IsKeysOnlyMode_TrueWhenKeysOnlyFlag()
+    {
+        // Arrange
+        var languages = _discovery.DiscoverLanguages(_testDirectory);
+        var files = languages.Select(l => _parser.Parse(l)).ToList();
+        var settings = new Commands.ViewCommand.Settings
+        {
+            Key = "test",
+            KeysOnly = true
+        };
+
+        // Act & Assert
+        Assert.True(Commands.ViewCommand.IsKeysOnlyMode(settings, files));
+    }
+
+    [Fact]
+    public void IsKeysOnlyMode_TrueWhenNoTranslationsFlag()
+    {
+        // Arrange
+        var languages = _discovery.DiscoverLanguages(_testDirectory);
+        var files = languages.Select(l => _parser.Parse(l)).ToList();
+        var settings = new Commands.ViewCommand.Settings
+        {
+            Key = "test",
+            NoTranslations = true
+        };
+
+        // Act & Assert
+        Assert.True(Commands.ViewCommand.IsKeysOnlyMode(settings, files));
+    }
+
+    [Fact]
+    public void IsKeysOnlyMode_TrueWhenNoResourceFiles()
+    {
+        // Arrange
+        var settings = new Commands.ViewCommand.Settings
+        {
+            Key = "test"
+        };
+
+        // Act & Assert
+        Assert.True(Commands.ViewCommand.IsKeysOnlyMode(settings, new List<ResourceFile>()));
+    }
+
+    [Fact]
+    public void IsKeysOnlyMode_FalseWhenNormalMode()
+    {
+        // Arrange
+        var languages = _discovery.DiscoverLanguages(_testDirectory);
+        var files = languages.Select(l => _parser.Parse(l)).ToList();
+        var settings = new Commands.ViewCommand.Settings
+        {
+            Key = "test"
+        };
+
+        // Act & Assert
+        Assert.False(Commands.ViewCommand.IsKeysOnlyMode(settings, files));
+    }
+
+    [Fact]
+    public void TestSetup_CreatesThreeLanguageFiles()
+    {
+        // Arrange & Act
+        var languages = _discovery.DiscoverLanguages(_testDirectory);
+        var physicalFiles = Directory.GetFiles(_testDirectory, "*.resx");
+
+        // Assert
+        Assert.Equal(3, languages.Count);
+        Assert.Equal(3, physicalFiles.Length);
+        Assert.Contains(languages, l => l.IsDefault);
+        Assert.Contains(languages, l => l.Code == "el");
+        Assert.Contains(languages, l => l.Code == "fr");
+    }
+
+    // Extra Keys Detection Tests
+
+    [Fact]
+    public void DetectExtraKeysInFilteredFiles_FindsKeysNotInDefault()
+    {
+        // Arrange
+        var languages = _discovery.DiscoverLanguages(_testDirectory);
+        var defaultFile = _parser.Parse(languages.First(l => l.IsDefault));
+        var elFile = _parser.Parse(languages.First(l => l.Code == "el"));
+
+        // Add an extra key to the el file for testing
+        elFile.Entries.Add(new Core.Models.ResourceEntry
+        {
+            Key = "ExtraGreekKey",
+            Value = "Greek only value"
+        });
+
+        var filteredFiles = new List<Core.Models.ResourceFile> { defaultFile, elFile };
+
+        // Act
+        var result = Commands.ViewCommand.DetectExtraKeysInFilteredFiles(defaultFile, filteredFiles);
+
+        // Assert
+        Assert.Single(result);
+        Assert.Contains("el", result.Keys.First()); // Language name contains "el"
+        Assert.Equal(2, result.Values.First().Count); // MissingInDefault + ExtraGreekKey
+        Assert.Contains("ExtraGreekKey", result.Values.First());
+        Assert.Contains("MissingInDefault", result.Values.First());
+    }
+
+    [Fact]
+    public void DetectExtraKeysInFilteredFiles_IgnoresDefaultFile()
+    {
+        // Arrange
+        var languages = _discovery.DiscoverLanguages(_testDirectory);
+        var defaultFile = _parser.Parse(languages.First(l => l.IsDefault));
+
+        // Add an extra key to the default file
+        defaultFile.Entries.Add(new Core.Models.ResourceEntry
+        {
+            Key = "ExtraDefaultKey",
+            Value = "Default only value"
+        });
+
+        var filteredFiles = new List<Core.Models.ResourceFile> { defaultFile };
+
+        // Act
+        var result = Commands.ViewCommand.DetectExtraKeysInFilteredFiles(defaultFile, filteredFiles);
+
+        // Assert
+        // Default file's extra keys should not be reported (even though it's in filteredFiles)
+        Assert.Empty(result);
+    }
+
+    [Fact]
+    public void DetectExtraKeysInFilteredFiles_DetectsMissingInDefaultKey()
+    {
+        // Arrange
+        var languages = _discovery.DiscoverLanguages(_testDirectory);
+        var defaultFile = _parser.Parse(languages.First(l => l.IsDefault));
+        var files = languages.Select(l => _parser.Parse(l)).ToList();
+
+        // Act
+        var result = Commands.ViewCommand.DetectExtraKeysInFilteredFiles(defaultFile, files);
+
+        // Assert
+        // Our test data has "MissingInDefault" key in el.resx and fr.resx but not in default
+        Assert.Equal(2, result.Count);
+        Assert.All(result.Values, keys => Assert.Contains("MissingInDefault", keys));
+
+        // Verify the keys really don't exist in default
+        foreach (var kvp in result)
+        {
+            foreach (var key in kvp.Value)
+            {
+                Assert.DoesNotContain(defaultFile.Entries, e => e.Key == key);
+            }
         }
+    }
+
+    [Fact]
+    public void DetectExtraKeysInFilteredFiles_HandleMultipleLanguages()
+    {
+        // Arrange
+        var languages = _discovery.DiscoverLanguages(_testDirectory);
+        var defaultFile = _parser.Parse(languages.First(l => l.IsDefault));
+        var elFile = _parser.Parse(languages.First(l => l.Code == "el"));
+        var frFile = _parser.Parse(languages.First(l => l.Code == "fr"));
+
+        // Add extra keys to both non-default files
+        elFile.Entries.Add(new Core.Models.ResourceEntry
+        {
+            Key = "ExtraGreekKey",
+            Value = "Greek only"
+        });
+
+        frFile.Entries.Add(new Core.Models.ResourceEntry
+        {
+            Key = "ExtraFrenchKey",
+            Value = "French only"
+        });
+
+        var filteredFiles = new List<Core.Models.ResourceFile> { defaultFile, elFile, frFile };
+
+        // Act
+        var result = Commands.ViewCommand.DetectExtraKeysInFilteredFiles(defaultFile, filteredFiles);
+
+        // Assert
+        Assert.Equal(2, result.Count);
+        // Check for el language (contains "el" in name)
+        Assert.Contains(result, kvp => kvp.Key.Contains("el") && kvp.Value.Contains("ExtraGreekKey"));
+        // Check for fr language (contains "fr" in name)
+        Assert.Contains(result, kvp => kvp.Key.Contains("fr") && kvp.Value.Contains("ExtraFrenchKey"));
+        // Both should also have MissingInDefault from test data
+        Assert.All(result.Values, keys => Assert.Contains("MissingInDefault", keys));
     }
 }

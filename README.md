@@ -121,6 +121,12 @@ lrm view "Button.*" --sort
 # View keys ending with .Text
 lrm view "*.Text"
 
+# View only specific cultures
+lrm view "Error.*" --cultures en,fr
+
+# Get only key names (for automation)
+lrm view "Button.*" --keys-only --format json
+
 # Add a new key
 lrm add NewKey -i
 

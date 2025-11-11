@@ -60,6 +60,22 @@ public class ViewCommand : Command<ViewCommand.Settings>
         [CommandOption("--sort")]
         [Description("Sort matched keys alphabetically")]
         public bool Sort { get; set; }
+
+        [CommandOption("--cultures <CODES>")]
+        [Description("Include only specific cultures (comma-separated, e.g., en,fr,el,default)")]
+        public string? Cultures { get; set; }
+
+        [CommandOption("--exclude <CODES>")]
+        [Description("Exclude specific cultures (comma-separated, e.g., el,fr,default)")]
+        public string? ExcludeCultures { get; set; }
+
+        [CommandOption("--keys-only")]
+        [Description("Output only key names without translations")]
+        public bool KeysOnly { get; set; }
+
+        [CommandOption("--no-translations")]
+        [Description("Alias for --keys-only")]
+        public bool NoTranslations { get; set; }
     }
 
     public override int Execute(CommandContext context, Settings settings, CancellationToken cancellationToken = default)
@@ -185,6 +201,50 @@ public class ViewCommand : Command<ViewCommand.Settings>
                 matchedKeys = matchedKeys.Take(effectiveLimit).ToList();
             }
 
+            // Apply culture filtering
+            List<string> invalidCodes;
+            if (!string.IsNullOrEmpty(settings.Cultures) || !string.IsNullOrEmpty(settings.ExcludeCultures))
+            {
+                var originalCount = resourceFiles.Count;
+                resourceFiles = FilterResourceFiles(resourceFiles, settings, out invalidCodes);
+
+                // Warn about invalid culture codes
+                if (invalidCodes.Any())
+                {
+                    if (format == OutputFormat.Table)
+                    {
+                        AnsiConsole.MarkupLine($"[yellow]⚠ Unknown culture code(s): {string.Join(", ", invalidCodes)}[/]");
+                        AnsiConsole.WriteLine();
+                    }
+                }
+
+                // Inform when auto keys-only mode activates
+                if (resourceFiles.Count == 0 && !settings.KeysOnly && !settings.NoTranslations)
+                {
+                    if (format == OutputFormat.Table)
+                    {
+                        AnsiConsole.MarkupLine("[yellow]⚠ All cultures filtered out - showing keys only[/]");
+                        AnsiConsole.WriteLine();
+                    }
+                }
+            }
+
+            // Detect extra keys in filtered languages (not in default)
+            var extraKeys = DetectExtraKeysInFilteredFiles(defaultFile, resourceFiles);
+            if (extraKeys.Any())
+            {
+                if (format == OutputFormat.Table || format == OutputFormat.Simple)
+                {
+                    AnsiConsole.MarkupLine("[yellow]⚠ Warning: Some filtered languages contain keys not in default:[/]");
+                    foreach (var kvp in extraKeys)
+                    {
+                        AnsiConsole.MarkupLine($"  [yellow]• {kvp.Key}: {kvp.Value.Count} extra key(s)[/]");
+                    }
+                    AnsiConsole.MarkupLine("[dim]Run 'lrm validate' to detect all inconsistencies[/]");
+                    AnsiConsole.WriteLine();
+                }
+            }
+
             // Check if we have any matches
             if (matchedKeys.Count == 0)
             {
@@ -237,87 +297,49 @@ public class ViewCommand : Command<ViewCommand.Settings>
     {
         DisplayConfigNotice(settings);
 
-        if (keys.Count == 1)
-        {
-            // Single key - use backward compatible format
-            DisplaySingleKeyTable(keys[0], resourceFiles, showComments);
-        }
-        else
-        {
-            // Multiple keys - new grouped format
-            DisplayMultipleKeysTable(keys, resourceFiles, showComments, settings, usedWildcards, originalPattern);
-        }
-    }
-
-    private void DisplaySingleKeyTable(string key, List<Core.Models.ResourceFile> resourceFiles, bool showComments)
-    {
-        AnsiConsole.MarkupLine($"[yellow]Key:[/] [bold]{Markup.Escape(key)}[/]");
-        AnsiConsole.WriteLine();
-
-        var table = new Table();
-        table.AddColumn("Language");
-        table.AddColumn("Value");
-        if (showComments)
-        {
-            table.AddColumn("Comment");
-        }
-
-        foreach (var rf in resourceFiles)
-        {
-            var entry = rf.Entries.FirstOrDefault(e => e.Key == key);
-            if (entry != null)
-            {
-                var langName = rf.Language.IsDefault
-                    ? $"{rf.Language.Name} [yellow](default)[/]"
-                    : rf.Language.Name;
-
-                var value = entry.IsEmpty
-                    ? "[dim](empty)[/]"
-                    : entry.Value;
-
-                if (showComments)
-                {
-                    var comment = string.IsNullOrWhiteSpace(entry.Comment)
-                        ? "[dim](no comment)[/]"
-                        : entry.Comment;
-                    table.AddRow(langName, value ?? "", comment);
-                }
-                else
-                {
-                    table.AddRow(langName, value ?? "");
-                }
-            }
-            else
-            {
-                var langName = rf.Language.IsDefault
-                    ? $"{rf.Language.Name} [yellow](default)[/]"
-                    : rf.Language.Name;
-
-                if (showComments)
-                {
-                    table.AddRow(langName, "[red](missing)[/]", "[dim](no comment)[/]");
-                }
-                else
-                {
-                    table.AddRow(langName, "[red](missing)[/]");
-                }
-            }
-        }
-
-        AnsiConsole.Write(table);
-        AnsiConsole.WriteLine();
-
-        // Show statistics
-        var total = resourceFiles.Count;
-        var present = resourceFiles.Count(rf => rf.Entries.Any(e => e.Key == key));
-        var empty = resourceFiles.Count(rf => rf.Entries.Any(e => e.Key == key && e.IsEmpty));
-
-        AnsiConsole.MarkupLine($"[dim]Present in {present}/{total} language(s), {empty} empty value(s)[/]");
+        // Always use array format for consistency
+        DisplayMultipleKeysTable(keys, resourceFiles, showComments, settings, usedWildcards, originalPattern);
     }
 
     private void DisplayMultipleKeysTable(List<string> keys, List<Core.Models.ResourceFile> resourceFiles, bool showComments, Settings settings, bool usedWildcards, string originalPattern)
     {
-        string patternDisplay;
+        // Check if keys-only mode
+        if (IsKeysOnlyMode(settings, resourceFiles))
+        {
+            string patternDisplay;
+            if (usedWildcards)
+            {
+                patternDisplay = $"Pattern: {Markup.Escape(originalPattern)} [dim](wildcard)[/]";
+            }
+            else if (settings.UseRegex)
+            {
+                patternDisplay = $"Pattern: {Markup.Escape(originalPattern)} [dim](regex)[/]";
+            }
+            else
+            {
+                patternDisplay = $"Keys: {keys.Count}";
+            }
+
+            AnsiConsole.MarkupLine($"[yellow]{patternDisplay}[/]");
+            AnsiConsole.MarkupLine($"[dim]Matched {keys.Count} key(s)[/]");
+            AnsiConsole.WriteLine();
+
+            var table = new Table();
+            table.AddColumn("Key");
+
+            foreach (var key in keys)
+            {
+                table.AddRow(key);
+            }
+
+            AnsiConsole.Write(table);
+            AnsiConsole.WriteLine();
+            AnsiConsole.MarkupLine($"[dim]Showing {keys.Count} key(s)[/]");
+        }
+        else
+        {
+            // Normal mode with translations
+            string patternDisplay;
         if (usedWildcards)
         {
             // Escape pattern to prevent Spectre.Console markup interpretation
@@ -375,60 +397,44 @@ public class ViewCommand : Command<ViewCommand.Settings>
             }
         }
 
-        AnsiConsole.Write(table);
-        AnsiConsole.WriteLine();
-        AnsiConsole.MarkupLine($"[dim]Showing {keys.Count} key(s) across {resourceFiles.Count} language(s)[/]");
+            AnsiConsole.Write(table);
+            AnsiConsole.WriteLine();
+            AnsiConsole.MarkupLine($"[dim]Showing {keys.Count} key(s) across {resourceFiles.Count} language(s)[/]");
+        }
     }
 
     private void DisplayJson(List<string> keys, List<Core.Models.ResourceFile> resourceFiles, bool showComments, Settings settings, bool usedWildcards, string originalPattern)
     {
-        if (keys.Count == 1)
-        {
-            // Single key - backward compatible format
-            DisplaySingleKeyJson(keys[0], resourceFiles, showComments);
-        }
-        else
-        {
-            // Multiple keys - array format
-            DisplayMultipleKeysJson(keys, resourceFiles, showComments, settings, usedWildcards, originalPattern);
-        }
-    }
-
-    private void DisplaySingleKeyJson(string key, List<Core.Models.ResourceFile> resourceFiles, bool showComments)
-    {
-        var translations = new Dictionary<string, object?>();
-
-        foreach (var rf in resourceFiles)
-        {
-            var entry = rf.Entries.FirstOrDefault(e => e.Key == key);
-            var langCode = rf.Language.GetDisplayCode();
-
-            if (showComments && entry != null && !string.IsNullOrWhiteSpace(entry.Comment))
-            {
-                translations[langCode] = new
-                {
-                    value = entry.Value,
-                    comment = entry.Comment
-                };
-            }
-            else
-            {
-                translations[langCode] = entry?.Value;
-            }
-        }
-
-        var output = new
-        {
-            key = key,
-            translations = translations
-        };
-
-        Console.WriteLine(OutputFormatter.FormatJson(output));
+        // Always use array format for consistency
+        DisplayMultipleKeysJson(keys, resourceFiles, showComments, settings, usedWildcards, originalPattern);
     }
 
     private void DisplayMultipleKeysJson(List<string> keys, List<Core.Models.ResourceFile> resourceFiles, bool showComments, Settings settings, bool usedWildcards, string originalPattern)
     {
-        var keyObjects = new List<object>();
+        // Check if keys-only mode
+        if (IsKeysOnlyMode(settings, resourceFiles))
+        {
+            // Use same structure but with empty translations for consistency
+            var keyObjects = keys.Select(k => new
+            {
+                key = k,
+                translations = new Dictionary<string, object?>()
+            }).ToList();
+
+            var output = new
+            {
+                pattern = settings.UseRegex || usedWildcards ? originalPattern : (string?)null,
+                patternType = usedWildcards ? "wildcard" : (settings.UseRegex ? "regex" : (string?)null),
+                matchCount = keys.Count,
+                keys = keyObjects
+            };
+
+            Console.WriteLine(OutputFormatter.FormatJson(output));
+        }
+        else
+        {
+            // Normal mode with translations
+            var keyObjects = new List<object>();
 
         foreach (var key in keys)
         {
@@ -467,46 +473,50 @@ public class ViewCommand : Command<ViewCommand.Settings>
             keys = keyObjects
         };
 
-        Console.WriteLine(OutputFormatter.FormatJson(output));
+            Console.WriteLine(OutputFormatter.FormatJson(output));
+        }
     }
 
     private void DisplaySimple(List<string> keys, List<Core.Models.ResourceFile> resourceFiles, bool showComments, Settings settings, bool usedWildcards, string originalPattern)
     {
-        if (keys.Count == 1)
-        {
-            // Single key - backward compatible format
-            DisplaySingleKeySimple(keys[0], resourceFiles, showComments);
-        }
-        else
-        {
-            // Multiple keys
-            DisplayMultipleKeysSimple(keys, resourceFiles, showComments, settings, usedWildcards, originalPattern);
-        }
-    }
+        DisplayConfigNotice(settings);
 
-    private void DisplaySingleKeySimple(string key, List<Core.Models.ResourceFile> resourceFiles, bool showComments)
-    {
-        Console.WriteLine($"Key: {key}");
-        Console.WriteLine();
-
-        foreach (var rf in resourceFiles)
-        {
-            var entry = rf.Entries.FirstOrDefault(e => e.Key == key);
-            var langLabel = rf.Language.IsDefault ? $"{rf.Language.Name} (default)" : rf.Language.Name;
-            var value = entry?.Value ?? "(missing)";
-
-            Console.WriteLine($"{langLabel}: {value}");
-
-            if (showComments && entry != null && !string.IsNullOrWhiteSpace(entry.Comment))
-            {
-                Console.WriteLine($"  Comment: {entry.Comment}");
-            }
-        }
+        // Always use array format for consistency
+        DisplayMultipleKeysSimple(keys, resourceFiles, showComments, settings, usedWildcards, originalPattern);
     }
 
     private void DisplayMultipleKeysSimple(List<string> keys, List<Core.Models.ResourceFile> resourceFiles, bool showComments, Settings settings, bool usedWildcards, string originalPattern)
     {
-        string patternDisplay;
+        // Check if keys-only mode
+        if (IsKeysOnlyMode(settings, resourceFiles))
+        {
+            string patternDisplay;
+            if (usedWildcards)
+            {
+                patternDisplay = $"Pattern: {originalPattern} (wildcard)";
+            }
+            else if (settings.UseRegex)
+            {
+                patternDisplay = $"Pattern: {originalPattern} (regex)";
+            }
+            else
+            {
+                patternDisplay = $"Keys: {keys.Count}";
+            }
+
+            Console.WriteLine(patternDisplay);
+            Console.WriteLine($"Matched {keys.Count} key(s)");
+            Console.WriteLine();
+
+            foreach (var key in keys)
+            {
+                Console.WriteLine(key);
+            }
+        }
+        else
+        {
+            // Normal mode with translations
+            string patternDisplay;
         if (usedWildcards)
         {
             patternDisplay = $"Pattern: {originalPattern} (wildcard)";
@@ -550,6 +560,7 @@ public class ViewCommand : Command<ViewCommand.Settings>
             {
                 Console.WriteLine();
             }
+        }
         }
     }
 
@@ -631,5 +642,124 @@ public class ViewCommand : Command<ViewCommand.Settings>
 
         // Anchor to match entire string
         return "^" + result.ToString() + "$";
+    }
+
+    /// <summary>
+    /// Parse and normalize comma-separated culture codes
+    /// </summary>
+    internal static List<string> ParseCultureCodes(string? cultureString)
+    {
+        if (string.IsNullOrWhiteSpace(cultureString))
+        {
+            return new List<string>();
+        }
+
+        return cultureString
+            .Split(',', StringSplitOptions.RemoveEmptyEntries)
+            .Select(c => c.Trim().ToLowerInvariant())
+            .Where(c => !string.IsNullOrEmpty(c))
+            .Distinct()
+            .ToList();
+    }
+
+    /// <summary>
+    /// Determine if keys-only mode should be used
+    /// </summary>
+    internal static bool IsKeysOnlyMode(Settings settings, List<Core.Models.ResourceFile> resourceFiles)
+    {
+        // Explicit flags
+        if (settings.KeysOnly || settings.NoTranslations)
+        {
+            return true;
+        }
+
+        // Implicit: no languages remain after filtering
+        if (resourceFiles.Count == 0)
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Filter resource files based on culture include/exclude settings
+    /// </summary>
+    internal static List<Core.Models.ResourceFile> FilterResourceFiles(
+        List<Core.Models.ResourceFile> files,
+        Settings settings,
+        out List<string> invalidCodes)
+    {
+        invalidCodes = new List<string>();
+        var result = files;
+
+        // Parse culture codes
+        var includeCodes = ParseCultureCodes(settings.Cultures);
+        var excludeCodes = ParseCultureCodes(settings.ExcludeCultures);
+
+        // Validate culture codes and collect invalid ones
+        var allLanguageCodes = files.Select(f => f.Language.Code.ToLowerInvariant()).ToList();
+        if (files.Any(f => f.Language.IsDefault))
+        {
+            allLanguageCodes.Add("default");
+        }
+
+        foreach (var code in includeCodes.Concat(excludeCodes))
+        {
+            if (code != "default" && !allLanguageCodes.Contains(code))
+            {
+                invalidCodes.Add(code);
+            }
+        }
+
+        // Apply include filter (whitelist)
+        if (includeCodes.Any())
+        {
+            result = result.Where(rf =>
+                (includeCodes.Contains("default") && rf.Language.IsDefault) ||
+                includeCodes.Contains(rf.Language.Code.ToLowerInvariant())
+            ).ToList();
+        }
+
+        // Apply exclude filter (blacklist)
+        if (excludeCodes.Any())
+        {
+            result = result.Where(rf =>
+                !(excludeCodes.Contains("default") && rf.Language.IsDefault) &&
+                !excludeCodes.Contains(rf.Language.Code.ToLowerInvariant())
+            ).ToList();
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Detect keys that exist in filtered resource files but not in the default file.
+    /// This helps identify structural inconsistencies where translation files have extra keys.
+    /// </summary>
+    internal static Dictionary<string, List<string>> DetectExtraKeysInFilteredFiles(
+        Core.Models.ResourceFile defaultFile,
+        List<Core.Models.ResourceFile> filteredResourceFiles)
+    {
+        var result = new Dictionary<string, List<string>>();
+
+        // Get all keys from default file for fast lookup
+        var defaultKeys = new HashSet<string>(defaultFile.Entries.Select(e => e.Key));
+
+        // Check each filtered resource file (excluding default)
+        foreach (var resourceFile in filteredResourceFiles.Where(rf => !rf.Language.IsDefault))
+        {
+            var extraKeys = resourceFile.Entries
+                .Select(e => e.Key)
+                .Where(key => !defaultKeys.Contains(key))
+                .ToList();
+
+            if (extraKeys.Any())
+            {
+                result[resourceFile.Language.Name] = extraKeys;
+            }
+        }
+
+        return result;
     }
 }

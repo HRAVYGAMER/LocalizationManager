@@ -160,6 +160,10 @@ Summary Table:
 - `--limit <COUNT>` - Maximum number of keys to display (default: 100, 0 for no limit)
 - `--no-limit` - Show all matches without limit (same as --limit 0)
 - `--sort` - Sort matched keys alphabetically
+- `--cultures <CODES>` - Include only specific cultures (comma-separated, e.g., `en,fr,el,default`)
+- `--exclude <CODES>` - Exclude specific cultures (comma-separated)
+- `--keys-only` - Output only key names without translations
+- `--no-translations` - Alias for `--keys-only`
 
 **Modes:**
 - **Exact match (default):** View a single specific key
@@ -244,6 +248,57 @@ lrm view ".*Label.*" --regex --limit 50
 lrm view "Error\..*" --regex --format json
 ```
 
+**Culture Filtering:**
+```bash
+# Show only English translations
+lrm view "Error.*" --cultures en
+
+# Show default and Greek only
+lrm view "Button.*" --cultures default,el
+
+# Show all except French
+lrm view "Success.*" --exclude fr
+
+# Show only French and Greek (exclude default)
+lrm view "*" --cultures el,fr --limit 50
+
+# Complex: include English and Greek, but exclude English
+lrm view "Label.*" --cultures en,el --exclude en  # Results in only el
+```
+
+**Keys-Only Output (for automation):**
+```bash
+# Get only key names (explicit)
+lrm view "Error.*" --keys-only
+
+# Alternative syntax
+lrm view "Api.*" --no-translations
+
+# Auto keys-only: exclude all cultures
+lrm view "Button.*" --exclude default,en,el,fr
+
+# Keys-only with JSON for scripting
+lrm view "Error.*" --keys-only --format json
+# Output: {"matchCount": 3, "keys": [{"key": "Error.NotFound", "translations": {}}, ...]}
+
+# Keys-only with simple format
+lrm view "*" --keys-only --format simple --limit 10
+# Output: Plain list of key names
+```
+
+**Extra Keys Warning:**
+
+The view command will warn you if filtered language files contain keys that don't exist in the default file:
+
+```bash
+lrm view "*" --cultures el
+# ⚠ Warning: Some filtered languages contain keys not in default:
+#   • Ελληνικά (el): 1 extra key(s)
+# Run 'lrm validate' to detect all inconsistencies
+```
+
+This helps identify structural inconsistencies where translation files have extra keys that shouldn't exist. The default language file should always be the master list of keys. Use the `validate` command for a comprehensive analysis of all inconsistencies.
+
 **Wildcards vs Regex:**
 
 Wildcards are simpler and more intuitive for most users:
@@ -262,21 +317,24 @@ The tool automatically detects wildcards if the pattern contains `*` or `?` but 
 
 **Output formats:**
 
-**Table (single key):**
+All output formats use a consistent structure regardless of the number of matched keys. This ensures reliable parsing in automation scripts.
+
+**Table format:**
 ```
-Key: SaveButton
+Keys: 1
+Matched 1 key(s)
 
-┌───────────┬────────┐
-│ Language  │ Value  │
-├───────────┼────────┤
-│ English   │ Save   │
-│ Greek     │ Σώσει  │
-└───────────┴────────┘
+┌───────────────────┬──────────────┬─────────────────┐
+│ Key               │ Language     │ Value           │
+├───────────────────┼──────────────┼─────────────────┤
+│ SaveButton        │ English      │ Save            │
+│                   │ Greek        │ Σώσει           │
+└───────────────────┴──────────────┴─────────────────┘
 
-Present in 2/2 language(s), 0 empty value(s)
+Showing 1 key(s) across 2 language(s)
 ```
 
-**Table (multiple keys with wildcard):**
+**Table format (with wildcard pattern):**
 ```
 Pattern: Error.* (wildcard)
 Matched 3 key(s)
@@ -297,21 +355,32 @@ Matched 3 key(s)
 Showing 3 key(s) across 2 language(s)
 ```
 
-**JSON (single key):**
+**JSON format:**
+
+All JSON output uses the same structure with a `keys` array for consistency:
+
 ```json
 {
-  "key": "SaveButton",
-  "translations": {
-    "default": "Save",
-    "el": "Σώσει"
-  }
+  "pattern": null,
+  "patternType": null,
+  "matchCount": 1,
+  "keys": [
+    {
+      "key": "SaveButton",
+      "translations": {
+        "default": "Save",
+        "el": "Σώσει"
+      }
+    }
+  ]
 }
 ```
 
-**JSON (multiple keys with regex):**
+**JSON format (with regex pattern):**
 ```json
 {
   "pattern": "Error\\..*",
+  "patternType": "regex",
   "matchCount": 3,
   "keys": [
     {
@@ -339,9 +408,19 @@ Showing 3 key(s) across 2 language(s)
 }
 ```
 
-**Simple (multiple keys):**
+**Simple format:**
 ```
-Pattern: Error\..*
+Keys: 1
+Matched 1 key(s)
+
+--- SaveButton ---
+English (default): Save
+Greek: Σώσει
+```
+
+**Simple format (with pattern):**
+```
+Pattern: Error\..* (regex)
 Matched 3 key(s)
 
 --- Error.NotFound ---

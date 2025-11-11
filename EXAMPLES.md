@@ -5,6 +5,7 @@ This document provides comprehensive examples of how to use the Localization Res
 ## Table of Contents
 
 - [Initial Setup](#initial-setup)
+- [Configuration File](#configuration-file)
 - [Validation Workflows](#validation-workflows)
 - [Viewing Keys](#viewing-keys)
 - [Adding New Keys](#adding-new-keys)
@@ -54,6 +55,83 @@ lrm stats
 # │ English (Default)│ 252   │ 100.0%   │ 45.2 KB  │
 # │ Ελληνικά (el)    │ 250   │ 99.2%    │ 44.8 KB  │
 # └──────────────────┴───────┴──────────┴──────────┘
+```
+
+---
+
+## Configuration File
+
+### Creating a Configuration File
+
+Create a `lrm.json` file in your Resources folder to customize LRM behavior:
+
+```bash
+cd /path/to/YourProject/Resources
+cat > lrm.json <<EOF
+{
+  "DefaultLanguageCode": "en"
+}
+EOF
+```
+
+### Configuration Options
+
+**DefaultLanguageCode** - Customize how the default language is displayed:
+
+```json
+{
+  "DefaultLanguageCode": "en"
+}
+```
+
+This changes display output from:
+```
+Default (default)
+```
+
+To:
+```
+Default (en)
+```
+
+**Scope:**
+- ✅ Affects: Table format, Simple format, TUI
+- ❌ Does not affect: JSON/CSV exports, internal logic, filtering
+
+### Using Configuration Files
+
+```bash
+# Auto-discovered configuration (recommended)
+# Place lrm.json in your Resources folder
+lrm validate --path ./Resources
+
+# Custom configuration file
+lrm validate --config-file ./my-config.json --path ./Resources
+
+# Configuration applies to all commands
+lrm stats --path ./Resources
+lrm view "ErrorMessage.*" --path ./Resources
+lrm edit --path ./Resources
+```
+
+### Example: Multi-Project Setup
+
+```bash
+# Project 1 - English default
+/ProjectA/Resources/lrm.json:
+{
+  "DefaultLanguageCode": "en"
+}
+
+# Project 2 - French default
+/ProjectB/Resources/lrm.json:
+{
+  "DefaultLanguageCode": "fr"
+}
+
+# LRM auto-discovers the right config for each project
+cd /ProjectA/Resources && lrm stats  # Shows (en)
+cd /ProjectB/Resources && lrm stats  # Shows (fr)
 ```
 
 ---

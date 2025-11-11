@@ -5,6 +5,7 @@ This document provides detailed information about all LRM commands, their option
 ## Table of Contents
 
 - [Global Options](#global-options)
+- [Configuration File](#configuration-file)
 - [validate](#validate) - Validate resource files
 - [stats](#stats) - Display statistics
 - [view](#view) - View key details
@@ -24,7 +25,42 @@ This document provides detailed information about all LRM commands, their option
 
 All commands support these options:
 - `-p, --path <PATH>` - Path to Resources folder (default: current directory)
+- `--config-file <PATH>` - Path to configuration file (optional)
 - `-h, --help` - Show command help
+
+---
+
+## Configuration File
+
+LRM supports a configuration file to customize behavior and avoid repeating options.
+
+**Location:**
+- Auto-discovered: `lrm.json` in the resource folder
+- Or specify explicitly with `--config-file` option
+
+**Example `lrm.json`:**
+```json
+{
+  "DefaultLanguageCode": "en"
+}
+```
+
+**Configuration Options:**
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `DefaultLanguageCode` | string | Language code to display for the default language (e.g., "en", "fr", "de"). If not set, displays "default". Only affects Table, Simple, and TUI display formats. Does not affect JSON/CSV exports or internal logic. |
+
+**Usage:**
+```bash
+# Auto-discover lrm.json in resource folder
+lrm validate --path ./Resources
+
+# Use specific config file
+lrm validate --config-file ./my-config.json --path ./Resources
+```
+
+**Note:** Configuration is loaded automatically if `lrm.json` exists in the resource path. The `--config-file` option loads a specific configuration file instead.
 
 ---
 

@@ -181,8 +181,12 @@ LRM supports configuration files to avoid repeating common options. Create a `lr
 
 ```json
 {
+  "DefaultLanguageCode": "en"
 }
 ```
+
+**Configuration Options:**
+- `DefaultLanguageCode` (string, optional): The language code to display for the default language (e.g., "en", "fr"). If not set, displays "default". Only affects display output in Table, Simple, and TUI formats. Does not affect JSON/CSV exports or internal logic.
 
 LRM will automatically discover and use `lrm.json` in the resource path, or you can specify a custom config file:
 

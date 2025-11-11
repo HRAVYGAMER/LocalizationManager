@@ -74,4 +74,41 @@
   <data name="TestDefaultKey" xml:space="preserve">
     <value>Δοκιμή Προεπιλογής</value>
   </data>
+  <data name="Error.NotFound" xml:space="preserve">
+    <value>Δεν βρέθηκε</value>
+    <comment>Error message</comment>
+  </data>
+  <data name="Error.Validation" xml:space="preserve">
+    <value>Αποτυχία επικύρωσης</value>
+  </data>
+  <data name="Error.Unauthorized" xml:space="preserve">
+    <value>Άρνηση πρόσβασης</value>
+  </data>
+  <data name="Success.Save" xml:space="preserve">
+    <value>Αποθηκεύτηκε επιτυχώς</value>
+  </data>
+  <data name="Success.Delete" xml:space="preserve">
+    <value>Διαγράφηκε επιτυχώς</value>
+  </data>
+  <data name="Button.Cancel" xml:space="preserve">
+    <value>Ακύρωση</value>
+  </data>
+  <data name="Button.Submit" xml:space="preserve">
+    <value>Υποβολή</value>
+  </data>
+  <data name="Label.Name" xml:space="preserve">
+    <value>Όνομα</value>
+  </data>
+  <data name="Label.Email" xml:space="preserve">
+    <value>Email</value>
+  </data>
+  <data name="Item1" xml:space="preserve">
+    <value>Πρώτο στοιχείο</value>
+  </data>
+  <data name="Item2" xml:space="preserve">
+    <value>Δεύτερο στοιχείο</value>
+  </data>
+  <data name="Item3" xml:space="preserve">
+    <value>Τρίτο στοιχείο</value>
+  </data>
 </root>

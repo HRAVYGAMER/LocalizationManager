@@ -59,56 +59,56 @@
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <data name="Save" xml:space="preserve">
-    <value>Save All</value>
+    <value>Enregistrer Tout</value>
     <comment>Save button label</comment>
   </data>
   <data name="Cancel" xml:space="preserve">
-    <value>Cancel</value>
+    <value>Annuler</value>
   </data>
   <data name="Welcome" xml:space="preserve">
-    <value>Welcome</value>
+    <value>Bienvenue</value>
   </data>
-  <data name="EmptyValue" xml:space="preserve">
-    <value></value>
+  <data name="MissingInDefault" xml:space="preserve">
+    <value>Clé supplémentaire pas dans le défaut</value>
   </data>
   <data name="TestDefaultKey" xml:space="preserve">
-    <value>Test Default</value>
+    <value>Test Par Défaut</value>
   </data>
   <data name="Error.NotFound" xml:space="preserve">
-    <value>Item not found</value>
+    <value>Élément non trouvé</value>
     <comment>Error message</comment>
   </data>
   <data name="Error.Validation" xml:space="preserve">
-    <value>Validation failed</value>
+    <value>Échec de la validation</value>
   </data>
   <data name="Error.Unauthorized" xml:space="preserve">
-    <value>Access denied</value>
+    <value>Accès refusé</value>
   </data>
   <data name="Success.Save" xml:space="preserve">
-    <value>Saved successfully</value>
+    <value>Enregistré avec succès</value>
   </data>
   <data name="Success.Delete" xml:space="preserve">
-    <value>Deleted successfully</value>
+    <value>Supprimé avec succès</value>
   </data>
   <data name="Button.Cancel" xml:space="preserve">
-    <value>Cancel</value>
+    <value>Annuler</value>
   </data>
   <data name="Button.Submit" xml:space="preserve">
-    <value>Submit</value>
+    <value>Soumettre</value>
   </data>
   <data name="Label.Name" xml:space="preserve">
-    <value>Name</value>
+    <value>Nom</value>
   </data>
   <data name="Label.Email" xml:space="preserve">
     <value>Email</value>
   </data>
   <data name="Item1" xml:space="preserve">
-    <value>First item</value>
+    <value>Premier élément</value>
   </data>
   <data name="Item2" xml:space="preserve">
-    <value>Second item</value>
+    <value>Deuxième élément</value>
   </data>
   <data name="Item3" xml:space="preserve">
-    <value>Third item</value>
+    <value>Troisième élément</value>
   </data>
 </root>

@@ -26,7 +26,7 @@ public class ResourceDiscoveryTests
 
         // Assert
         Assert.NotEmpty(languages);
-        Assert.Equal(2, languages.Count); // TestResource.resx and TestResource.el.resx
+        Assert.Equal(3, languages.Count); // TestResource.resx, TestResource.el.resx, and TestResource.fr.resx
     }
 
     [Fact]

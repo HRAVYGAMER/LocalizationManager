@@ -37,7 +37,7 @@ public class ResourceFileParserTests
         Assert.NotNull(result);
         Assert.Equal(languageInfo, result.Language);
         Assert.NotEmpty(result.Entries);
-        Assert.Equal(5, result.Entries.Count); // Save, Cancel, Welcome, EmptyValue, TestDefaultKey
+        Assert.Equal(17, result.Entries.Count); // All test keys including Error.*, Success.*, Button.*, Label.*, Item*
     }
 
     [Fact]

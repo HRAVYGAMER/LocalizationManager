@@ -20,8 +20,10 @@
 // SOFTWARE.
 
 using System.Data;
+using System.Timers;
 using LocalizationManager.Core;
 using LocalizationManager.Core.Models;
+using LocalizationManager.UI.Filters;
 using LocalizationManager.Utils;
 using Terminal.Gui;
 
@@ -35,6 +37,7 @@ public class ResourceEditorWindow : Window
     private readonly List<ResourceFile> _resourceFiles;
     private readonly ResourceFileParser _parser;
     private readonly ResourceValidator _validator;
+    private readonly ResourceFilterService _filterService;
     private TableView? _tableView;
     private TextField? _searchField;
     private Label? _statusLabel;
@@ -42,14 +45,22 @@ public class ResourceEditorWindow : Window
     private string _searchText = string.Empty;
     private DataTable _dataTable;
     private List<string> _allKeys = new();
+    private FilterCriteria _filterCriteria = new();
+    private System.Timers.Timer? _searchDebounceTimer;
+    private Dictionary<string, List<string>> _extraKeysByLanguage = new();
+    private List<CheckBox> _languageCheckboxes = new();
 
     public ResourceEditorWindow(List<ResourceFile> resourceFiles, ResourceFileParser parser)
     {
         _resourceFiles = resourceFiles;
         _parser = parser;
         _validator = new ResourceValidator();
+        _filterService = new ResourceFilterService();
 
         Title = $"Localization Resource Manager - Interactive Editor ({Application.QuitKey} to quit)";
+
+        // Initialize visible languages (all visible by default)
+        _filterCriteria.VisibleLanguageCodes = _resourceFiles.Select(rf => rf.Language.Code).ToList();
 
         // Load keys
         var defaultFile = resourceFiles.FirstOrDefault(rf => rf.Language.IsDefault);
@@ -60,6 +71,9 @@ public class ResourceEditorWindow : Window
 
         // Build DataTable
         _dataTable = BuildDataTable();
+
+        // Detect extra keys in translation files
+        DetectAndMarkExtraKeys();
 
         InitializeComponents();
     }
@@ -77,11 +91,20 @@ public class ResourceEditorWindow : Window
             dt.Columns.Add(rf.Language.Name, typeof(string));
         }
 
+        // Add internal columns for filtering (hidden from display)
+        var visibleColumn = dt.Columns.Add("_Visible", typeof(bool));
+        visibleColumn.ColumnMapping = MappingType.Hidden;
+
+        var extraKeyColumn = dt.Columns.Add("_HasExtraKey", typeof(bool));
+        extraKeyColumn.ColumnMapping = MappingType.Hidden;
+
         // Populate rows
         foreach (var key in _allKeys)
         {
             var row = dt.NewRow();
             row["Key"] = key;
+            row["_Visible"] = true; // All visible by default
+            row["_HasExtraKey"] = false; // Will be updated by extra keys detection
 
             foreach (var rf in _resourceFiles)
             {
@@ -146,22 +169,156 @@ public class ResourceEditorWindow : Window
         _searchField.TextChanged += (oldValue) =>
         {
             _searchText = _searchField.Text.ToString() ?? string.Empty;
-            FilterKeys();
+
+            // Debounce search input (300ms delay)
+            _searchDebounceTimer?.Stop();
+            _searchDebounceTimer?.Dispose();
+            _searchDebounceTimer = new System.Timers.Timer(300);
+            _searchDebounceTimer.Elapsed += (s, e) =>
+            {
+                Application.MainLoop.Invoke(() => FilterKeys());
+                _searchDebounceTimer?.Dispose();
+                _searchDebounceTimer = null;
+            };
+            _searchDebounceTimer.AutoReset = false;
+            _searchDebounceTimer.Start();
         };
 
-        // Help label
+        // Filter mode selector (Y=3, left side)
+        var modeLabel = new Label
+        {
+            Text = "Mode:",
+            X = 1,
+            Y = 3
+        };
+
+        var modeComboBox = new ComboBox
+        {
+            X = Pos.Right(modeLabel) + 1,
+            Y = 3,
+            Width = 12,
+            Text = "Substring"
+        };
+        modeComboBox.SetSource(new List<string> { "Substring", "Wildcard", "Regex" });
+        modeComboBox.SelectedItemChanged += (args) =>
+        {
+            _filterCriteria.Mode = args.Value switch
+            {
+                0 => FilterMode.Substring,
+                1 => FilterMode.Wildcard,
+                2 => FilterMode.Regex,
+                _ => FilterMode.Substring
+            };
+            Application.MainLoop.Invoke(() => ApplyFilters());
+        };
+
+        // Case-sensitive toggle
+        var caseSensitiveCheckBox = new CheckBox
+        {
+            Text = "Case-sensitive",
+            X = Pos.Right(modeComboBox) + 2,
+            Y = 3,
+            Checked = false
+        };
+        caseSensitiveCheckBox.Toggled += (prev) =>
+        {
+            _filterCriteria.CaseSensitive = caseSensitiveCheckBox.Checked;
+            Application.MainLoop.Invoke(() => ApplyFilters());
+        };
+
+        // Search scope toggle (Keys+Values / Keys Only)
+        var scopeButton = new Button
+        {
+            Text = "Keys+Values",
+            X = Pos.Right(caseSensitiveCheckBox) + 2,
+            Y = 3
+        };
+        scopeButton.Clicked += () =>
+        {
+            // Toggle between Keys+Values and Keys Only
+            if (_filterCriteria.Scope == SearchScope.KeysAndValues)
+            {
+                _filterCriteria.Scope = SearchScope.KeysOnly;
+                scopeButton.Text = "Keys Only";
+            }
+            else
+            {
+                _filterCriteria.Scope = SearchScope.KeysAndValues;
+                scopeButton.Text = "Keys+Values";
+            }
+            ApplyFilters();
+        };
+
+        // Language visibility controls (Y=4)
+        var langLabel = new Label
+        {
+            Text = "Show languages:",
+            X = 1,
+            Y = 4
+        };
+
+        // Add checkboxes for first 3-4 languages
+        var maxVisibleLangs = Math.Min(4, _resourceFiles.Count);
+        var currentX = Pos.Right(langLabel) + 1;
+
+        for (int i = 0; i < maxVisibleLangs; i++)
+        {
+            var rf = _resourceFiles[i];
+            var displayName = string.IsNullOrEmpty(rf.Language.Code)
+                ? "Default"
+                : rf.Language.Code;
+
+            var checkbox = new CheckBox
+            {
+                Text = displayName,
+                X = currentX,
+                Y = 4,
+                Checked = true // All visible by default
+            };
+
+            var languageCode = rf.Language.Code; // Capture for closure
+            checkbox.Toggled += (prev) =>
+            {
+                if (checkbox.Checked)
+                {
+                    if (!_filterCriteria.VisibleLanguageCodes.Contains(languageCode))
+                    {
+                        _filterCriteria.VisibleLanguageCodes.Add(languageCode);
+                    }
+                }
+                else
+                {
+                    _filterCriteria.VisibleLanguageCodes.Remove(languageCode);
+                }
+                RebuildTableWithVisibleLanguages();
+            };
+
+            _languageCheckboxes.Add(checkbox);
+            currentX = Pos.Right(checkbox) + 2;
+        }
+
+        // "More..." button to open full language filter dialog
+        var moreButton = new Button
+        {
+            Text = "More...",
+            X = currentX,
+            Y = 4
+        };
+        moreButton.Clicked += () => ShowLanguageFilterDialog();
+
+        // Help label (moved to end of line)
         var helpLabel = new Label
         {
-            Text = "Enter=Edit  Ctrl+N=Add  Del=Delete  Ctrl+S=Save  F1=Help  F2=Add Lang  F3=Remove Lang",
+            Text = "F1=Help  F2=Add Lang  F3=Remove Lang  F6=Validate",
             X = Pos.Right(_searchField) + 2,
             Y = 2
         };
 
-        // TableView for keys and translations (adjusted Y position for menu)
+        // TableView for keys and translations (adjusted Y position for new controls)
         _tableView = new TableView
         {
             X = 1,
-            Y = 4,
+            Y = 5,  // Moved down to Y=5 to make room for filter controls
             Width = Dim.Fill() - 1,
             Height = Dim.Fill() - 2,
             FullRowSelect = true,
@@ -171,11 +328,15 @@ public class ResourceEditorWindow : Window
 
         _tableView.CellActivated += (args) =>
         {
-            if (args.Row >= 0 && args.Row < _dataTable.Rows.Count)
+            // Get the currently displayed table (might be filtered)
+            var displayedTable = _tableView.Table;
+            if (displayedTable != null && args.Row >= 0 && args.Row < displayedTable.Rows.Count)
             {
-                var key = _dataTable.Rows[args.Row]["Key"].ToString();
-                if (!string.IsNullOrEmpty(key))
+                var keyValue = displayedTable.Rows[args.Row]["Key"].ToString();
+                if (!string.IsNullOrEmpty(keyValue))
                 {
+                    // Strip warning marker if present
+                    var key = keyValue.TrimStart('⚠', ' ');
                     EditKey(key);
                 }
             }
@@ -190,7 +351,15 @@ public class ResourceEditorWindow : Window
             Width = Dim.Fill()
         };
 
-        Add(searchLabel, _searchField, helpLabel, _tableView, _statusLabel);
+        Add(searchLabel, _searchField, helpLabel);
+        Add(modeLabel, modeComboBox, caseSensitiveCheckBox, scopeButton);
+        Add(langLabel);
+        foreach (var checkbox in _languageCheckboxes)
+        {
+            Add(checkbox);
+        }
+        Add(moreButton);
+        Add(_tableView, _statusLabel);
 
         // Keyboard shortcuts
         KeyPress += OnKeyPress;
@@ -252,26 +421,81 @@ public class ResourceEditorWindow : Window
     {
         if (_tableView == null) return;
 
-        if (string.IsNullOrWhiteSpace(_searchText))
-        {
-            // Show all rows
-            _dataTable.DefaultView.RowFilter = string.Empty;
-        }
-        else
-        {
-            // Filter by key name or any translation value
-            var conditions = new List<string>();
+        // Update filter criteria with current search text
+        _filterCriteria.SearchText = _searchText;
 
-            // Add Key column filter
-            conditions.Add($"Key LIKE '%{_searchText.Replace("'", "''")}%'");
+        // Apply filters using the new service
+        ApplyFilters();
+    }
 
-            // Add filter for each language column
-            foreach (var rf in _resourceFiles)
+    private void ApplyFilters()
+    {
+        if (_tableView == null) return;
+
+        try
+        {
+            // Get matching row indices from filter service
+            var matchingIndices = _filterService.FilterRows(_dataTable, _filterCriteria);
+
+            // Update _Visible column for each row
+            for (int i = 0; i < _dataTable.Rows.Count; i++)
             {
-                conditions.Add($"[{rf.Language.Name}] LIKE '%{_searchText.Replace("'", "''")}%'");
+                _dataTable.Rows[i]["_Visible"] = matchingIndices.Contains(i);
             }
 
-            _dataTable.DefaultView.RowFilter = string.Join(" OR ", conditions);
+            // Apply the row filter to show only visible rows
+            _dataTable.DefaultView.RowFilter = "_Visible = True";
+
+            // Create a new DataTable from the filtered view, preserving all columns
+            var columnNames = _dataTable.Columns.Cast<DataColumn>()
+                .Select(c => c.ColumnName)
+                .ToArray();
+            var filteredTable = _dataTable.DefaultView.ToTable(false, columnNames);
+
+            // Restore internal column settings
+            if (filteredTable.Columns.Contains("_Visible"))
+            {
+                filteredTable.Columns["_Visible"]!.ColumnMapping = MappingType.Hidden;
+            }
+            if (filteredTable.Columns.Contains("_HasExtraKey"))
+            {
+                filteredTable.Columns["_HasExtraKey"]!.ColumnMapping = MappingType.Hidden;
+            }
+
+            // Assign filtered table to TableView
+            _tableView.Table = filteredTable;
+            _tableView.SetNeedsDisplay();
+        }
+        catch (Exception ex)
+        {
+            // If filtering fails (e.g., invalid regex), show all rows
+            _dataTable.DefaultView.RowFilter = string.Empty;
+
+            // Create table with all columns preserved
+            var columnNames = _dataTable.Columns.Cast<DataColumn>()
+                .Select(c => c.ColumnName)
+                .ToArray();
+            var allRowsTable = _dataTable.DefaultView.ToTable(false, columnNames);
+
+            // Restore internal column settings
+            if (allRowsTable.Columns.Contains("_Visible"))
+            {
+                allRowsTable.Columns["_Visible"]!.ColumnMapping = MappingType.Hidden;
+            }
+            if (allRowsTable.Columns.Contains("_HasExtraKey"))
+            {
+                allRowsTable.Columns["_HasExtraKey"]!.ColumnMapping = MappingType.Hidden;
+            }
+
+            _tableView.Table = allRowsTable;
+            _tableView.SetNeedsDisplay();
+
+            // Optionally show error to user
+            if (_filterCriteria.Mode == FilterMode.Regex)
+            {
+                MessageBox.ErrorQuery("Invalid Pattern",
+                    $"Invalid regex pattern: {ex.Message}", "OK");
+            }
         }
 
         UpdateStatus();
@@ -503,11 +727,14 @@ public class ResourceEditorWindow : Window
     {
         if (_tableView == null || _tableView.SelectedRow < 0) return;
 
-        var filteredView = _dataTable.DefaultView;
-        if (_tableView.SelectedRow >= filteredView.Count) return;
+        var displayedTable = _tableView.Table;
+        if (displayedTable == null || _tableView.SelectedRow >= displayedTable.Rows.Count) return;
 
-        var key = filteredView[_tableView.SelectedRow]["Key"].ToString();
-        if (string.IsNullOrEmpty(key)) return;
+        var keyValue = displayedTable.Rows[_tableView.SelectedRow]["Key"].ToString();
+        if (string.IsNullOrEmpty(keyValue)) return;
+
+        // Strip warning marker if present
+        var key = keyValue.TrimStart('⚠', ' ');
 
         var result = MessageBox.Query("Confirm Delete",
             $"Delete key '{key}' from all languages?", "Yes", "No");
@@ -752,6 +979,7 @@ public class ResourceEditorWindow : Window
                 if (_tableView != null)
                 {
                     _tableView.Table = _dataTable;
+
                 }
 
                 UpdateStatus();
@@ -944,7 +1172,240 @@ public class ResourceEditorWindow : Window
         var totalCount = _dataTable.Rows.Count;
         var langCount = _resourceFiles.Count;
         var status = $"Keys: {filteredCount}/{totalCount} | Languages: {langCount}";
+
+        // Add extra keys warning if any found
+        if (_extraKeysByLanguage.Any())
+        {
+            var totalExtraKeys = _extraKeysByLanguage.Sum(kvp => kvp.Value.Count);
+            var affectedLangs = string.Join(", ", _extraKeysByLanguage.Keys.Take(2).Select(k =>
+                k.Contains("(") ? k.Substring(k.LastIndexOf('(') + 1).TrimEnd(')') : k));
+            if (_extraKeysByLanguage.Count > 2) affectedLangs += "...";
+            status += $" | ⚠ Extra: {totalExtraKeys} ({affectedLangs})";
+        }
+
         if (_hasUnsavedChanges) status += " [MODIFIED]";
         return status;
+    }
+
+    private void RebuildTableWithVisibleLanguages()
+    {
+        // Rebuild DataTable with only visible language columns
+        var dt = new DataTable();
+
+        // Add Key column
+        dt.Columns.Add("Key", typeof(string));
+
+        // Add columns only for visible languages
+        var visibleResourceFiles = _resourceFiles
+            .Where(rf => _filterCriteria.VisibleLanguageCodes.Contains(rf.Language.Code))
+            .ToList();
+
+        foreach (var rf in visibleResourceFiles)
+        {
+            dt.Columns.Add(rf.Language.Name, typeof(string));
+        }
+
+        // Add internal columns for filtering (hidden from display)
+        var visibleColumn = dt.Columns.Add("_Visible", typeof(bool));
+        visibleColumn.ColumnMapping = MappingType.Hidden;
+
+        var extraKeyColumn = dt.Columns.Add("_HasExtraKey", typeof(bool));
+        extraKeyColumn.ColumnMapping = MappingType.Hidden;
+
+        // Populate rows
+        foreach (var key in _allKeys)
+        {
+            var row = dt.NewRow();
+
+            // Check if this key has extra key warning
+            var hasExtraKey = false;
+            var displayKey = key;
+
+            // Find original row to get extra key status
+            var originalRow = _dataTable.Rows.Cast<DataRow>()
+                .FirstOrDefault(r => r["Key"].ToString()?.TrimStart('⚠', ' ') == key);
+            if (originalRow != null)
+            {
+                hasExtraKey = (bool)originalRow["_HasExtraKey"];
+                displayKey = hasExtraKey ? $"⚠ {key}" : key;
+            }
+
+            row["Key"] = displayKey;
+            row["_Visible"] = true;
+            row["_HasExtraKey"] = hasExtraKey;
+
+            foreach (var rf in visibleResourceFiles)
+            {
+                var entry = rf.Entries.FirstOrDefault(e => e.Key == key);
+                row[rf.Language.Name] = entry?.Value ?? "";
+            }
+
+            dt.Rows.Add(row);
+        }
+
+        // Replace DataTable
+        _dataTable = dt;
+        if (_tableView != null)
+        {
+            _tableView.Table = _dataTable;
+        }
+
+        // Reapply filters
+        ApplyFilters();
+    }
+
+    private void ShowLanguageFilterDialog()
+    {
+        var dialog = new Dialog
+        {
+            Title = "Filter Languages",
+            Width = Dim.Percent(60),
+            Height = Dim.Percent(60)
+        };
+
+        var label = new Label
+        {
+            Text = "Select languages to display:",
+            X = 1,
+            Y = 1
+        };
+
+        var checkboxes = new List<CheckBox>();
+        var yPos = 3;
+
+        foreach (var rf in _resourceFiles)
+        {
+            var displayName = string.IsNullOrEmpty(rf.Language.Code)
+                ? $"Default ({rf.Language.Name})"
+                : $"{rf.Language.Code} ({rf.Language.Name})";
+
+            var checkbox = new CheckBox
+            {
+                Text = displayName,
+                X = 1,
+                Y = yPos,
+                Checked = _filterCriteria.VisibleLanguageCodes.Contains(rf.Language.Code)
+            };
+
+            checkboxes.Add(checkbox);
+            yPos++;
+        }
+
+        var scrollView = new ScrollView
+        {
+            X = 1,
+            Y = 3,
+            Width = Dim.Fill() - 1,
+            Height = Dim.Fill() - 5,
+            ContentSize = new Size(50, yPos),
+            ShowVerticalScrollIndicator = true
+        };
+
+        foreach (var cb in checkboxes)
+        {
+            scrollView.Add(cb);
+        }
+
+        var btnSelectAll = new Button
+        {
+            Text = "Select All",
+            X = 1,
+            Y = Pos.AnchorEnd(2)
+        };
+        btnSelectAll.Clicked += () =>
+        {
+            foreach (var cb in checkboxes)
+            {
+                cb.Checked = true;
+            }
+        };
+
+        var btnSelectNone = new Button
+        {
+            Text = "Select None",
+            X = Pos.Right(btnSelectAll) + 2,
+            Y = Pos.AnchorEnd(2)
+        };
+        btnSelectNone.Clicked += () =>
+        {
+            foreach (var cb in checkboxes)
+            {
+                cb.Checked = false;
+            }
+        };
+
+        var btnApply = new Button
+        {
+            Text = "Apply",
+            X = Pos.Right(btnSelectNone) + 2,
+            Y = Pos.AnchorEnd(2),
+            IsDefault = true
+        };
+        btnApply.Clicked += () =>
+        {
+            // Update visible language codes
+            _filterCriteria.VisibleLanguageCodes.Clear();
+            for (int i = 0; i < checkboxes.Count; i++)
+            {
+                if (checkboxes[i].Checked)
+                {
+                    _filterCriteria.VisibleLanguageCodes.Add(_resourceFiles[i].Language.Code);
+                }
+            }
+
+            // Update quick checkboxes in main UI
+            for (int i = 0; i < _languageCheckboxes.Count && i < _resourceFiles.Count; i++)
+            {
+                _languageCheckboxes[i].Checked = _filterCriteria.VisibleLanguageCodes.Contains(_resourceFiles[i].Language.Code);
+            }
+
+            // Rebuild table
+            RebuildTableWithVisibleLanguages();
+
+            Application.RequestStop();
+        };
+
+        var btnCancel = new Button
+        {
+            Text = "Cancel",
+            X = Pos.Right(btnApply) + 2,
+            Y = Pos.AnchorEnd(2)
+        };
+        btnCancel.Clicked += () => Application.RequestStop();
+
+        dialog.Add(label, scrollView, btnSelectAll, btnSelectNone, btnApply, btnCancel);
+        Application.Run(dialog);
+        dialog.Dispose();
+    }
+
+    private void DetectAndMarkExtraKeys()
+    {
+        var defaultFile = _resourceFiles.FirstOrDefault(rf => rf.Language.IsDefault);
+        if (defaultFile == null) return;
+
+        // Detect extra keys using the filter service
+        _extraKeysByLanguage = ResourceFilterService.DetectExtraKeysInFilteredFiles(defaultFile, _resourceFiles);
+
+        // Build a set of all extra keys across all languages
+        var allExtraKeys = new HashSet<string>();
+        foreach (var keysList in _extraKeysByLanguage.Values)
+        {
+            foreach (var key in keysList)
+            {
+                allExtraKeys.Add(key);
+            }
+        }
+
+        // Mark rows in DataTable with extra keys
+        foreach (DataRow row in _dataTable.Rows)
+        {
+            var key = row["Key"].ToString() ?? "";
+            if (allExtraKeys.Contains(key))
+            {
+                row["_HasExtraKey"] = true;
+                // Add warning marker to key name for visual indication
+                row["Key"] = $"⚠ {key}";
+            }
+        }
     }
 }

@@ -243,7 +243,10 @@ public class ViewCommand : Command<ViewCommand.Settings>
                 matchedKeys = matchedKeys.OrderBy(k => k).ToList();
             }
 
-            // Apply culture filtering (before status filtering so status checks filtered languages only)
+            // Keep original resource files for status filtering (needs all languages)
+            var allResourceFiles = resourceFiles;
+
+            // Apply culture filtering for display
             List<string> invalidCodes;
             if (!string.IsNullOrEmpty(settings.Cultures) || !string.IsNullOrEmpty(settings.ExcludeCultures))
             {
@@ -271,10 +274,10 @@ public class ViewCommand : Command<ViewCommand.Settings>
                 }
             }
 
-            // Apply status filtering
+            // Apply status filtering (use original resource files for status checks)
             if (settings.Status.HasValue)
             {
-                matchedKeys = FilterByStatus(matchedKeys, defaultFile, resourceFiles, settings.Status.Value);
+                matchedKeys = FilterByStatus(matchedKeys, defaultFile, allResourceFiles, settings.Status.Value);
             }
 
             // Apply exclusion patterns
@@ -807,7 +810,7 @@ public class ViewCommand : Command<ViewCommand.Settings>
             allLanguageCodes.Add("default");
         }
 
-        foreach (var code in includeCodes.Concat(excludeCodes))
+        foreach (var code in includeCodes.Concat(excludeCodes).Distinct())
         {
             if (code != "default" && !allLanguageCodes.Contains(code))
             {
@@ -1036,8 +1039,8 @@ public class ViewCommand : Command<ViewCommand.Settings>
             switch (status)
             {
                 case TranslationStatus.Empty:
-                    // Check if any language has empty/whitespace value
-                    includeKey = resourceFiles.Any(rf =>
+                    // Check if any NON-DEFAULT language has empty/whitespace value
+                    includeKey = resourceFiles.Where(rf => !rf.Language.IsDefault).Any(rf =>
                     {
                         var entry = rf.Entries.FirstOrDefault(e => e.Key == key);
                         return entry == null || string.IsNullOrWhiteSpace(entry.Value);
@@ -1045,8 +1048,9 @@ public class ViewCommand : Command<ViewCommand.Settings>
                     break;
 
                 case TranslationStatus.Missing:
-                    // Check if key is missing in any language file
-                    includeKey = resourceFiles.Any(rf => !rf.Entries.Any(e => e.Key == key));
+                    // Check if key is missing in any NON-DEFAULT language file
+                    includeKey = resourceFiles.Where(rf => !rf.Language.IsDefault).Any(rf =>
+                        !rf.Entries.Any(e => e.Key == key));
                     break;
 
                 case TranslationStatus.Untranslated:
@@ -1066,15 +1070,32 @@ public class ViewCommand : Command<ViewCommand.Settings>
 
                 case TranslationStatus.Complete:
                     // Check if all languages have non-empty translations
-                    includeKey = resourceFiles.All(rf =>
+                    // Special case: if no languages to check, can't be complete
+                    if (resourceFiles.Count == 0)
                     {
-                        var entry = rf.Entries.FirstOrDefault(e => e.Key == key);
-                        return entry != null && !string.IsNullOrWhiteSpace(entry.Value);
-                    });
+                        includeKey = false;
+                    }
+                    else
+                    {
+                        includeKey = resourceFiles.All(rf =>
+                        {
+                            var entry = rf.Entries.FirstOrDefault(e => e.Key == key);
+                            return entry != null && !string.IsNullOrWhiteSpace(entry.Value);
+                        });
+                    }
                     break;
 
                 case TranslationStatus.Partial:
                     // Has some translations but not all (or some are empty)
+                    // First verify default entry exists and is non-empty
+                    var defaultPartialEntry = defaultFile.Entries.FirstOrDefault(e => e.Key == key);
+                    if (defaultPartialEntry == null || string.IsNullOrWhiteSpace(defaultPartialEntry.Value))
+                    {
+                        // Default is broken, don't report as partial (should be caught by validate)
+                        includeKey = false;
+                        break;
+                    }
+
                     var hasAnyTranslation = false;
                     var hasAnyMissing = false;
 
@@ -1129,6 +1150,34 @@ public class ViewCommand : Command<ViewCommand.Settings>
             return keys;
         }
 
+        // Pre-compile regex patterns once before iterating through keys
+        var compiledPatterns = new List<(string pattern, Regex? regex, bool isWildcard)>();
+        var regexOptions = caseSensitive ? RegexOptions.None : RegexOptions.IgnoreCase;
+
+        foreach (var pattern in patterns)
+        {
+            if (IsWildcardPattern(pattern))
+            {
+                try
+                {
+                    var regexPattern = ConvertWildcardToRegex(pattern);
+                    var regex = new Regex(regexPattern, regexOptions, TimeSpan.FromSeconds(1));
+                    compiledPatterns.Add((pattern, regex, true));
+                }
+                catch (RegexParseException)
+                {
+                    // Skip invalid regex patterns
+                    continue;
+                }
+            }
+            else
+            {
+                // Exact match pattern
+                compiledPatterns.Add((pattern, null, false));
+            }
+        }
+
+        // Filter keys using pre-compiled patterns
         var result = new List<string>();
         var comparison = caseSensitive ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
 
@@ -1136,20 +1185,22 @@ public class ViewCommand : Command<ViewCommand.Settings>
         {
             bool shouldExclude = false;
 
-            foreach (var pattern in patterns)
+            foreach (var (pattern, regex, isWildcard) in compiledPatterns)
             {
-                // Check if pattern is a wildcard pattern
-                if (IsWildcardPattern(pattern))
+                if (isWildcard && regex != null)
                 {
-                    // Convert wildcard to regex
-                    var regexPattern = ConvertWildcardToRegex(pattern);
-                    var regexOptions = caseSensitive ? RegexOptions.None : RegexOptions.IgnoreCase;
-                    var regex = new Regex(regexPattern, regexOptions, TimeSpan.FromSeconds(1));
-
-                    if (regex.IsMatch(key))
+                    try
                     {
-                        shouldExclude = true;
-                        break;
+                        if (regex.IsMatch(key))
+                        {
+                            shouldExclude = true;
+                            break;
+                        }
+                    }
+                    catch (RegexMatchTimeoutException)
+                    {
+                        // Skip this pattern if it times out (catastrophic backtracking)
+                        continue;
                     }
                 }
                 else

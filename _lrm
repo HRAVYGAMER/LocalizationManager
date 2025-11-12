@@ -17,15 +17,34 @@ _lrm() {
         'add:Add a new localization key to all language files'
         'update:Update values for an existing localization key'
         'delete:Delete a localization key from all language files'
-        'export:Export resource files to CSV format'
+        'export:Export resource files to CSV or JSON format'
         'import:Import translations from CSV format'
         'edit:Launch interactive TUI editor for resource files'
+        'translate:Translate missing keys using AI translation providers'
+        'config:Manage LRM configuration settings'
     )
 
     local -a global_opts
     global_opts=(
         '(-p --path)'{-p,--path}'[Path to Resources folder]:directory:_directories'
         '(-h --help)'{-h,--help}'[Show help information]'
+        '(-v --version)'{-v,--version}'[Show version information]'
+    )
+
+    local -a format_opts
+    format_opts=(
+        'table:Table format (human-readable)'
+        'json:JSON format (machine-readable)'
+        'simple:Simple text format'
+        'csv:CSV format (for export)'
+        'tui:Terminal UI format (interactive)'
+    )
+
+    local -a provider_opts
+    provider_opts=(
+        'google:Google Cloud Translation API'
+        'deepl:DeepL Translation API'
+        'libretranslate:LibreTranslate (open-source)'
     )
 
     _arguments -C \
@@ -41,17 +60,40 @@ _lrm() {
         args)
             case $words[1] in
                 validate)
-                    _arguments $global_opts
+                    _arguments \
+                        '--format[Output format]:format:->formats' \
+                        '--missing-only[Show only missing translations]' \
+                        $global_opts
+                    case $state in
+                        formats)
+                            _describe -t formats 'output formats' format_opts
+                            ;;
+                    esac
                     ;;
                 stats)
-                    _arguments $global_opts
+                    _arguments \
+                        '--format[Output format]:format:->formats' \
+                        $global_opts
+                    case $state in
+                        formats)
+                            _describe -t formats 'output formats' format_opts
+                            ;;
+                    esac
                     ;;
                 view)
                     _arguments \
                         '1:key name' \
                         '--show-comments[Show comments for the key]' \
-                        '--format[Output format]:format:(table json simple)' \
+                        '--format[Output format]:format:->formats' \
+                        '--regex[Treat key as regex pattern]' \
+                        '--sort[Sort results alphabetically]' \
+                        '--no-limit[Show all matches without limit]' \
                         $global_opts
+                    case $state in
+                        formats)
+                            _describe -t formats 'output formats' format_opts
+                            ;;
+                    esac
                     ;;
                 add)
                     _arguments \
@@ -80,9 +122,15 @@ _lrm() {
                     ;;
                 export)
                     _arguments \
-                        '(-o --output)'{-o,--output}'[Output CSV file]:file:_files' \
+                        '(-o --output)'{-o,--output}'[Output file]:file:_files' \
+                        '--format[Output format]:format:->formats' \
                         '--include-status[Include validation status column]' \
                         $global_opts
+                    case $state in
+                        formats)
+                            _describe -t formats 'output formats' format_opts
+                            ;;
+                    esac
                     ;;
                 import)
                     _arguments \
@@ -93,6 +141,31 @@ _lrm() {
                     ;;
                 edit)
                     _arguments $global_opts
+                    ;;
+                translate)
+                    _arguments \
+                        '--provider[Translation provider]:provider:->providers' \
+                        '--target-languages[Target languages (comma-separated)]:languages' \
+                        '--batch-size[Batch size for translation]:size:(5 10 20 50 100)' \
+                        '--only-missing[Translate only missing keys]' \
+                        '--format[Output format]:format:->formats' \
+                        '--config-file[Configuration file path]:file:_files -g "*.json"' \
+                        $global_opts
+                    case $state in
+                        providers)
+                            _describe -t providers 'translation providers' provider_opts
+                            ;;
+                        formats)
+                            _describe -t formats 'output formats' format_opts
+                            ;;
+                    esac
+                    ;;
+                config)
+                    _arguments \
+                        '--get[Get configuration value]:key:(DefaultLanguageCode)' \
+                        '--set[Set configuration value]:key:(DefaultLanguageCode)' \
+                        '--list[List all configuration values]' \
+                        $global_opts
                     ;;
             esac
             ;;

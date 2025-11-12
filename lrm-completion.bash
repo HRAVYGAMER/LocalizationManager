@@ -13,21 +13,29 @@ _lrm_completions() {
     prev="${COMP_WORDS[COMP_CWORD-1]}"
 
     # Main commands
-    local commands="validate stats view add update delete export import edit"
+    local commands="validate stats view add update delete export import edit translate config"
 
     # Global options
-    local global_opts="--path -p --help -h"
+    local global_opts="--path -p --help -h --version -v"
 
     # Command-specific options
-    local validate_opts="--path -p --help -h"
-    local stats_opts="--path -p --help -h"
-    local view_opts="--path -p --show-comments --format --help -h"
+    local validate_opts="--path -p --format --missing-only --help -h"
+    local stats_opts="--path -p --format --help -h"
+    local view_opts="--path -p --show-comments --format --regex --sort --no-limit --help -h"
     local add_opts="--path -p --lang -l --comment --no-backup --help -h"
     local update_opts="--path -p --lang -l --comment --interactive -i --yes -y --no-backup --help -h"
     local delete_opts="--path -p --yes -y --no-backup --help -h"
-    local export_opts="--path -p --output -o --include-status --help -h"
+    local export_opts="--path -p --output -o --format --include-status --help -h"
     local import_opts="--path -p --overwrite --no-backup --help -h"
     local edit_opts="--path -p --help -h"
+    local translate_opts="--path -p --provider --target-languages --batch-size --only-missing --format --config-file --help -h"
+    local config_opts="--path -p --get --set --list --help -h"
+
+    # Format options
+    local format_opts="table json simple csv tui"
+
+    # Translation providers
+    local provider_opts="google deepl libretranslate"
 
     # Get the command (first non-option word)
     local command=""
@@ -46,13 +54,33 @@ _lrm_completions() {
             return 0
             ;;
         --format)
-            # Complete format options for view command
-            COMPREPLY=( $(compgen -W "table json simple" -- "${cur}") )
+            # Complete format options
+            COMPREPLY=( $(compgen -W "${format_opts}" -- "${cur}") )
             return 0
             ;;
-        --output|-o)
+        --provider)
+            # Complete translation providers
+            COMPREPLY=( $(compgen -W "${provider_opts}" -- "${cur}") )
+            return 0
+            ;;
+        --output|-o|--config-file)
             # Complete files for output
             COMPREPLY=( $(compgen -f -- "${cur}") )
+            return 0
+            ;;
+        --target-languages)
+            # Suggest language codes (common ones)
+            COMPREPLY=( $(compgen -W "en es fr de it pt ja zh ko ru ar" -- "${cur}") )
+            return 0
+            ;;
+        --batch-size)
+            # Suggest batch sizes
+            COMPREPLY=( $(compgen -W "5 10 20 50 100" -- "${cur}") )
+            return 0
+            ;;
+        --get|--set)
+            # Configuration keys
+            COMPREPLY=( $(compgen -W "DefaultLanguageCode" -- "${cur}") )
             return 0
             ;;
         lrm)
@@ -80,7 +108,7 @@ _lrm_completions() {
             if [[ "${cur}" == -* ]]; then
                 COMPREPLY=( $(compgen -W "${view_opts}" -- "${cur}") )
             else
-                # Could list keys here if we had access to .resx files
+                # Key name argument
                 COMPREPLY=()
             fi
             ;;
@@ -121,6 +149,12 @@ _lrm_completions() {
             ;;
         edit)
             COMPREPLY=( $(compgen -W "${edit_opts}" -- "${cur}") )
+            ;;
+        translate)
+            COMPREPLY=( $(compgen -W "${translate_opts}" -- "${cur}") )
+            ;;
+        config)
+            COMPREPLY=( $(compgen -W "${config_opts}" -- "${cur}") )
             ;;
         *)
             COMPREPLY=()

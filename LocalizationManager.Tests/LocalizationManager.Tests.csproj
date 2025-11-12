@@ -28,4 +28,12 @@
     </Content>
   </ItemGroup>
 
+  <!-- Exclude TestData source files from compilation (they are test data, not code) -->
+  <ItemGroup>
+    <Compile Remove="TestData/SourceFiles/**/*.cs" />
+    <None Include="TestData/SourceFiles/**/*.cs">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>

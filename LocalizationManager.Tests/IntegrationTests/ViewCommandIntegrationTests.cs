@@ -145,8 +145,8 @@ public class ViewCommandIntegrationTests
             .Select(e => e.Key)
             .ToList();
 
-        // Assert
-        Assert.Equal(3, matchedKeys.Count);
+        // Assert - TestResource.resx now contains 9 keys with "Error" after integration test additions
+        Assert.Equal(9, matchedKeys.Count);
         Assert.All(matchedKeys, key => Assert.Contains("Error", key));
     }
 
@@ -270,8 +270,8 @@ public class ViewCommandIntegrationTests
             .Select(e => e.Key)
             .ToList();
 
-        // Assert
-        Assert.Equal(17, matchedKeys.Count); // All keys
+        // Assert - TestResource.resx expanded significantly after integration test additions
+        Assert.Equal(88, matchedKeys.Count); // All keys
     }
 
     [Fact]

@@ -37,7 +37,7 @@ public class ResourceFileParserTests
         Assert.NotNull(result);
         Assert.Equal(languageInfo, result.Language);
         Assert.NotEmpty(result.Entries);
-        Assert.Equal(17, result.Entries.Count); // All test keys including Error.*, Success.*, Button.*, Label.*, Item*
+        Assert.Equal(88, result.Entries.Count); // TestResource.resx expanded for integration tests
     }
 
     [Fact]

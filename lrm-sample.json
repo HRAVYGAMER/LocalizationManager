@@ -1,0 +1,30 @@
+{
+  "defaultLanguageCode": "en",
+  "translation": {
+    "defaultProvider": "google",
+    "defaultSourceLanguage": "en",
+    "maxRetries": 3,
+    "timeoutSeconds": 30,
+    "batchSize": 10,
+    "useSecureCredentialStore": false,
+    "apiKeys": {
+      "google": "",
+      "deepL": "",
+      "libreTranslate": ""
+    }
+  },
+  "scanning": {
+    "resourceClassNames": [
+      "Resources",
+      "Strings",
+      "AppResources"
+    ],
+    "localizationMethods": [
+      "GetString",
+      "GetLocalizedString",
+      "Translate",
+      "L",
+      "T"
+    ]
+  }
+}

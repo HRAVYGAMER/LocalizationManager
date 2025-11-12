@@ -531,7 +531,7 @@ rm ~/.zsh/completions/_lrm
 After installation:
 
 1. **Read the documentation:**
-   - [README.md](README.md) - Main documentation
+   - [README.md](../README.md) - Main documentation
    - [EXAMPLES.md](EXAMPLES.md) - Usage examples
    - [BUILDING.md](BUILDING.md) - Build from source
 

@@ -1,0 +1,533 @@
+# Translation Features
+
+LocalizationManager supports automatic translation of resource keys using multiple translation providers.
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Supported Providers](#supported-providers)
+- [Configuration](#configuration)
+- [Commands](#commands)
+- [Examples](#examples)
+- [Translation Cache](#translation-cache)
+- [Troubleshooting](#troubleshooting)
+
+## Overview
+
+The translation feature allows you to automatically translate resource keys from a source language to one or more target languages. Translations are cached locally to reduce API costs and improve performance.
+
+### Key Features
+
+- **Multiple Providers**: Support for Google Cloud Translation, DeepL, and LibreTranslate
+- **Flexible Configuration**: 3-tier priority for API keys (environment variables → secure store → config file)
+- **Smart Caching**: SQLite-based translation cache with 30-day expiration
+- **Rate Limiting**: Built-in rate limiting to protect against API quota exhaustion
+- **Batch Processing**: Efficient batch translation to minimize API calls
+- **Dry Run Mode**: Preview translations before applying them
+- **Pattern Matching**: Translate specific keys using wildcard patterns
+- **Only Missing**: Option to translate only missing or empty values
+
+## Supported Providers
+
+### Google Cloud Translation
+
+**Provider name**: `google`
+
+**Features**:
+- Supports 100+ languages
+- High-quality neural machine translation
+- Auto-detect source language
+- Batch translation support
+
+**Requirements**:
+- Google Cloud Platform account
+- Translation API enabled
+- API key or service account credentials
+
+**Rate limits**: Configurable (default: 100 requests/minute)
+
+### DeepL
+
+**Provider name**: `deepl`
+
+**Features**:
+- Highest quality translations
+- Supports 30+ languages
+- Preserves formatting
+- Glossary support (coming soon)
+
+**Requirements**:
+- DeepL API account (Free or Pro)
+- API authentication key
+
+**Rate limits**: Configurable (default: 20 requests/minute for free tier)
+
+### LibreTranslate
+
+**Provider name**: `libretranslate`
+
+**Features**:
+- Open-source translation
+- Self-hostable
+- No API key required for public instances
+- Supports 30+ languages
+
+**Requirements**:
+- None for public instances
+- API key for private instances
+
+**Rate limits**: Configurable (default: 10 requests/minute)
+
+## Configuration
+
+### API Key Priority
+
+API keys are resolved using a 3-tier priority system:
+
+1. **Environment Variables** (highest priority)
+   - `LRM_GOOGLE_API_KEY`
+   - `LRM_DEEPL_API_KEY`
+   - `LRM_LIBRETRANSLATE_API_KEY`
+
+2. **Secure Credential Store** (optional)
+   - Encrypted storage in user profile
+   - Use `lrm config set-api-key` to store
+   - Enable with `UseSecureCredentialStore: true` in config
+
+3. **Configuration File** (lowest priority)
+   - Plain text in `lrm.json`
+   - ⚠️ **WARNING**: Do not commit API keys to version control!
+
+### Environment Variables (Recommended for CI/CD)
+
+**Linux/macOS**:
+```bash
+export LRM_GOOGLE_API_KEY="your-google-api-key"
+export LRM_DEEPL_API_KEY="your-deepl-api-key"
+export LRM_LIBRETRANSLATE_API_KEY="your-libretranslate-api-key"
+```
+
+**Windows PowerShell**:
+```powershell
+$env:LRM_GOOGLE_API_KEY="your-google-api-key"
+$env:LRM_DEEPL_API_KEY="your-deepl-api-key"
+$env:LRM_LIBRETRANSLATE_API_KEY="your-libretranslate-api-key"
+```
+
+**Windows CMD**:
+```cmd
+set LRM_GOOGLE_API_KEY=your-google-api-key
+set LRM_DEEPL_API_KEY=your-deepl-api-key
+set LRM_LIBRETRANSLATE_API_KEY=your-libretranslate-api-key
+```
+
+### Configuration File
+
+Create or update `lrm.json` in your resource directory:
+
+```json
+{
+  "Translation": {
+    "DefaultProvider": "google",
+    "DefaultSourceLanguage": "en",
+    "MaxRetries": 3,
+    "TimeoutSeconds": 30,
+    "BatchSize": 10,
+    "UseSecureCredentialStore": false,
+    "ApiKeys": {
+      "Google": "your-google-api-key",
+      "DeepL": "your-deepl-api-key",
+      "LibreTranslate": "your-libretranslate-api-key"
+    }
+  }
+}
+```
+
+⚠️ **IMPORTANT**: If you add API keys to `lrm.json`, add the file to `.gitignore` to prevent committing secrets to version control!
+
+### Secure Credential Store (Optional)
+
+Store API keys in an encrypted credential store:
+
+```bash
+# Store an API key
+lrm config set-api-key --provider google --key "your-api-key"
+
+# Check where an API key is configured
+lrm config get-api-key --provider google
+
+# Delete an API key from secure store
+lrm config delete-api-key --provider google
+
+# List all providers and their configuration status
+lrm config list-providers
+```
+
+The secure credential store uses AES-256 encryption with machine-specific keys. Keys are stored in:
+- **Linux**: `~/.local/share/LocalizationManager/credentials.json`
+- **Windows**: `%LOCALAPPDATA%\LocalizationManager\credentials.json`
+
+To enable the secure credential store, set `UseSecureCredentialStore: true` in your `lrm.json`.
+
+## Commands
+
+### Translate Command
+
+```bash
+lrm translate [KEY] [OPTIONS]
+```
+
+**Arguments**:
+- `KEY`: Optional key pattern with wildcard support (e.g., `Error*`, `Button_*`)
+  - If omitted, translates all keys
+
+**Options**:
+- `--provider <PROVIDER>`: Translation provider (google, deepl, libretranslate)
+  - Default: From config or `google`
+- `--source-language <LANG>`: Source language code (e.g., `en`, `fr`, or `default`)
+  - Default: Uses default language file (auto-detect)
+  - The default language file (without language code suffix) is always used as source unless explicitly specified
+- `--target-languages <LANGS>`: Comma-separated target languages (e.g., `fr,de,es`)
+  - Default: All non-default languages found in resource files
+- `--only-missing`: Only translate keys with missing or empty values
+- `--dry-run`: Preview translations without saving
+- `--no-cache`: Disable translation cache
+- `--batch-size <SIZE>`: Batch size for processing (default: 10)
+- `-p, --path <PATH>`: Path to Resources folder
+- `--config-file <PATH>`: Path to configuration file
+- `-f, --format <FORMAT>`: Output format (table, json, simple)
+
+### Config Commands
+
+#### Set API Key
+
+```bash
+lrm config set-api-key --provider <PROVIDER> --key <KEY>
+```
+
+Store an API key in the secure credential store.
+
+**Options**:
+- `-p, --provider <PROVIDER>`: Provider name (google, deepl, libretranslate)
+- `-k, --key <KEY>`: API key to store
+
+#### Get API Key
+
+```bash
+lrm config get-api-key --provider <PROVIDER>
+```
+
+Check where an API key is configured from.
+
+**Options**:
+- `--provider <PROVIDER>`: Provider name
+
+#### Delete API Key
+
+```bash
+lrm config delete-api-key --provider <PROVIDER>
+```
+
+Delete an API key from the secure credential store.
+
+**Options**:
+- `-p, --provider <PROVIDER>`: Provider name
+
+#### List Providers
+
+```bash
+lrm config list-providers
+```
+
+List all translation providers and their configuration status.
+
+## Examples
+
+### Basic Translation
+
+Translate all keys to all target languages:
+```bash
+lrm translate
+```
+
+### Translate Specific Keys
+
+Translate keys matching a pattern:
+```bash
+# Translate all error messages
+lrm translate "Error*"
+
+# Translate all button labels
+lrm translate "Button_*"
+```
+
+### Specify Target Languages
+
+Translate to specific languages:
+```bash
+lrm translate --target-languages fr,de,es
+```
+
+### Use Specific Provider
+
+Use DeepL for highest quality:
+```bash
+lrm translate --provider deepl
+```
+
+### Only Translate Missing Values
+
+Fill in missing translations:
+```bash
+lrm translate --only-missing
+```
+
+### Preview Translations (Dry Run)
+
+Preview without saving:
+```bash
+lrm translate --dry-run
+```
+
+### Specify Source Language
+
+Explicitly set source language:
+```bash
+lrm translate --source-language en --target-languages fr,de
+```
+
+### Batch Processing
+
+Process in larger batches:
+```bash
+lrm translate --batch-size 20
+```
+
+### Disable Cache
+
+Force fresh translations:
+```bash
+lrm translate --no-cache
+```
+
+### Combined Example
+
+```bash
+lrm translate "Welcome*" \
+  --provider deepl \
+  --source-language en \
+  --target-languages fr,de,es,it \
+  --only-missing \
+  --dry-run
+```
+
+## Translation Cache
+
+The translation cache stores previously translated text to reduce API costs and improve performance.
+
+### Cache Location
+
+- **Linux**: `~/.local/share/LocalizationManager/translation_cache.db`
+- **Windows**: `%LOCALAPPDATA%\LocalizationManager\translation_cache.db`
+
+### Cache Behavior
+
+- **Expiration**: 30 days
+- **Format**: SQLite database
+- **Key**: SHA-256 hash of (provider + source text + source language + target language)
+- **Thread-safe**: Multiple instances can safely access the cache
+
+### Cache Management
+
+The cache is automatically managed:
+- Old entries (>30 days) are removed on startup
+- Cache can be disabled with `--no-cache` flag
+- Cache is provider-specific (Google translations won't be used for DeepL requests)
+
+### Manual Cache Management
+
+To clear the cache manually, delete the cache file:
+
+**Linux**:
+```bash
+rm ~/.local/share/LocalizationManager/translation_cache.db
+```
+
+**Windows PowerShell**:
+```powershell
+Remove-Item "$env:LOCALAPPDATA\LocalizationManager\translation_cache.db"
+```
+
+## Troubleshooting
+
+### "Provider not configured" Error
+
+**Problem**: No API key found for the provider.
+
+**Solution**:
+1. Check which providers are configured:
+   ```bash
+   lrm config list-providers
+   ```
+
+2. Set API key using one of these methods:
+   ```bash
+   # Environment variable (recommended)
+   export LRM_GOOGLE_API_KEY="your-key"
+
+   # Secure store
+   lrm config set-api-key --provider google --key "your-key"
+
+   # Config file
+   # Add to lrm.json (see Configuration section)
+   ```
+
+### "Rate limit exceeded" Error
+
+**Problem**: Too many requests to the translation API.
+
+**Solution**:
+1. Wait for the rate limit window to reset
+2. Reduce batch size: `--batch-size 5`
+3. Use caching (enabled by default)
+4. Upgrade your API plan for higher limits
+
+### "Authentication failed" Error
+
+**Problem**: Invalid or expired API key.
+
+**Solution**:
+1. Verify your API key is correct
+2. Check API key status in provider dashboard
+3. Regenerate API key if needed
+4. Update the key in your configuration
+
+### "Quota exceeded" Error
+
+**Problem**: API usage quota exhausted.
+
+**Solution**:
+1. Check your API usage in provider dashboard
+2. Wait for quota to reset (usually monthly)
+3. Upgrade to a higher tier plan
+4. Use caching to reduce API calls
+
+### "Target language not supported" Error
+
+**Problem**: Provider doesn't support the target language.
+
+**Solution**:
+1. Check provider's supported languages
+2. Use a different provider
+3. Remove unsupported languages from `--target-languages`
+
+### Translations are Incorrect
+
+**Problem**: Translation quality is poor.
+
+**Solution**:
+1. Try a different provider (DeepL often has highest quality)
+2. Provide source language explicitly: `--source-language en`
+3. Add context to resource keys (comments help future manual review)
+4. Review and manually correct critical translations
+
+### Cache Not Working
+
+**Problem**: Same translations are being fetched repeatedly.
+
+**Solution**:
+1. Ensure cache is enabled (don't use `--no-cache`)
+2. Check cache file exists and is writable
+3. Verify file permissions on cache directory
+4. Check disk space
+
+### Cross-Platform Issues
+
+**Problem**: Commands work on Linux but not Windows (or vice versa).
+
+**Solution**:
+1. Check file paths use correct separators
+2. Verify environment variables are set correctly for your OS
+3. Ensure cache directory is accessible
+4. Check file permissions (Linux) or security settings (Windows)
+
+## Best Practices
+
+1. **Use Environment Variables for CI/CD**: Never commit API keys to version control
+2. **Start with Dry Run**: Always test with `--dry-run` first
+3. **Translate in Batches**: Use `--only-missing` for incremental updates
+4. **Review Translations**: Machine translation is not perfect - review critical strings
+5. **Use DeepL for Quality**: When quality matters, use DeepL
+6. **Cache Aggressively**: Let the cache save you money
+7. **Set Rate Limits**: Configure appropriate rate limits in config
+8. **Monitor Costs**: Track API usage in provider dashboards
+9. **Backup First**: Translation commands create backups automatically
+10. **Test Thoroughly**: Test translations in your application UI
+
+## Advanced Configuration
+
+### Custom Rate Limits
+
+Configure per-provider rate limits in `lrm.json`:
+
+```json
+{
+  "Translation": {
+    "RateLimits": {
+      "Google": {
+        "RequestsPerMinute": 100,
+        "BurstSize": 10
+      },
+      "DeepL": {
+        "RequestsPerMinute": 20,
+        "BurstSize": 5
+      }
+    }
+  }
+}
+```
+
+### Custom LibreTranslate Instance
+
+Use a self-hosted LibreTranslate instance:
+
+```json
+{
+  "Translation": {
+    "LibreTranslate": {
+      "ApiUrl": "https://your-instance.com",
+      "ApiKey": "your-api-key"
+    }
+  }
+}
+```
+
+### Google Cloud Authentication
+
+For Google Cloud Translation, you can use service account credentials:
+
+1. Download service account JSON key from Google Cloud Console
+2. Set environment variable:
+   ```bash
+   export GOOGLE_APPLICATION_CREDENTIALS="/path/to/service-account.json"
+   ```
+
+## Security Considerations
+
+1. **Never Commit API Keys**: Always add `lrm.json` to `.gitignore` if it contains API keys
+2. **Use Environment Variables**: Preferred method for production/CI environments
+3. **Secure Credential Store**: Optional encrypted storage for local development
+4. **Rotate Keys Regularly**: Periodically regenerate API keys
+5. **Limit Key Permissions**: Use API keys with minimal required permissions
+6. **Monitor Usage**: Set up alerts for unusual API usage
+7. **File Permissions**: Ensure cache and credentials files have appropriate permissions
+
+## Support
+
+For issues, feature requests, or questions:
+- GitHub Issues: https://github.com/nprotopapas/LocalizationManager/issues
+- Documentation: https://github.com/nprotopapas/LocalizationManager/docs
+
+## License
+
+LocalizationManager is licensed under the MIT License. See LICENSE file for details.

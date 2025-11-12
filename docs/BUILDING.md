@@ -126,7 +126,7 @@ The script will:
 
 **On failure:** All changes are automatically rolled back.
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed release process documentation.
+See [CONTRIBUTING.md](../CONTRIBUTING.md) for detailed release process documentation.
 
 ## Build Requirements
 

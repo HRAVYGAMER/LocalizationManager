@@ -1337,8 +1337,259 @@ lrm import for_translation.csv --overwrite
 
 ---
 
+## `translate` - Automatic Translation 🆕
+
+Automatically translate resource keys using machine translation providers (Google Cloud Translation, DeepL, or LibreTranslate).
+
+### Basic Usage
+
+```bash
+lrm translate [KEY_PATTERN] [OPTIONS]
+```
+
+### Arguments
+
+- `KEY_PATTERN` (optional): Key pattern with wildcard support
+  - If omitted, translates all keys
+  - Examples: `Error*`, `Button_*`, `*.Text`
+
+### Options
+
+| Option | Description |
+|--------|-------------|
+| `--provider <PROVIDER>` | Translation provider: `google`, `deepl`, `libretranslate` (default: from config or `google`) |
+| `--source-language <LANG>` | Source language code (e.g., `en`, `fr`, or `default`). Always defaults to default language file (auto-detect). Specify explicitly to use a specific culture file as source |
+| `--target-languages <LANGS>` | Comma-separated target languages (e.g., `fr,de,es`). Default: all non-default languages |
+| `--only-missing` | Only translate keys with missing or empty values |
+| `--dry-run` | Preview translations without saving |
+| `--no-cache` | Disable translation cache |
+| `--batch-size <SIZE>` | Batch size for processing (default: 10) |
+| `-p, --path <PATH>` | Path to Resources folder |
+| `--config-file <PATH>` | Path to configuration file |
+| `-f, --format <FORMAT>` | Output format: `table`, `json`, `simple` |
+
+### Examples
+
+**Translate all keys:**
+```bash
+lrm translate
+```
+
+**Translate specific keys matching a pattern:**
+```bash
+lrm translate "Error*"
+lrm translate "Button_*"
+```
+
+**Translate to specific languages:**
+```bash
+lrm translate --target-languages fr,de,es
+```
+
+**Use a specific provider:**
+```bash
+lrm translate --provider deepl
+lrm translate --provider libretranslate
+```
+
+**Only translate missing values:**
+```bash
+lrm translate --only-missing
+```
+
+**Preview without saving (dry run):**
+```bash
+lrm translate --dry-run
+```
+
+**Specify source language explicitly:**
+```bash
+lrm translate --source-language en --target-languages fr,de
+```
+
+**Combined example:**
+```bash
+lrm translate "Welcome*" \
+  --provider deepl \
+  --source-language en \
+  --target-languages fr,de,es,it \
+  --only-missing \
+  --dry-run
+```
+
+### Exit Codes
+- `0` - Translation succeeded
+- `1` - Translation failed (provider not configured, API error, etc.)
+
+### Translation Providers
+
+#### Google Cloud Translation
+- **Provider name**: `google`
+- **Requirements**: Google Cloud Platform account, Translation API enabled
+- **Languages**: 100+ languages
+- **Quality**: High (neural machine translation)
+
+#### DeepL
+- **Provider name**: `deepl`
+- **Requirements**: DeepL API account (Free or Pro)
+- **Languages**: 30+ languages
+- **Quality**: Highest (best-in-class translations)
+
+#### LibreTranslate
+- **Provider name**: `libretranslate`
+- **Requirements**: None for public instances
+- **Languages**: 30+ languages
+- **Quality**: Good (open-source alternative)
+
+---
+
+## `config` - Configuration Management 🆕
+
+Manage translation provider API keys and configuration.
+
+### Subcommands
+
+#### `config set-api-key`
+
+Store an API key in the secure credential store.
+
+```bash
+lrm config set-api-key --provider <PROVIDER> --key <KEY>
+```
+
+**Options:**
+- `-p, --provider <PROVIDER>` - Provider name: `google`, `deepl`, `libretranslate`
+- `-k, --key <KEY>` - API key to store
+
+**Example:**
+```bash
+lrm config set-api-key --provider google --key "your-api-key"
+lrm config set-api-key -p deepl -k "your-deepl-key"
+```
+
+#### `config get-api-key`
+
+Check where an API key is configured from (environment variable, secure store, or config file).
+
+```bash
+lrm config get-api-key --provider <PROVIDER>
+```
+
+**Options:**
+- `--provider <PROVIDER>` - Provider name
+
+**Example:**
+```bash
+lrm config get-api-key --provider google
+```
+
+**Output:**
+```
+✓ API key for 'google' is configured.
+Source: Environment Variable (LRM_GOOGLE_API_KEY)
+```
+
+#### `config delete-api-key`
+
+Delete an API key from the secure credential store.
+
+```bash
+lrm config delete-api-key --provider <PROVIDER>
+```
+
+**Options:**
+- `-p, --provider <PROVIDER>` - Provider name
+
+**Example:**
+```bash
+lrm config delete-api-key --provider google
+```
+
+#### `config list-providers`
+
+List all translation providers and their configuration status.
+
+```bash
+lrm config list-providers
+```
+
+**Example Output:**
+```
+╭────────────────┬──────────────────┬────────────────────────╮
+│ Provider       │ Status           │ Source                 │
+├────────────────┼──────────────────┼────────────────────────┤
+│ google         │ ✓ Configured     │ Environment Variable   │
+│ deepl          │ ✗ Not configured │ N/A                    │
+│ libretranslate │ ✓ Configured     │ Configuration File     │
+╰────────────────┴──────────────────┴────────────────────────╯
+```
+
+### API Key Configuration
+
+Translation providers require API keys. Three methods are supported (in priority order):
+
+1. **Environment Variables** (recommended for CI/CD):
+   ```bash
+   export LRM_GOOGLE_API_KEY="your-key"
+   export LRM_DEEPL_API_KEY="your-key"
+   export LRM_LIBRETRANSLATE_API_KEY="your-key"
+   ```
+
+2. **Secure Credential Store** (encrypted, optional):
+   ```bash
+   lrm config set-api-key --provider google --key "your-key"
+   ```
+   Enable in `lrm.json`:
+   ```json
+   {
+     "Translation": {
+       "UseSecureCredentialStore": true
+     }
+   }
+   ```
+
+3. **Configuration File** (plain text):
+   Add to `lrm.json`:
+   ```json
+   {
+     "Translation": {
+       "ApiKeys": {
+         "Google": "your-google-api-key",
+         "DeepL": "your-deepl-api-key",
+         "LibreTranslate": "your-libretranslate-api-key"
+       }
+     }
+   }
+   ```
+   ⚠️ **WARNING**: Do not commit API keys to version control!
+
+### Translation Configuration
+
+Create or update `lrm.json`:
+
+```json
+{
+  "Translation": {
+    "DefaultProvider": "google",
+    "DefaultSourceLanguage": "en",
+    "MaxRetries": 3,
+    "TimeoutSeconds": 30,
+    "BatchSize": 10,
+    "UseSecureCredentialStore": false,
+    "ApiKeys": {
+      "Google": "your-api-key-here"
+    }
+  }
+}
+```
+
+See [docs/TRANSLATION.md](docs/TRANSLATION.md) for complete translation documentation.
+
+---
+
 For more information:
 - [Installation Guide](INSTALLATION.md)
 - [Usage Examples](EXAMPLES.md)
+- [Translation Guide](docs/TRANSLATION.md)
 - [CI/CD Integration](CI-CD.md)
-- [Contributing](CONTRIBUTING.md)
+- [Contributing](../CONTRIBUTING.md)

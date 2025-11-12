@@ -275,7 +275,7 @@ Releases are created using the `release.sh` script:
 
 **Note:** Contributors don't need to worry about version numbers or releases. Maintainers handle the release process.
 
-See [BUILDING.md](BUILDING.md) for more details.
+See [BUILDING.md](docs/BUILDING.md) for more details.
 
 ## GitHub Workflows
 

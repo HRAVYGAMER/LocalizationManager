@@ -36,6 +36,7 @@ LRM solves this by providing:
 | **Linux Support** | ✅ Native | ❌ Windows only | ❌ Windows only | ❌ Windows only | ✅ Any editor |
 | **Command Line** | ✅ Full CLI | ⚠️ PowerShell scripting | ❌ GUI only | ❌ GUI only | ⚠️ Manual XML |
 | **Terminal UI** | ✅ Interactive TUI | ❌ | ❌ | ❌ | ❌ |
+| **Machine Translation** | ✅ Google/DeepL/LibreTranslate | ⚠️ External services | ❌ | ❌ | ❌ |
 | **CI/CD Integration** | ✅ Built-in | ⚠️ Complex | ❌ | ❌ | ⚠️ Custom scripts |
 | **Automation** | ✅ Full API | ⚠️ Limited | ❌ | ❌ | ❌ |
 | **Validation** | ✅ Built-in | ✅ | ✅ | ⚠️ Build-time | ❌ |
@@ -49,21 +50,59 @@ LRM solves this by providing:
 
 ---
 
+## ✨ Fully Automated CI/CD Workflows
+
+> **🚀 Zero-Touch Localization:** Set it and forget it! Automatically validate and translate your resource files on every commit.
+
+```yaml
+# Auto-translate missing keys on every push
+- Validate all .resx files
+- Detect missing translations
+- Auto-translate with AI (Google/DeepL/LibreTranslate)
+- Re-validate and commit
+- Track exactly what was translated per language
+```
+
+**Perfect for:**
+- Continuous localization in Agile workflows
+- Multi-language SaaS applications
+- Open-source projects with international users
+- Teams without dedicated translation resources
+
+**👉 [See Complete CI/CD Guide →](docs/CICD.md)**
+
+---
+
 ## Features
 
-- **Interactive Terminal UI** - Visual editing with keyboard shortcuts
-- **Language Management** - Add/remove language files with validation
-- **Validation** - Detect missing translations, duplicates, empty values
-- **Statistics** - Translation coverage with progress bars
-- **Multiple Output Formats** - Table, JSON, and simple text formats for all commands
-- **Configuration File Support** - Auto-load settings from `lrm.json` or specify custom config
-- **Regex Pattern Matching** - View and explore multiple keys with powerful regex patterns
-- **Export/Import** - CSV, JSON, and text formats for working with translators
-- **Batch Operations** - Add, update, delete keys across all languages
-- **CI/CD Ready** - Exit codes, JSON output, GitHub Actions support
-- **Multi-platform** - Linux (x64/ARM64), Windows (x64/ARM64)
-- **Self-contained** - No .NET runtime required
-- **Shell Completion** - Bash and Zsh support
+- **🤖 Machine Translation** - Automatic translation using Google Cloud Translation, DeepL, or LibreTranslate
+  - Multiple translation providers with smart caching
+  - Batch processing with rate limiting
+  - Pattern matching for selective translation
+  - Secure API key management (environment variables, encrypted store, or config file)
+  - Translation caching (30-day SQLite cache)
+  - Provider-specific rate limits and retry logic
+- **🚀 CI/CD Automation** - Production-ready workflows for GitHub Actions, GitLab CI, Azure DevOps
+  - Validate → Check Missing → Auto-Translate → Re-validate → Commit
+  - Detailed translation reports per language
+  - JSON output for all commands
+  - Exit codes for pipeline control
+  - Full examples in [docs/CICD.md](docs/CICD.md)
+- **📺 Interactive Terminal UI** - Visual editing with keyboard shortcuts
+  - Side-by-side multi-language editing
+  - In-app translation with Ctrl+T
+  - Real-time validation and search
+- **🔍 Validation** - Detect missing translations, duplicates, empty values
+- **📊 Statistics** - Translation coverage with progress bars
+- **🌐 Language Management** - Add/remove language files with validation
+- **📤 Export/Import** - CSV, JSON, and text formats for working with translators
+- **🎯 Regex Pattern Matching** - View and explore multiple keys with powerful regex patterns
+- **⚙️ Configuration File Support** - Auto-load settings from `lrm.json` or specify custom config
+- **🔄 Batch Operations** - Add, update, delete keys across all languages
+- **📋 Multiple Output Formats** - Table, JSON, and simple text formats for all commands
+- **💻 Multi-platform** - Linux (x64/ARM64), Windows (x64/ARM64)
+- **📦 Self-contained** - No .NET runtime required
+- **⌨️ Shell Completion** - Bash and Zsh support
 
 ---
 
@@ -83,7 +122,7 @@ tar -xzf lrm-linux-x64.tar.gz
 sudo cp linux-x64/lrm /usr/local/bin/
 ```
 
-See [INSTALLATION.md](INSTALLATION.md) for Windows, ARM64, and detailed installation options.
+See [INSTALLATION.md](docs/INSTALLATION.md) for Windows, ARM64, and detailed installation options.
 
 ### Basic Usage
 
@@ -130,6 +169,18 @@ lrm view "Button.*" --keys-only --format json
 # Search in translation values (find keys by their translations)
 lrm view "Not Found" --search-in values
 
+# Automatically translate missing values
+lrm translate --only-missing
+
+# Translate all keys to specific languages using DeepL
+lrm translate --provider deepl --target-languages fr,de,es
+
+# Preview translations without saving
+lrm translate --dry-run
+
+# Check translation provider configuration
+lrm config list-providers
+
 # Find keys by French translation
 lrm view "Enregistrer" --search-in values --cultures fr
 
@@ -167,7 +218,7 @@ lrm export --format json
 lrm --help
 ```
 
-See [EXAMPLES.md](EXAMPLES.md) for detailed usage scenarios and workflows.
+See [EXAMPLES.md](docs/EXAMPLES.md) for detailed usage scenarios and workflows.
 
 ---
 
@@ -185,38 +236,69 @@ See [EXAMPLES.md](EXAMPLES.md) for detailed usage scenarios and workflows.
 | `import` | Import translations from CSV | Table, JSON, Simple |
 | `edit` | Launch interactive Terminal UI editor | N/A |
 | `list-languages` | List all detected language files | Table, JSON, Simple |
+| `translate` 🆕 | Automatically translate keys using Google/DeepL/LibreTranslate | Table, JSON, Simple |
+| `config` 🆕 | Manage translation provider API keys and configuration | N/A |
 
-See [COMMANDS.md](COMMANDS.md) for complete command reference with all options and examples.
+See [COMMANDS.md](docs/COMMANDS.md) for complete command reference with all options and examples.
+
+See [TRANSLATION.md](docs/TRANSLATION.md) for detailed translation feature documentation.
 
 ---
 
 ## CI/CD Integration
 
-### GitHub Actions
+### 🎯 Automated Validation & Translation Workflow
 
-**Using the official action (recommended):**
-```yaml
-- name: Validate .resx files
-  uses: nickprotop/LocalizationManager@v0
-  with:
-    command: validate
-    path: ./Resources
+**The complete flow:**
+```bash
+1. Validate all keys        ✓ Check XML & key consistency
+2. Check missing            → Identify untranslated keys
+3. Auto-translate           🌐 Fill with AI translation
+4. Re-validate              ✓ Ensure quality
+5. Report & commit          📊 Track changes per language
 ```
 
-**Manual download:**
+### GitHub Actions - Complete Example
+
 ```yaml
-- name: Download and validate
-  run: |
-    wget https://github.com/nickprotop/LocalizationManager/releases/latest/download/lrm-linux-x64.tar.gz
-    tar -xzf lrm-linux-x64.tar.gz
-    ./linux-x64/lrm validate --path ./Resources
+name: Auto-Translate Localization
+
+on:
+  push:
+    paths: ['Resources/**/*.resx']
+
+jobs:
+  translate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+
+      - name: Install LRM
+        run: dotnet tool install --global LocalizationManager
+
+      - name: Validate
+        run: lrm validate
+
+      - name: Check Missing & Translate
+        env:
+          LRM_GOOGLE_API_KEY: ${{ secrets.GOOGLE_TRANSLATE_API_KEY }}
+        run: |
+          lrm validate --missing-only --format json > missing.json
+          if [ -s missing.json ]; then
+            lrm translate --only-missing --provider google --format json > results.json
+          fi
+
+      - name: Re-validate & Commit
+        run: |
+          lrm validate
+          git add Resources/**/*.resx
+          git commit -m "🌐 Auto-translate missing keys" || true
+          git push
 ```
 
-**Exit codes:**
-- `0` - Validation passed
-- `1` - Validation failed (use to fail CI)
-
-See [CI-CD.md](CI-CD.md) for GitLab CI, Azure Pipelines, Jenkins, and more examples.
+**📚 Full examples for GitHub Actions, GitLab CI, Azure DevOps, and Bash scripts:**
+**👉 [Complete CI/CD Guide with tracking and reporting →](docs/CICD.md)**
 
 ---
 
@@ -249,12 +331,17 @@ Launch with `lrm edit` to get a visual interface:
 - Visual key editing
 - Automatic validation
 - Unsaved changes tracking
+- **In-app translation** 🆕 - Translate selected keys with `Ctrl+T`
+- **Translation dialog** 🆕 - Choose provider, target languages, and cache options
 
 **Keyboard Shortcuts:**
 - `↑/↓` or `j/k` - Navigate keys
 - `Enter` - Edit selected key
 - `Ctrl+N` - Add new key
 - `Del` - Delete key
+- `Ctrl+T` - Translate selected key 🆕
+- `F4` - Translate all missing values 🆕
+- `F5` - Configure translation providers 🆕
 - `Ctrl+S` - Save changes
 - `Ctrl+Q` - Quit
 - `F1` - Help
@@ -286,11 +373,12 @@ LocalizationManager/
 
 | Document | Description |
 |----------|-------------|
-| [INSTALLATION.md](INSTALLATION.md) | Complete installation guide for all platforms |
-| [COMMANDS.md](COMMANDS.md) | Detailed command reference with all options |
-| [EXAMPLES.md](EXAMPLES.md) | Usage examples and workflow scenarios |
-| [CI-CD.md](CI-CD.md) | CI/CD integration guide (GitHub Actions, GitLab, Azure, Jenkins) |
-| [BUILDING.md](BUILDING.md) | Build from source and release process |
+| [docs/INSTALLATION.md](docs/INSTALLATION.md) | Complete installation guide for all platforms |
+| [docs/COMMANDS.md](docs/COMMANDS.md) | Detailed command reference with all options |
+| [docs/EXAMPLES.md](docs/EXAMPLES.md) | Usage examples and workflow scenarios |
+| [**docs/CICD.md**](docs/CICD.md) 🆕 | **CI/CD automation workflows with translation tracking** ⭐ |
+| [**docs/TRANSLATION.md**](docs/TRANSLATION.md) 🆕 | **Machine translation guide (Google/DeepL/LibreTranslate)** |
+| [docs/BUILDING.md](docs/BUILDING.md) | Build from source and release process |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Contribution guidelines and development setup |
 | [CHANGELOG.md](CHANGELOG.md) | Version history and release notes |
 
@@ -318,16 +406,25 @@ dotnet run -- --help
 
 ## Roadmap
 
-### Planned Features
+### ✅ Recently Completed
+- **Machine Translation Integration** - Google Cloud Translation, DeepL, LibreTranslate with caching
+- **CI/CD Automation** - Complete workflows for GitHub Actions, GitLab CI, Azure DevOps
+- **Translation Tracking** - Per-language translation reports with JSON output
+- **In-app Translation** - TUI integration with Ctrl+T, F4, F5 shortcuts
+
+### 🚧 In Progress
 - **Translation Memory** - Suggest translations based on similar keys
-- **Machine Translation Integration** - Auto-translate with Google/DeepL APIs
 - **Fuzzy Matching** - Find similar keys across files
+
+### 📋 Planned Features
 - **Diff View** - Compare translations between versions
 - **Plugin System** - Custom validators and exporters
 - **Web UI** - Browser-based editor as alternative to TUI
 - **Multiple File Formats** - Support for `.po`, `.xliff`, JSON
 - **Translation Comments** - Add translator notes and context
 - **Key Usage Detection** - Find unused keys in codebase
+- **Translation Workflows** - Review/approve flows for human validation
+- **Context Screenshots** - Attach UI screenshots to keys for translator context
 
 See [GitHub Discussions](https://github.com/nickprotop/LocalizationManager/discussions) for feature requests and ideas.
 

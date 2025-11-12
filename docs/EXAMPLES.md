@@ -1193,6 +1193,6 @@ lrm add Test --lang xx:"test"
 ---
 
 **For more information, see:**
-- [README.md](README.md) - Main documentation
+- [README.md](../README.md) - Main documentation
 - [BUILDING.md](BUILDING.md) - Build instructions
 - [INSTALLATION.md](INSTALLATION.md) - Installation guide

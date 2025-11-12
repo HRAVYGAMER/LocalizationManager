@@ -20,6 +20,7 @@
 // SOFTWARE.
 
 using LocalizationManager.Commands;
+using LocalizationManager.Commands.Config;
 using Spectre.Console;
 using Spectre.Console.Cli;
 
@@ -116,6 +117,38 @@ app.Configure(config =>
         .WithDescription("List all available language files")
         .WithExample(new[] { "list-languages" })
         .WithExample(new[] { "list-languages", "--format", "json" });
+
+    config.AddCommand<TranslateCommand>("translate")
+        .WithDescription("Translate resource keys using translation providers (Google, DeepL, LibreTranslate)")
+        .WithExample(new[] { "translate" })
+        .WithExample(new[] { "translate", "Welcome*" })
+        .WithExample(new[] { "translate", "--provider", "deepl", "--target-languages", "fr,de,es" })
+        .WithExample(new[] { "translate", "--only-missing", "--dry-run" })
+        .WithExample(new[] { "translate", "Error*", "--provider", "google", "--source-language", "en" });
+
+    config.AddBranch("config", cfg =>
+    {
+        cfg.SetDescription("Configuration commands for API keys and settings");
+
+        cfg.AddCommand<SetApiKeyCommand>("set-api-key")
+            .WithDescription("Store an API key in the secure credential store")
+            .WithExample(new[] { "config", "set-api-key", "--provider", "google", "--key", "your-api-key" })
+            .WithExample(new[] { "config", "set-api-key", "-p", "deepl", "-k", "your-api-key" });
+
+        cfg.AddCommand<GetApiKeyCommand>("get-api-key")
+            .WithDescription("Check where an API key is configured from")
+            .WithExample(new[] { "config", "get-api-key", "--provider", "google" })
+            .WithExample(new[] { "config", "get-api-key", "--provider", "deepl" });
+
+        cfg.AddCommand<DeleteApiKeyCommand>("delete-api-key")
+            .WithDescription("Delete an API key from the secure credential store")
+            .WithExample(new[] { "config", "delete-api-key", "--provider", "google" })
+            .WithExample(new[] { "config", "delete-api-key", "-p", "deepl" });
+
+        cfg.AddCommand<ListProvidersCommand>("list-providers")
+            .WithDescription("List all translation providers and their configuration status")
+            .WithExample(new[] { "config", "list-providers" });
+    });
 });
 
 int result;

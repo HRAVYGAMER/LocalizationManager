@@ -73,7 +73,7 @@ public class EditCommand : Command<BaseCommandSettings>
 
             // Launch TUI
             Application.Init();
-            Application.Run(new ResourceEditorWindow(resourceFiles, parser, defaultCode));
+            Application.Run(new ResourceEditorWindow(resourceFiles, parser, defaultCode, settings.LoadedConfiguration));
             Application.Shutdown();
 
             return 0;

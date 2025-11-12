@@ -22,7 +22,9 @@
 using System.Data;
 using System.Timers;
 using LocalizationManager.Core;
+using LocalizationManager.Core.Configuration;
 using LocalizationManager.Core.Models;
+using LocalizationManager.Core.Translation;
 using LocalizationManager.UI.Filters;
 using LocalizationManager.Utils;
 using Terminal.Gui;
@@ -39,6 +41,7 @@ public class ResourceEditorWindow : Window
     private readonly ResourceValidator _validator;
     private readonly ResourceFilterService _filterService;
     private readonly string _defaultLanguageCode;
+    private readonly ConfigurationModel? _configuration;
     private TableView? _tableView;
     private TextField? _searchField;
     private Label? _statusLabel;
@@ -52,13 +55,14 @@ public class ResourceEditorWindow : Window
     private List<CheckBox> _languageCheckboxes = new();
     private CheckBox? _regexCheckBox;
 
-    public ResourceEditorWindow(List<ResourceFile> resourceFiles, ResourceFileParser parser, string defaultLanguageCode = "default")
+    public ResourceEditorWindow(List<ResourceFile> resourceFiles, ResourceFileParser parser, string defaultLanguageCode = "default", ConfigurationModel? configuration = null)
     {
         _resourceFiles = resourceFiles;
         _parser = parser;
         _validator = new ResourceValidator();
         _filterService = new ResourceFilterService();
         _defaultLanguageCode = defaultLanguageCode;
+        _configuration = configuration;
 
         Title = $"Localization Resource Manager - Interactive Editor ({Application.QuitKey} to quit)";
 
@@ -144,6 +148,12 @@ public class ResourceEditorWindow : Window
                 new MenuItem("_List", "Show all languages", () => ShowLanguageList(), null, null, Key.L | Key.CtrlMask),
                 new MenuItem("_Add New", "Add new language", () => AddLanguage(), null, null, Key.F2),
                 new MenuItem("_Remove", "Remove language", () => RemoveLanguage(), null, null, Key.F3)
+            }),
+            new MenuBarItem("_Translation", new MenuItem[]
+            {
+                new MenuItem("_Translate Selection", "Translate selected key", () => TranslateSelection(), null, null, Key.T | Key.CtrlMask),
+                new MenuItem("Translate _Missing", "Translate all missing values", () => TranslateMissing(), null, null, Key.F4),
+                new MenuItem("_Configure Providers", "Configure translation providers", () => ConfigureTranslation(), null, null, Key.F5)
             }),
             new MenuBarItem("_Help", new MenuItem[]
             {
@@ -396,6 +406,21 @@ public class ResourceEditorWindow : Window
         else if (e.KeyEvent.Key == Key.F3)
         {
             RemoveLanguage();
+            e.Handled = true;
+        }
+        else if (e.KeyEvent.Key == (Key.T | Key.CtrlMask))
+        {
+            TranslateSelection();
+            e.Handled = true;
+        }
+        else if (e.KeyEvent.Key == Key.F4)
+        {
+            TranslateMissing();
+            e.Handled = true;
+        }
+        else if (e.KeyEvent.Key == Key.F5)
+        {
+            ConfigureTranslation();
             e.Handled = true;
         }
     }
@@ -1119,6 +1144,10 @@ public class ResourceEditorWindow : Window
                    "Ctrl+L    - List languages\n" +
                    "F2        - Add new language\n" +
                    "F3        - Remove language\n\n" +
+                   "Translation:\n" +
+                   "Ctrl+T    - Translate selected key\n" +
+                   "F4        - Translate missing values\n" +
+                   "F5        - Configure providers\n\n" +
                    "File Operations:\n" +
                    "Ctrl+S    - Save changes\n" +
                    "F6        - Run validation\n" +
@@ -1173,7 +1202,7 @@ public class ResourceEditorWindow : Window
         if (_hasUnsavedChanges) status += " [MODIFIED]";
 
         // Add help shortcuts
-        status += " | F1=Help  F2=Add Lang  F3=Remove Lang  F6=Validate  Ctrl+S=Save  Ctrl+Q=Quit";
+        status += " | Ctrl+T=Translate  F4=Auto-Translate  F6=Validate  Ctrl+S=Save  F1=Help";
 
         return status;
     }
@@ -1398,5 +1427,326 @@ public class ResourceEditorWindow : Window
                 row["Key"] = $"⚠ {key}";
             }
         }
+    }
+
+    // Translation Methods
+
+    private void TranslateSelection()
+    {
+        if (_tableView == null || _tableView.SelectedRow < 0)
+        {
+            MessageBox.ErrorQuery("Error", "Please select a key to translate.", "OK");
+            return;
+        }
+
+        var displayedTable = _tableView.Table;
+        if (displayedTable == null || _tableView.SelectedRow >= displayedTable.Rows.Count)
+        {
+            return;
+        }
+
+        var keyValue = displayedTable.Rows[_tableView.SelectedRow]["Key"].ToString();
+        if (string.IsNullOrEmpty(keyValue)) return;
+
+        // Strip warning marker if present
+        var key = keyValue.TrimStart('⚠', ' ');
+
+        ShowTranslateDialog(new List<string> { key });
+    }
+
+    private void TranslateMissing()
+    {
+        // Find all keys with missing values
+        var keysToTranslate = new List<string>();
+
+        foreach (var key in _allKeys)
+        {
+            foreach (var rf in _resourceFiles.Where(r => !r.Language.IsDefault))
+            {
+                var entry = rf.Entries.FirstOrDefault(e => e.Key == key);
+                if (entry == null || string.IsNullOrWhiteSpace(entry.Value))
+                {
+                    if (!keysToTranslate.Contains(key))
+                    {
+                        keysToTranslate.Add(key);
+                    }
+                    break;
+                }
+            }
+        }
+
+        if (keysToTranslate.Count == 0)
+        {
+            MessageBox.Query("Translation", "All keys have translations.", "OK");
+            return;
+        }
+
+        var result = MessageBox.Query("Translate Missing",
+            $"Found {keysToTranslate.Count} keys with missing translations.\n\nProceed with automatic translation?",
+            "Yes", "No");
+
+        if (result == 0)
+        {
+            ShowTranslateDialog(keysToTranslate);
+        }
+    }
+
+    private void ShowTranslateDialog(List<string> keysToTranslate)
+    {
+        var dialog = new Dialog
+        {
+            Title = "Translate Keys",
+            Width = Dim.Percent(80),
+            Height = Dim.Percent(70)
+        };
+
+        // Provider selection
+        var providerLabel = new Label("Translation Provider:") { X = 1, Y = 1 };
+        var providers = new[] { "google", "deepl", "libretranslate" };
+        var defaultProvider = _configuration?.Translation?.DefaultProvider ?? "google";
+        var selectedProviderIdx = Array.IndexOf(providers, defaultProvider);
+        if (selectedProviderIdx < 0) selectedProviderIdx = 0;
+
+        var providerCombo = new ComboBox
+        {
+            X = 1,
+            Y = 2,
+            Width = 20,
+            Height = 4
+        };
+        providerCombo.SetSource(providers);
+        providerCombo.SelectedItem = selectedProviderIdx;
+
+        // Target languages selection
+        var langLabel = new Label("Target Languages:") { X = 1, Y = 4 };
+        var targetLanguages = _resourceFiles
+            .Where(rf => !rf.Language.IsDefault)
+            .Select(rf => rf.Language.Code)
+            .ToList();
+
+        var langCheckboxes = new List<CheckBox>();
+        var yPos = 5;
+
+        foreach (var lang in targetLanguages)
+        {
+            var checkbox = new CheckBox
+            {
+                Text = lang,
+                X = 1,
+                Y = yPos,
+                Checked = true
+            };
+            langCheckboxes.Add(checkbox);
+            yPos++;
+        }
+
+        // Only missing values checkbox
+        var onlyMissingCheckbox = new CheckBox("Only translate missing values")
+        {
+            X = 1,
+            Y = yPos + 1,
+            Checked = true
+        };
+
+        // Status label
+        var statusLabel = new Label
+        {
+            X = 1,
+            Y = Pos.AnchorEnd(4),
+            Width = Dim.Fill() - 1,
+            Text = $"Ready to translate {keysToTranslate.Count} key(s)"
+        };
+
+        var btnTranslate = new Button("Translate")
+        {
+            X = 1,
+            Y = Pos.AnchorEnd(2)
+        };
+
+        var btnCancel = new Button("Cancel")
+        {
+            X = Pos.Right(btnTranslate) + 2,
+            Y = Pos.AnchorEnd(2)
+        };
+
+        btnTranslate.Clicked += async () =>
+        {
+            var provider = providers[providerCombo.SelectedItem];
+            var selectedLangs = langCheckboxes.Where(cb => cb.Checked)
+                .Select(cb => cb.Text.ToString())
+                .ToList();
+
+            if (selectedLangs.Count == 0)
+            {
+                MessageBox.ErrorQuery("Error", "Please select at least one target language.", "OK");
+                return;
+            }
+
+            try
+            {
+                // Create translation provider
+                var translationProvider = TranslationProviderFactory.Create(provider, _configuration);
+                if (!translationProvider.IsConfigured())
+                {
+                    MessageBox.ErrorQuery("Error",
+                        $"Translation provider '{provider}' is not configured.\n\n" +
+                        "Please configure API keys in lrm.json or environment variables.",
+                        "OK");
+                    return;
+                }
+
+                statusLabel.Text = "Translating...";
+                Application.Refresh();
+
+                // Translate each key
+                var defaultFile = _resourceFiles.FirstOrDefault(rf => rf.Language.IsDefault);
+                if (defaultFile == null) return;
+
+                using var cache = new TranslationCache();
+                int translated = 0;
+
+                foreach (var key in keysToTranslate)
+                {
+                    var sourceEntry = defaultFile.Entries.FirstOrDefault(e => e.Key == key);
+                    if (sourceEntry == null || string.IsNullOrWhiteSpace(sourceEntry.Value))
+                        continue;
+
+                    foreach (var targetLang in selectedLangs)
+                    {
+                        var targetFile = _resourceFiles.FirstOrDefault(rf => rf.Language.Code == targetLang);
+                        if (targetFile == null) continue;
+
+                        var targetEntry = targetFile.Entries.FirstOrDefault(e => e.Key == key);
+
+                        // Skip if only missing and value exists
+                        if (onlyMissingCheckbox.Checked && targetEntry != null && !string.IsNullOrWhiteSpace(targetEntry.Value))
+                            continue;
+
+                        var request = new TranslationRequest
+                        {
+                            SourceText = sourceEntry.Value,
+                            SourceLanguage = null, // Auto-detect
+                            TargetLanguage = targetLang
+                        };
+
+                        // Try cache first
+                        TranslationResponse? response = null;
+                        if (cache.TryGet(request, provider, out var cachedResponse) && cachedResponse != null)
+                        {
+                            response = cachedResponse;
+                        }
+                        else
+                        {
+                            response = await translationProvider.TranslateAsync(request);
+                            cache.Store(request, response);
+                        }
+
+                        // Update entry
+                        if (response != null && targetEntry != null)
+                        {
+                            targetEntry.Value = response.TranslatedText;
+                        }
+                        else if (response != null)
+                        {
+                            targetFile.Entries.Add(new ResourceEntry
+                            {
+                                Key = key,
+                                Value = response.TranslatedText,
+                                Comment = sourceEntry.Comment
+                            });
+                        }
+
+                        // Update DataTable
+                        var row = _dataTable.Rows.Cast<DataRow>().FirstOrDefault(r =>
+                            r["Key"].ToString()?.TrimStart('⚠', ' ') == key);
+                        if (row != null)
+                        {
+                            row[targetFile.Language.Name] = response.TranslatedText;
+                        }
+
+                        translated++;
+                        statusLabel.Text = $"Translated {translated}...";
+                        Application.Refresh();
+                    }
+                }
+
+                _hasUnsavedChanges = true;
+                FilterKeys(); // Refresh display
+                UpdateStatus();
+
+                MessageBox.Query("Success",
+                    $"Translated {translated} value(s) successfully.",
+                    "OK");
+
+                Application.RequestStop();
+            }
+            catch (TranslationException ex)
+            {
+                MessageBox.ErrorQuery("Translation Error",
+                    $"Translation failed: {ex.Message}\n\nError Code: {ex.ErrorCode}",
+                    "OK");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.ErrorQuery("Error",
+                    $"Translation failed: {ex.Message}",
+                    "OK");
+            }
+        };
+
+        btnCancel.Clicked += () => Application.RequestStop();
+
+        dialog.Add(providerLabel, providerCombo, langLabel);
+        foreach (var cb in langCheckboxes)
+        {
+            dialog.Add(cb);
+        }
+        dialog.Add(onlyMissingCheckbox, statusLabel, btnTranslate, btnCancel);
+
+        Application.Run(dialog);
+        dialog.Dispose();
+    }
+
+    private void ConfigureTranslation()
+    {
+        var dialog = new Dialog
+        {
+            Title = "Translation Configuration",
+            Width = Dim.Percent(70),
+            Height = 20
+        };
+
+        var message = "Translation Provider Configuration:\n\n" +
+                      "API keys can be configured via:\n\n" +
+                      "1. Environment Variables (recommended):\n" +
+                      "   LRM_GOOGLE_API_KEY\n" +
+                      "   LRM_DEEPL_API_KEY\n" +
+                      "   LRM_LIBRETRANSLATE_API_KEY\n\n" +
+                      "2. Secure Credential Store:\n" +
+                      "   lrm config set-api-key --provider <name> --key <key>\n\n" +
+                      "3. Configuration File (lrm.json):\n" +
+                      "   Add to Translation.ApiKeys section\n\n" +
+                      "See docs/TRANSLATION.md for details.";
+
+        var textView = new TextView
+        {
+            X = 1,
+            Y = 1,
+            Width = Dim.Fill() - 1,
+            Height = Dim.Fill() - 3,
+            ReadOnly = true,
+            Text = message
+        };
+
+        var btnClose = new Button("Close")
+        {
+            X = Pos.Center(),
+            Y = Pos.AnchorEnd(1)
+        };
+        btnClose.Clicked += () => Application.RequestStop();
+
+        dialog.Add(textView, btnClose);
+        Application.Run(dialog);
+        dialog.Dispose();
     }
 }

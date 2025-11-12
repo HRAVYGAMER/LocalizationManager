@@ -21,7 +21,12 @@ _lrm() {
         'import:Import translations from CSV format'
         'edit:Launch interactive TUI editor for resource files'
         'translate:Translate missing keys using AI translation providers'
-        'config:Manage LRM configuration settings'
+        'scan:Scan source code for localization key references'
+        'check:Run validation and scan together'
+        'list-languages:List all available language resource files'
+        'add-language:Add a new language resource file'
+        'remove-language:Remove a language resource file'
+        'config:Manage LRM configuration and API keys'
     )
 
     local -a global_opts
@@ -160,12 +165,122 @@ _lrm() {
                             ;;
                     esac
                     ;;
-                config)
+                scan)
                     _arguments \
-                        '--get[Get configuration value]:key:(DefaultLanguageCode)' \
-                        '--set[Set configuration value]:key:(DefaultLanguageCode)' \
-                        '--list[List all configuration values]' \
+                        '--source-path[Path to source code directory]:directory:_directories' \
+                        '--exclude[Glob patterns to exclude (comma-separated)]:patterns' \
+                        '--strict[Strict mode - only high-confidence references]' \
+                        '--show-unused[Show only unused keys]' \
+                        '--show-missing[Show only missing keys]' \
+                        '--show-references[Show detailed reference information]' \
+                        '--resource-classes[Resource class names to detect]:classes' \
+                        '--localization-methods[Localization method names to detect]:methods' \
+                        '--format[Output format]:format:->formats' \
                         $global_opts
+                    case $state in
+                        formats)
+                            _describe -t formats 'output formats' format_opts
+                            ;;
+                    esac
+                    ;;
+                check)
+                    _arguments \
+                        '--source-path[Path to source code directory]:directory:_directories' \
+                        '--exclude[Glob patterns to exclude]:patterns' \
+                        '--strict[Strict mode for scanning]' \
+                        '--format[Output format]:format:->formats' \
+                        $global_opts
+                    case $state in
+                        formats)
+                            _describe -t formats 'output formats' format_opts
+                            ;;
+                    esac
+                    ;;
+                list-languages)
+                    _arguments \
+                        '--format[Output format]:format:->formats' \
+                        $global_opts
+                    case $state in
+                        formats)
+                            _describe -t formats 'output formats' format_opts
+                            ;;
+                    esac
+                    ;;
+                add-language)
+                    _arguments \
+                        '(-c --culture)'{-c,--culture}'[Culture code]:code:(en es fr de it pt ja zh ko ru ar el tr nl pl cs sv)' \
+                        '--base-name[Base resource file name]:basename' \
+                        '--copy-from[Copy entries from specific language]:code:(en es fr de it pt ja zh ko ru ar el tr nl pl cs sv)' \
+                        '--empty[Create empty language file]' \
+                        '--no-backup[Skip creating backups]' \
+                        '(-y --yes)'{-y,--yes}'[Skip confirmation prompts]' \
+                        $global_opts
+                    ;;
+                remove-language)
+                    _arguments \
+                        '(-c --culture)'{-c,--culture}'[Culture code to remove]:code:(en es fr de it pt ja zh ko ru ar el tr nl pl cs sv)' \
+                        '--base-name[Base resource file name]:basename' \
+                        '(-y --yes)'{-y,--yes}'[Skip confirmation prompt]' \
+                        '--no-backup[Skip creating backups]' \
+                        $global_opts
+                    ;;
+                config)
+                    local -a config_subcommands
+                    config_subcommands=(
+                        'set-api-key:Store an API key in the secure credential store'
+                        'get-api-key:Check where an API key is configured'
+                        'delete-api-key:Remove an API key from the secure credential store'
+                        'list-providers:List all translation providers and their status'
+                    )
+
+                    _arguments -C \
+                        '1: :->subcommand' \
+                        '*:: :->subargs' \
+                        && return 0
+
+                    case $state in
+                        subcommand)
+                            _describe -t config-subcommands 'config subcommands' config_subcommands
+                            ;;
+                        subargs)
+                            case $words[1] in
+                                set-api-key)
+                                    _arguments \
+                                        '(-p --provider)'{-p,--provider}'[Translation provider]:provider:->providers' \
+                                        '(-k --key)'{-k,--key}'[API key to store]:key' \
+                                        $global_opts
+                                    case $state in
+                                        providers)
+                                            _describe -t providers 'translation providers' provider_opts
+                                            ;;
+                                    esac
+                                    ;;
+                                get-api-key)
+                                    _arguments \
+                                        '--provider[Translation provider]:provider:->providers' \
+                                        $global_opts
+                                    case $state in
+                                        providers)
+                                            _describe -t providers 'translation providers' provider_opts
+                                            ;;
+                                    esac
+                                    ;;
+                                delete-api-key)
+                                    _arguments \
+                                        '(-p --provider)'{-p,--provider}'[Translation provider]:provider:->providers' \
+                                        $global_opts
+                                    case $state in
+                                        providers)
+                                            _describe -t providers 'translation providers' provider_opts
+                                            ;;
+                                    esac
+                                    ;;
+                                list-providers)
+                                    _arguments $global_opts
+                                    ;;
+                            esac
+                            ;;
+                    esac
                     ;;
             esac
             ;;

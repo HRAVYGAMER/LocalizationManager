@@ -13,7 +13,7 @@ _lrm_completions() {
     prev="${COMP_WORDS[COMP_CWORD-1]}"
 
     # Main commands
-    local commands="validate stats view add update delete export import edit translate config"
+    local commands="validate stats view add update delete export import edit translate config scan check list-languages add-language remove-language"
 
     # Global options
     local global_opts="--path -p --help -h --version -v"
@@ -29,7 +29,18 @@ _lrm_completions() {
     local import_opts="--path -p --overwrite --no-backup --help -h"
     local edit_opts="--path -p --help -h"
     local translate_opts="--path -p --provider --target-languages --batch-size --only-missing --format --config-file --help -h"
-    local config_opts="--path -p --get --set --list --help -h"
+    local config_opts="set-api-key get-api-key delete-api-key list-providers --help -h"
+    local scan_opts="--path -p --source-path --exclude --strict --show-unused --show-missing --show-references --resource-classes --localization-methods --format --help -h"
+    local check_opts="--path -p --source-path --exclude --strict --format --help -h"
+    local list_languages_opts="--path -p --format --help -h"
+    local add_language_opts="--path -p --culture -c --base-name --copy-from --empty --no-backup --yes -y --help -h"
+    local remove_language_opts="--path -p --culture -c --base-name --yes -y --no-backup --help -h"
+
+    # Config subcommands
+    local config_set_api_key_opts="--provider -p --key -k --help -h"
+    local config_get_api_key_opts="--provider --help -h"
+    local config_delete_api_key_opts="--provider -p --help -h"
+    local config_list_providers_opts="--help -h"
 
     # Format options
     local format_opts="table json simple csv tui"
@@ -37,12 +48,19 @@ _lrm_completions() {
     # Translation providers
     local provider_opts="google deepl libretranslate"
 
-    # Get the command (first non-option word)
+    # Get the command and subcommand (first and second non-option words)
     local command=""
+    local subcommand=""
+    local cmd_count=0
     for ((i=1; i<COMP_CWORD; i++)); do
         if [[ "${COMP_WORDS[i]}" != -* ]]; then
-            command="${COMP_WORDS[i]}"
-            break
+            if [[ $cmd_count -eq 0 ]]; then
+                command="${COMP_WORDS[i]}"
+                cmd_count=1
+            elif [[ $cmd_count -eq 1 ]]; then
+                subcommand="${COMP_WORDS[i]}"
+                break
+            fi
         fi
     done
 
@@ -78,9 +96,34 @@ _lrm_completions() {
             COMPREPLY=( $(compgen -W "5 10 20 50 100" -- "${cur}") )
             return 0
             ;;
-        --get|--set)
-            # Configuration keys
-            COMPREPLY=( $(compgen -W "DefaultLanguageCode" -- "${cur}") )
+        --source-path)
+            # Complete directories for source path
+            COMPREPLY=( $(compgen -d -- "${cur}") )
+            return 0
+            ;;
+        --exclude)
+            # Suggest common exclude patterns
+            COMPREPLY=( $(compgen -W "**/*.g.cs **/bin/** **/obj/** **/node_modules/**" -- "${cur}") )
+            return 0
+            ;;
+        --resource-classes|--localization-methods)
+            # Suggest common values (comma-separated)
+            COMPREPLY=( $(compgen -W "Resources Strings AppResources GetString Translate L T" -- "${cur}") )
+            return 0
+            ;;
+        --culture|-c|--copy-from)
+            # Suggest language codes
+            COMPREPLY=( $(compgen -W "en es fr de it pt ja zh ko ru ar el tr nl pl cs sv" -- "${cur}") )
+            return 0
+            ;;
+        --base-name)
+            # No completion for base name
+            COMPREPLY=()
+            return 0
+            ;;
+        --key|-k)
+            # No completion for API keys (security)
+            COMPREPLY=()
             return 0
             ;;
         lrm)
@@ -153,8 +196,46 @@ _lrm_completions() {
         translate)
             COMPREPLY=( $(compgen -W "${translate_opts}" -- "${cur}") )
             ;;
+        scan)
+            COMPREPLY=( $(compgen -W "${scan_opts}" -- "${cur}") )
+            ;;
+        check)
+            COMPREPLY=( $(compgen -W "${check_opts}" -- "${cur}") )
+            ;;
+        list-languages)
+            COMPREPLY=( $(compgen -W "${list_languages_opts}" -- "${cur}") )
+            ;;
+        add-language)
+            COMPREPLY=( $(compgen -W "${add_language_opts}" -- "${cur}") )
+            ;;
+        remove-language)
+            COMPREPLY=( $(compgen -W "${remove_language_opts}" -- "${cur}") )
+            ;;
         config)
-            COMPREPLY=( $(compgen -W "${config_opts}" -- "${cur}") )
+            # Handle config subcommands
+            if [[ -z "${subcommand}" ]]; then
+                # No subcommand yet, suggest subcommands
+                COMPREPLY=( $(compgen -W "${config_opts}" -- "${cur}") )
+            else
+                # Complete options for the specific subcommand
+                case "${subcommand}" in
+                    set-api-key)
+                        COMPREPLY=( $(compgen -W "${config_set_api_key_opts}" -- "${cur}") )
+                        ;;
+                    get-api-key)
+                        COMPREPLY=( $(compgen -W "${config_get_api_key_opts}" -- "${cur}") )
+                        ;;
+                    delete-api-key)
+                        COMPREPLY=( $(compgen -W "${config_delete_api_key_opts}" -- "${cur}") )
+                        ;;
+                    list-providers)
+                        COMPREPLY=( $(compgen -W "${config_list_providers_opts}" -- "${cur}") )
+                        ;;
+                    *)
+                        COMPREPLY=()
+                        ;;
+                esac
+            fi
             ;;
         *)
             COMPREPLY=()

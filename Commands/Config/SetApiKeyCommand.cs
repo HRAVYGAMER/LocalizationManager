@@ -18,7 +18,7 @@ public class SetApiKeyCommand : Command<SetApiKeyCommand.Settings>
     public class Settings : CommandSettings
     {
         [CommandOption("-p|--provider <PROVIDER>")]
-        [Description("The translation provider (google, deepl, libretranslate)")]
+        [Description("The translation provider (google, deepl, libretranslate, ollama, openai, claude, azureopenai)")]
         public string Provider { get; set; } = string.Empty;
 
         [CommandOption("-k|--key <KEY>")]

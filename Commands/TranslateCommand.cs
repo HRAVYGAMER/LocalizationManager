@@ -28,7 +28,7 @@ public class TranslateCommand : AsyncCommand<TranslateCommand.Settings>
         public string? KeyPattern { get; set; }
 
         [CommandOption("--provider <PROVIDER>")]
-        [Description("Translation provider (google, deepl, libretranslate). Default from config.")]
+        [Description("Translation provider (google, deepl, libretranslate, ollama, openai, claude, azureopenai). Default from config.")]
         public string? Provider { get; set; }
 
         [CommandOption("--source-language <LANG>")]

@@ -7,8 +7,9 @@ namespace LocalizationManager.Core.Configuration;
 public class ConfigurationModel
 {
     /// <summary>
-    /// The language code to display for the default language (e.g., "en", "fr").
-    /// If not set, displays "default". Only affects display output, not internal logic.
+    /// The language code for the default resource file (e.g., "en", "fr").
+    /// Used for display output and as the source language for translations.
+    /// If not set, displays "default" and translations use auto-detect.
     /// </summary>
     public string? DefaultLanguageCode { get; set; }
 
@@ -35,11 +36,6 @@ public class TranslationConfiguration
     /// </summary>
     public string DefaultProvider { get; set; } = "google";
 
-    /// <summary>
-    /// The default source language for translation.
-    /// If not set, the provider will attempt to auto-detect the source language.
-    /// </summary>
-    public string? DefaultSourceLanguage { get; set; }
 
     /// <summary>
     /// API keys for translation providers.

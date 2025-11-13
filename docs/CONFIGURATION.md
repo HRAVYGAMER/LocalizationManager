@@ -65,7 +65,6 @@ YourProject/
   "DefaultLanguageCode": "en",
   "Translation": {
     "DefaultProvider": "google",
-    "DefaultSourceLanguage": "en",
     "MaxRetries": 3,
     "TimeoutSeconds": 30,
     "BatchSize": 10,
@@ -92,8 +91,8 @@ YourProject/
 ### DefaultLanguageCode
 
 **Type:** `string`
-**Default:** `"default"`
-**Purpose:** Customize how the default language is displayed in output
+**Default:** `"default"` (or `null` for auto-detect in translations)
+**Purpose:** Specifies the language code of the default resource file
 
 ```json
 {
@@ -102,9 +101,9 @@ YourProject/
 ```
 
 **Behavior:**
-- Affects display in Table, Simple, and TUI formats
-- Does NOT affect JSON/CSV exports or internal logic
-- Only changes how the default language file (e.g., `Resources.resx`) is labeled
+- **Display**: Changes how the default language file (e.g., `Resources.resx`) is labeled in Table, Simple, and TUI formats
+- **Translation**: Used as the source language when translating with AI providers (instead of auto-detect)
+- Does NOT affect JSON/CSV exports
 
 **Examples:**
 
@@ -130,7 +129,6 @@ YourProject/
 {
   "Translation": {
     "DefaultProvider": "google",
-    "DefaultSourceLanguage": "en",
     "MaxRetries": 3,
     "TimeoutSeconds": 30,
     "BatchSize": 10,
@@ -149,7 +147,6 @@ YourProject/
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `DefaultProvider` | string | `"google"` | Default translation provider: `google`, `deepl`, `libretranslate`, `ollama`, `openai`, `claude`, or `azureopenai` |
-| `DefaultSourceLanguage` | string | `null` | Default source language code (e.g., `en`). If not set, provider auto-detects |
 | `MaxRetries` | int | `3` | Maximum retry attempts for failed translation requests |
 | `TimeoutSeconds` | int | `30` | Timeout in seconds for translation API requests |
 | `BatchSize` | int | `10` | Number of keys to translate in a single batch request |
@@ -435,7 +432,6 @@ Customize scanning for a project with non-standard localization patterns.
   "DefaultLanguageCode": "en",
   "Translation": {
     "DefaultProvider": "google",
-    "DefaultSourceLanguage": "en",
     "MaxRetries": 3,
     "TimeoutSeconds": 30,
     "BatchSize": 10,

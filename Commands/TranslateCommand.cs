@@ -227,10 +227,10 @@ public class TranslateCommand : AsyncCommand<TranslateCommand.Settings>
             return settings.SourceLanguage;
         }
 
-        // Priority 2: DefaultSourceLanguage from configuration
-        if (!string.IsNullOrWhiteSpace(settings.LoadedConfiguration?.Translation?.DefaultSourceLanguage))
+        // Priority 2: DefaultLanguageCode from configuration
+        if (!string.IsNullOrWhiteSpace(settings.LoadedConfiguration?.DefaultLanguageCode))
         {
-            return settings.LoadedConfiguration.Translation.DefaultSourceLanguage;
+            return settings.LoadedConfiguration.DefaultLanguageCode;
         }
 
         // Priority 3: Fallback to auto-detect

@@ -279,7 +279,6 @@ Create or update `lrm.json` in your resource directory:
 {
   "Translation": {
     "DefaultProvider": "google",
-    "DefaultSourceLanguage": "en",
     "MaxRetries": 3,
     "TimeoutSeconds": 30,
     "BatchSize": 10,

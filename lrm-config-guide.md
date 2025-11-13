@@ -41,7 +41,7 @@ Configuration for the machine translation feature.
 
 - **Type:** `string`
 - **Default:** `"google"`
-- **Allowed values:** `"google"`, `"deepl"`, `"libretranslate"`
+- **Allowed values:** `"google"`, `"deepl"`, `"libretranslate"`, `"ollama"`, `"openai"`, `"claude"`, `"azureopenai"`
 - **Description:** The default translation provider to use when not explicitly specified.
 - **Example:**
   ```json
@@ -143,6 +143,121 @@ Configuration for the machine translation feature.
   "libreTranslate": "xyz789..."
   ```
 
+#### `translation.apiKeys.openAI`
+
+- **Type:** `string`
+- **Environment variable:** `LRM_OPENAI_API_KEY`
+- **Description:** OpenAI API key for GPT models
+- **Get your key:** https://platform.openai.com/api-keys
+- **Example:**
+  ```json
+  "openAI": "sk-..."
+  ```
+
+#### `translation.apiKeys.claude`
+
+- **Type:** `string`
+- **Environment variable:** `LRM_CLAUDE_API_KEY`
+- **Description:** Anthropic Claude API key
+- **Get your key:** https://console.anthropic.com/
+- **Example:**
+  ```json
+  "claude": "sk-ant-..."
+  ```
+
+#### `translation.apiKeys.azureOpenAI`
+
+- **Type:** `string`
+- **Environment variable:** `LRM_AZUREOPENAI_API_KEY`
+- **Description:** Azure OpenAI API key
+- **Get your key:** Azure Portal
+- **Example:**
+  ```json
+  "azureOpenAI": "..."
+  ```
+
+---
+
+### AI Provider Settings
+
+Advanced configuration for AI-powered translation providers.
+
+#### `translation.aiProviders.ollama`
+
+Configuration for Ollama (local LLM) provider.
+
+- **Type:** `object`
+- **Properties:**
+  - `apiUrl` (string, default: `"http://localhost:11434"`): Ollama server endpoint
+  - `model` (string, default: `"llama3.2"`): Model to use (e.g., "llama3.2", "mistral", "phi")
+  - `customSystemPrompt` (string, optional): Custom translation prompt
+  - `rateLimitPerMinute` (integer, default: `10`): Request rate limit
+- **Example:**
+  ```json
+  "ollama": {
+    "apiUrl": "http://localhost:11434",
+    "model": "llama3.2",
+    "customSystemPrompt": null,
+    "rateLimitPerMinute": 10
+  }
+  ```
+
+#### `translation.aiProviders.openAI`
+
+Configuration for OpenAI GPT provider.
+
+- **Type:** `object`
+- **Properties:**
+  - `model` (string, default: `"gpt-4o-mini"`): Model to use (e.g., "gpt-4", "gpt-4o-mini", "gpt-3.5-turbo")
+  - `customSystemPrompt` (string, optional): Custom translation prompt
+  - `rateLimitPerMinute` (integer, default: `60`): Request rate limit
+- **Example:**
+  ```json
+  "openAI": {
+    "model": "gpt-4o-mini",
+    "customSystemPrompt": null,
+    "rateLimitPerMinute": 60
+  }
+  ```
+
+#### `translation.aiProviders.claude`
+
+Configuration for Anthropic Claude provider.
+
+- **Type:** `object`
+- **Properties:**
+  - `model` (string, default: `"claude-3-5-sonnet-20241022"`): Model to use
+  - `customSystemPrompt` (string, optional): Custom translation prompt
+  - `rateLimitPerMinute` (integer, default: `50`): Request rate limit
+- **Example:**
+  ```json
+  "claude": {
+    "model": "claude-3-5-sonnet-20241022",
+    "customSystemPrompt": null,
+    "rateLimitPerMinute": 50
+  }
+  ```
+
+#### `translation.aiProviders.azureOpenAI`
+
+Configuration for Azure OpenAI provider.
+
+- **Type:** `object`
+- **Properties:**
+  - `endpoint` (string, required): Azure OpenAI endpoint URL
+  - `deploymentName` (string, required): Deployment name from Azure Portal
+  - `customSystemPrompt` (string, optional): Custom translation prompt
+  - `rateLimitPerMinute` (integer, default: `60`): Request rate limit
+- **Example:**
+  ```json
+  "azureOpenAI": {
+    "endpoint": "https://your-resource.openai.azure.com",
+    "deploymentName": "gpt-4",
+    "customSystemPrompt": null,
+    "rateLimitPerMinute": 60
+  }
+  ```
+
 ---
 
 ### Code Scanning Settings
@@ -207,7 +322,34 @@ Configuration for the code scanning feature that detects localization key usage 
     "apiKeys": {
       "google": "",
       "deepL": "",
-      "libreTranslate": ""
+      "libreTranslate": "",
+      "openAI": "",
+      "claude": "",
+      "azureOpenAI": ""
+    },
+    "aiProviders": {
+      "ollama": {
+        "apiUrl": "http://localhost:11434",
+        "model": "llama3.2",
+        "customSystemPrompt": null,
+        "rateLimitPerMinute": 10
+      },
+      "openAI": {
+        "model": "gpt-4o-mini",
+        "customSystemPrompt": null,
+        "rateLimitPerMinute": 60
+      },
+      "claude": {
+        "model": "claude-3-5-sonnet-20241022",
+        "customSystemPrompt": null,
+        "rateLimitPerMinute": 50
+      },
+      "azureOpenAI": {
+        "endpoint": "https://your-resource.openai.azure.com",
+        "deploymentName": "gpt-4",
+        "customSystemPrompt": null,
+        "rateLimitPerMinute": 60
+      }
     }
   },
   "scanning": {
@@ -239,12 +381,18 @@ Configuration for the code scanning feature that detects localization key usage 
    ```bash
    export LRM_GOOGLE_API_KEY="your-key-here"
    export LRM_DEEPL_API_KEY="your-key-here"
+   export LRM_OPENAI_API_KEY="your-key-here"
+   export LRM_CLAUDE_API_KEY="your-key-here"
+   export LRM_AZUREOPENAI_API_KEY="your-key-here"
    ```
 
 2. **Use Secure Credential Store**
    ```bash
    lrm config set-api-key google "your-key-here"
    lrm config set-api-key deepl "your-key-here"
+   lrm config set-api-key openai "your-key-here"
+   lrm config set-api-key claude "your-key-here"
+   lrm config set-api-key azureopenai "your-key-here"
    ```
 
 3. **Avoid Storing in Configuration File**
@@ -276,8 +424,31 @@ Most configuration options can be overridden via command-line arguments. For exa
 # Override translation provider
 lrm translate --provider deepl --target-language es
 
+# Use AI provider
+lrm translate --provider openai --target-language es
+
+# Use local Ollama
+lrm translate --provider ollama --target-language es
+
 # Override scanning configuration
 lrm scan --source-path ./src --resource-classes "Loc,Resources"
 ```
 
 Command-line arguments always take priority over configuration file settings.
+
+---
+
+## Translation Provider Notes
+
+### Traditional Providers
+- **Google**: Requires API key, excellent for general-purpose translations
+- **DeepL**: Requires API key, highest quality for European languages
+- **LibreTranslate**: Open source, can run self-hosted, API key optional
+
+### AI-Powered Providers
+- **Ollama**: No API key needed, runs locally, completely private
+- **OpenAI**: Requires API key, excellent quality, context-aware
+- **Claude**: Requires API key, excellent for nuanced translations
+- **Azure OpenAI**: Requires Azure subscription, enterprise-grade security
+
+See [docs/TRANSLATION.md](docs/TRANSLATION.md) for detailed setup instructions for each provider.

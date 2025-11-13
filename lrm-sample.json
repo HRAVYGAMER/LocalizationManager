@@ -10,7 +10,34 @@
     "apiKeys": {
       "google": "",
       "deepL": "",
-      "libreTranslate": ""
+      "libreTranslate": "",
+      "openAI": "",
+      "claude": "",
+      "azureOpenAI": ""
+    },
+    "aiProviders": {
+      "ollama": {
+        "apiUrl": "http://localhost:11434",
+        "model": "llama3.2",
+        "customSystemPrompt": null,
+        "rateLimitPerMinute": 10
+      },
+      "openAI": {
+        "model": "gpt-4o-mini",
+        "customSystemPrompt": null,
+        "rateLimitPerMinute": 60
+      },
+      "claude": {
+        "model": "claude-3-5-sonnet-20241022",
+        "customSystemPrompt": null,
+        "rateLimitPerMinute": 50
+      },
+      "azureOpenAI": {
+        "endpoint": "https://your-resource.openai.azure.com",
+        "deploymentName": "gpt-4",
+        "customSystemPrompt": null,
+        "rateLimitPerMinute": 60
+      }
     }
   },
   "scanning": {

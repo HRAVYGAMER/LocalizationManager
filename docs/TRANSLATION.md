@@ -18,7 +18,7 @@ The translation feature allows you to automatically translate resource keys from
 
 ### Key Features
 
-- **Multiple Providers**: Support for Google Cloud Translation, DeepL, and LibreTranslate
+- **Multiple Providers**: Support for Google Cloud Translation, DeepL, LibreTranslate, and AI services (OpenAI, Claude, Ollama, Azure OpenAI)
 - **Flexible Configuration**: 3-tier priority for API keys (environment variables → secure store → config file)
 - **Smart Caching**: SQLite-based translation cache with 30-day expiration
 - **Rate Limiting**: Built-in rate limiting to protect against API quota exhaustion
@@ -78,6 +78,99 @@ The translation feature allows you to automatically translate resource keys from
 
 **Rate limits**: Configurable (default: 10 requests/minute)
 
+### Ollama (Local LLM)
+
+**Provider name**: `ollama`
+
+**Features**:
+- Runs locally on your machine - no API key needed
+- Supports various open-source models (Llama, Mistral, Phi, etc.)
+- Complete privacy - data never leaves your machine
+- Customizable models and prompts
+- Supports 100+ languages (model-dependent)
+
+**Requirements**:
+- Ollama installed and running (https://ollama.ai)
+- At least one model downloaded (e.g., `ollama pull llama3.2`)
+- Default endpoint: http://localhost:11434
+
+**Rate limits**: Configurable (default: 10 requests/minute)
+
+**Setup**:
+```bash
+# Install Ollama
+# Visit https://ollama.ai for installation instructions
+
+# Pull a model
+ollama pull llama3.2
+
+# Ollama is now ready to use with LocalizationManager
+lrm translate --provider ollama
+```
+
+### OpenAI GPT
+
+**Provider name**: `openai`
+
+**Features**:
+- High-quality translations with GPT-4 and GPT-3.5-turbo
+- Context-aware translations
+- Supports 100+ languages
+- Customizable models and prompts
+- Excellent handling of technical terminology
+
+**Requirements**:
+- OpenAI API account
+- API key from https://platform.openai.com/api-keys
+
+**Rate limits**: Configurable (default: 60 requests/minute)
+
+**Cost**: Pay-per-use based on tokens. GPT-4o-mini is recommended for cost-effective translations.
+
+### Anthropic Claude
+
+**Provider name**: `claude`
+
+**Features**:
+- Excellent translation quality
+- Strong understanding of context and nuance
+- Supports 100+ languages
+- Customizable models and prompts
+- Good at preserving tone and style
+
+**Requirements**:
+- Anthropic API account
+- API key from https://console.anthropic.com/
+
+**Rate limits**: Configurable (default: 50 requests/minute)
+
+**Cost**: Pay-per-use based on tokens. Claude 3.5 Sonnet offers excellent quality/cost balance.
+
+### Azure OpenAI
+
+**Provider name**: `azureopenai`
+
+**Features**:
+- Enterprise-grade security and compliance
+- Same GPT models as OpenAI
+- Region-specific deployments
+- Integration with Azure ecosystem
+- Customizable models and prompts
+
+**Requirements**:
+- Azure subscription
+- Azure OpenAI resource created
+- Deployment created in Azure Portal
+- API key and endpoint URL
+
+**Rate limits**: Configurable (default: 60 requests/minute)
+
+**Setup**:
+1. Create Azure OpenAI resource in Azure Portal
+2. Deploy a model (e.g., gpt-4, gpt-35-turbo)
+3. Get the endpoint URL and API key
+4. Configure in lrm.json or environment variables
+
 ## Configuration
 
 ### API Key Priority
@@ -88,6 +181,9 @@ API keys are resolved using a 3-tier priority system:
    - `LRM_GOOGLE_API_KEY`
    - `LRM_DEEPL_API_KEY`
    - `LRM_LIBRETRANSLATE_API_KEY`
+   - `LRM_OPENAI_API_KEY`
+   - `LRM_CLAUDE_API_KEY`
+   - `LRM_AZUREOPENAI_API_KEY`
 
 2. **Secure Credential Store** (optional)
    - Encrypted storage in user profile
@@ -105,6 +201,9 @@ API keys are resolved using a 3-tier priority system:
 export LRM_GOOGLE_API_KEY="your-google-api-key"
 export LRM_DEEPL_API_KEY="your-deepl-api-key"
 export LRM_LIBRETRANSLATE_API_KEY="your-libretranslate-api-key"
+export LRM_OPENAI_API_KEY="your-openai-api-key"
+export LRM_CLAUDE_API_KEY="your-claude-api-key"
+export LRM_AZUREOPENAI_API_KEY="your-azure-openai-api-key"
 ```
 
 **Windows PowerShell**:
@@ -112,6 +211,9 @@ export LRM_LIBRETRANSLATE_API_KEY="your-libretranslate-api-key"
 $env:LRM_GOOGLE_API_KEY="your-google-api-key"
 $env:LRM_DEEPL_API_KEY="your-deepl-api-key"
 $env:LRM_LIBRETRANSLATE_API_KEY="your-libretranslate-api-key"
+$env:LRM_OPENAI_API_KEY="your-openai-api-key"
+$env:LRM_CLAUDE_API_KEY="your-claude-api-key"
+$env:LRM_AZUREOPENAI_API_KEY="your-azure-openai-api-key"
 ```
 
 **Windows CMD**:
@@ -119,6 +221,9 @@ $env:LRM_LIBRETRANSLATE_API_KEY="your-libretranslate-api-key"
 set LRM_GOOGLE_API_KEY=your-google-api-key
 set LRM_DEEPL_API_KEY=your-deepl-api-key
 set LRM_LIBRETRANSLATE_API_KEY=your-libretranslate-api-key
+set LRM_OPENAI_API_KEY=your-openai-api-key
+set LRM_CLAUDE_API_KEY=your-claude-api-key
+set LRM_AZUREOPENAI_API_KEY=your-azure-openai-api-key
 ```
 
 ### Configuration File
@@ -137,11 +242,46 @@ Create or update `lrm.json` in your resource directory:
     "ApiKeys": {
       "Google": "your-google-api-key",
       "DeepL": "your-deepl-api-key",
-      "LibreTranslate": "your-libretranslate-api-key"
+      "LibreTranslate": "your-libretranslate-api-key",
+      "OpenAI": "your-openai-api-key",
+      "Claude": "your-claude-api-key",
+      "AzureOpenAI": "your-azure-openai-api-key"
+    },
+    "AIProviders": {
+      "Ollama": {
+        "ApiUrl": "http://localhost:11434",
+        "Model": "llama3.2",
+        "CustomSystemPrompt": null,
+        "RateLimitPerMinute": 10
+      },
+      "OpenAI": {
+        "Model": "gpt-4o-mini",
+        "CustomSystemPrompt": null,
+        "RateLimitPerMinute": 60
+      },
+      "Claude": {
+        "Model": "claude-3-5-sonnet-20241022",
+        "CustomSystemPrompt": null,
+        "RateLimitPerMinute": 50
+      },
+      "AzureOpenAI": {
+        "Endpoint": "https://your-resource.openai.azure.com",
+        "DeploymentName": "gpt-4",
+        "CustomSystemPrompt": null,
+        "RateLimitPerMinute": 60
+      }
     }
   }
 }
 ```
+
+**AI Provider Settings Explained**:
+- `ApiUrl` (Ollama only): The endpoint URL for your Ollama instance
+- `Model`: The model to use for translations (can be customized per provider)
+- `CustomSystemPrompt`: Override the default translation prompt with your own
+- `RateLimitPerMinute`: Maximum requests per minute to avoid rate limiting
+- `Endpoint` (Azure only): Your Azure OpenAI endpoint URL
+- `DeploymentName` (Azure only): The deployment name in Azure Portal
 
 ⚠️ **IMPORTANT**: If you add API keys to `lrm.json`, add the file to `.gitignore` to prevent committing secrets to version control!
 
@@ -182,7 +322,7 @@ lrm translate [KEY] [OPTIONS]
   - If omitted, translates all keys
 
 **Options**:
-- `--provider <PROVIDER>`: Translation provider (google, deepl, libretranslate)
+- `--provider <PROVIDER>`: Translation provider (google, deepl, libretranslate, ollama, openai, claude, azureopenai)
   - Default: From config or `google`
 - `--source-language <LANG>`: Source language code (e.g., `en`, `fr`, or `default`)
   - Default: Uses default language file (auto-detect)
@@ -208,7 +348,7 @@ lrm config set-api-key --provider <PROVIDER> --key <KEY>
 Store an API key in the secure credential store.
 
 **Options**:
-- `-p, --provider <PROVIDER>`: Provider name (google, deepl, libretranslate)
+- `-p, --provider <PROVIDER>`: Provider name (google, deepl, libretranslate, openai, claude, azureopenai)
 - `-k, --key <KEY>`: API key to store
 
 #### Get API Key
@@ -273,6 +413,26 @@ lrm translate --target-languages fr,de,es
 Use DeepL for highest quality:
 ```bash
 lrm translate --provider deepl
+```
+
+Use Ollama for local, private translations:
+```bash
+lrm translate --provider ollama
+```
+
+Use OpenAI GPT for high-quality AI translations:
+```bash
+lrm translate --provider openai
+```
+
+Use Claude for nuanced, context-aware translations:
+```bash
+lrm translate --provider claude
+```
+
+Use Azure OpenAI for enterprise deployments:
+```bash
+lrm translate --provider azureopenai
 ```
 
 ### Only Translate Missing Values

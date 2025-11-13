@@ -36,7 +36,7 @@ LRM solves this by providing:
 | **Linux Support** | ✅ Native | ❌ Windows only | ❌ Windows only | ❌ Windows only | ✅ Any editor |
 | **Command Line** | ✅ Full CLI | ⚠️ PowerShell scripting | ❌ GUI only | ❌ GUI only | ⚠️ Manual XML |
 | **Terminal UI** | ✅ Interactive TUI | ❌ | ❌ | ❌ | ❌ |
-| **Machine Translation** | ✅ Google/DeepL/LibreTranslate | ⚠️ External services | ❌ | ❌ | ❌ |
+| **Machine Translation** | ✅ Google/DeepL/LibreTranslate/AI | ⚠️ External services | ❌ | ❌ | ❌ |
 | **CI/CD Integration** | ✅ Built-in | ⚠️ Complex | ❌ | ❌ | ⚠️ Custom scripts |
 | **Automation** | ✅ Full API | ⚠️ Limited | ❌ | ❌ | ❌ |
 | **Validation** | ✅ Built-in | ✅ | ✅ | ⚠️ Build-time | ❌ |
@@ -58,7 +58,7 @@ LRM solves this by providing:
 # Auto-translate missing keys on every push
 - Validate all .resx files
 - Detect missing translations
-- Auto-translate with AI (Google/DeepL/LibreTranslate)
+- Auto-translate with AI (Google/DeepL/OpenAI/Claude/Ollama)
 - Re-validate and commit
 - Track exactly what was translated per language
 ```
@@ -75,13 +75,14 @@ LRM solves this by providing:
 
 ## Features
 
-- **🤖 Machine Translation** - Automatic translation using Google Cloud Translation, DeepL, or LibreTranslate
-  - Multiple translation providers with smart caching
+- **🤖 Machine Translation** - Automatic translation using multiple providers
+  - **Traditional services**: Google Cloud Translation, DeepL, LibreTranslate
+  - **AI-powered**: OpenAI GPT, Anthropic Claude, Azure OpenAI, Ollama (local LLM)
+  - Smart caching to reduce costs (30-day SQLite cache)
   - Batch processing with rate limiting
   - Pattern matching for selective translation
   - Secure API key management (environment variables, encrypted store, or config file)
-  - Translation caching (30-day SQLite cache)
-  - Provider-specific rate limits and retry logic
+  - Customizable models and prompts for AI providers
 - **🚀 CI/CD Automation** - Production-ready workflows for GitHub Actions, GitLab CI, Azure DevOps
   - Validate → Check Missing → Auto-Translate → Re-validate → Commit
   - Detailed translation reports per language
@@ -179,8 +180,17 @@ lrm view "Not Found" --search-in values
 # Automatically translate missing values
 lrm translate --only-missing
 
-# Translate all keys to specific languages using DeepL
+# Translate using DeepL for highest quality
 lrm translate --provider deepl --target-languages fr,de,es
+
+# Translate using OpenAI GPT (AI-powered)
+lrm translate --provider openai --target-languages fr,de,es
+
+# Translate using Ollama (local, private, no API key needed)
+lrm translate --provider ollama --target-languages fr,de,es
+
+# Translate using Claude for nuanced translations
+lrm translate --provider claude --target-languages fr,de,es
 
 # Preview translations without saving
 lrm translate --dry-run

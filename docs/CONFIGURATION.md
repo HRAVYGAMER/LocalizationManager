@@ -148,7 +148,7 @@ YourProject/
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `DefaultProvider` | string | `"google"` | Default translation provider: `google`, `deepl`, or `libretranslate` |
+| `DefaultProvider` | string | `"google"` | Default translation provider: `google`, `deepl`, `libretranslate`, `ollama`, `openai`, `claude`, or `azureopenai` |
 | `DefaultSourceLanguage` | string | `null` | Default source language code (e.g., `en`). If not set, provider auto-detects |
 | `MaxRetries` | int | `3` | Maximum retry attempts for failed translation requests |
 | `TimeoutSeconds` | int | `30` | Timeout in seconds for translation API requests |
@@ -168,6 +168,9 @@ YourProject/
 export LRM_GOOGLE_API_KEY="your-google-key"
 export LRM_DEEPL_API_KEY="your-deepl-key"
 export LRM_LIBRETRANSLATE_API_KEY="your-libretranslate-key"
+export LRM_OPENAI_API_KEY="your-openai-key"
+export LRM_CLAUDE_API_KEY="your-claude-key"
+export LRM_AZUREOPENAI_API_KEY="your-azure-openai-key"
 ```
 
 **Configuration File:**
@@ -223,7 +226,13 @@ lrm config set-api-key --provider deepl --key "your-key"
 - **Languages:** 30+ languages
 - **Quality:** Good (open-source alternative)
 
-See [docs/TRANSLATION.md](TRANSLATION.md) for complete translation documentation.
+**AI-Powered Providers:**
+- **Ollama** (`ollama`) - Local LLM, no API key needed, runs on your machine
+- **OpenAI** (`openai`) - GPT models, high-quality AI translations
+- **Anthropic Claude** (`claude`) - Context-aware, nuanced translations
+- **Azure OpenAI** (`azureopenai`) - Enterprise OpenAI deployments
+
+See [docs/TRANSLATION.md](TRANSLATION.md) for complete translation documentation and AI provider setup.
 
 ---
 

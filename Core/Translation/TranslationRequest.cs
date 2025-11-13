@@ -19,9 +19,19 @@ public class TranslationRequest
     public string? SourceLanguage { get; init; }
 
     /// <summary>
+    /// Optional display name for source language (e.g., "English", "French"). Used for better AI prompts.
+    /// </summary>
+    public string? SourceLanguageName { get; init; }
+
+    /// <summary>
     /// The target language code (e.g., "fr", "de").
     /// </summary>
     public required string TargetLanguage { get; init; }
+
+    /// <summary>
+    /// Optional display name for target language (e.g., "French", "German"). Used for better AI prompts.
+    /// </summary>
+    public string? TargetLanguageName { get; init; }
 
     /// <summary>
     /// Optional context for the translation (e.g., resource key name, comments).

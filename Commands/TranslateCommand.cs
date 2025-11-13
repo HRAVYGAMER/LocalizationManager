@@ -227,8 +227,13 @@ public class TranslateCommand : AsyncCommand<TranslateCommand.Settings>
             return settings.SourceLanguage;
         }
 
-        // Priority 2: Always fallback to default language (represented as null for auto-detect)
-        // The default language file (with Code == "") is the source by default
+        // Priority 2: DefaultSourceLanguage from configuration
+        if (!string.IsNullOrWhiteSpace(settings.LoadedConfiguration?.Translation?.DefaultSourceLanguage))
+        {
+            return settings.LoadedConfiguration.Translation.DefaultSourceLanguage;
+        }
+
+        // Priority 3: Fallback to auto-detect
         // We return null which means auto-detect, and the provider will detect from the source text
         return null;
     }
@@ -294,7 +299,8 @@ public class TranslateCommand : AsyncCommand<TranslateCommand.Settings>
                     {
                         SourceText = key.Value ?? string.Empty,
                         SourceLanguage = sourceLanguage,
-                        TargetLanguage = targetLang
+                        TargetLanguage = targetLang,
+                        TargetLanguageName = targetLanguageInfo.Name // Use the display name from LanguageInfo
                     };
 
                     TranslationResponse response;

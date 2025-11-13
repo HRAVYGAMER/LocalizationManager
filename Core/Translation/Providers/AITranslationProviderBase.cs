@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -100,8 +101,11 @@ public abstract class AITranslationProviderBase : ITranslationProvider
     /// </summary>
     protected virtual string BuildUserPrompt(TranslationRequest request)
     {
-        var sourceLang = request.SourceLanguage ?? "auto-detected language";
-        var targetLang = request.TargetLanguage;
+        // Use language names if provided, otherwise fall back to codes or CultureInfo
+        var sourceLang = request.SourceLanguageName
+            ?? (request.SourceLanguage != null ? GetLanguageDisplayName(request.SourceLanguage) : "auto-detected language");
+        var targetLang = request.TargetLanguageName
+            ?? GetLanguageDisplayName(request.TargetLanguage);
 
         var prompt = $"Translate the following text from {sourceLang} to {targetLang}:\n\n{request.SourceText}";
 
@@ -112,6 +116,24 @@ public abstract class AITranslationProviderBase : ITranslationProvider
         }
 
         return prompt;
+    }
+
+    /// <summary>
+    /// Gets a display name for a language code using CultureInfo.
+    /// Falls back to the code itself if not found.
+    /// </summary>
+    protected virtual string GetLanguageDisplayName(string languageCode)
+    {
+        try
+        {
+            var culture = CultureInfo.GetCultureInfo(languageCode);
+            return culture.EnglishName;
+        }
+        catch
+        {
+            // If culture not found, return the code itself
+            return languageCode;
+        }
     }
 
     /// <summary>

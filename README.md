@@ -93,7 +93,14 @@ LRM solves this by providing:
   - Side-by-side multi-language editing
   - In-app translation with Ctrl+T
   - Real-time validation and search
+  - Full duplicate key support (view, edit, delete, merge)
 - **🔍 Validation** - Detect missing translations, duplicates, empty values
+- **🔄 Duplicate Handling** - Comprehensive duplicate key management
+  - View all occurrences with [N] suffix in TUI
+  - Edit specific occurrences independently
+  - Delete with options (this occurrence, all, or merge)
+  - Interactive merge with per-language selection
+  - Auto-merge mode for batch processing
 - **📊 Statistics** - Translation coverage with progress bars
 - **🔎 Code Scanning** - Find unused keys and missing references in source code
   - Scan C#, Razor, and XAML files for localization key usage
@@ -270,7 +277,8 @@ See [EXAMPLES.md](docs/EXAMPLES.md) for detailed usage scenarios and workflows.
 | `scan` 🆕 | Scan source code for key usage and find unused/missing keys | Table, JSON, Simple |
 | `add` | Add a new key to all language files | N/A |
 | `update` | Update values for an existing key | N/A |
-| `delete` | Delete a key from all language files | N/A |
+| `delete` | Delete a key from all language files (with duplicate handling) | N/A |
+| `merge-duplicates` 🆕 | Merge duplicate key occurrences into a single entry | N/A |
 | `export` | Export translations to CSV, JSON, or text format | CSV, JSON, Text |
 | `import` | Import translations from CSV | Table, JSON, Simple |
 | `edit` | Launch interactive Terminal UI editor | N/A |
@@ -381,7 +389,8 @@ Launch with `lrm edit` to get a visual interface:
 - `↑/↓` or `j/k` - Navigate keys
 - `Enter` - Edit selected key
 - `Ctrl+N` - Add new key
-- `Del` - Delete key
+- `Del` - Delete key (with duplicate handling options)
+- `Ctrl+M` - Merge duplicate keys
 - `Ctrl+T` - Translate selected key or auto-translate in edit dialog
 - `F4` - Translate all missing values
 - `F5` - Configure translation providers

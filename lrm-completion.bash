@@ -13,7 +13,7 @@ _lrm_completions() {
     prev="${COMP_WORDS[COMP_CWORD-1]}"
 
     # Main commands
-    local commands="validate stats view add update delete export import edit translate config scan check list-languages add-language remove-language"
+    local commands="validate stats view add update delete merge-duplicates export import edit translate config scan check list-languages add-language remove-language"
 
     # Global options
     local global_opts="--path -p --help -h --version -v"
@@ -24,7 +24,8 @@ _lrm_completions() {
     local view_opts="--path -p --show-comments --format --regex --sort --no-limit --help -h"
     local add_opts="--path -p --lang -l --comment --no-backup --help -h"
     local update_opts="--path -p --lang -l --comment --interactive -i --yes -y --no-backup --help -h"
-    local delete_opts="--path -p --yes -y --no-backup --occurrence --all --help -h"
+    local delete_opts="--path -p --yes -y --no-backup --all-duplicates --help -h"
+    local merge_duplicates_opts="--path -p --all --auto-first --yes -y --no-backup --help -h"
     local export_opts="--path -p --output -o --format --include-status --help -h"
     local import_opts="--path -p --overwrite --no-backup --help -h"
     local edit_opts="--path -p --help -h"
@@ -94,11 +95,6 @@ _lrm_completions() {
         --batch-size)
             # Suggest batch sizes
             COMPREPLY=( $(compgen -W "5 10 20 50 100" -- "${cur}") )
-            return 0
-            ;;
-        --occurrence)
-            # Suggest occurrence numbers
-            COMPREPLY=( $(compgen -W "1 2 3 4 5" -- "${cur}") )
             return 0
             ;;
         --source-path)
@@ -181,6 +177,14 @@ _lrm_completions() {
                 COMPREPLY=( $(compgen -W "${delete_opts}" -- "${cur}") )
             else
                 # Key name argument
+                COMPREPLY=()
+            fi
+            ;;
+        merge-duplicates)
+            if [[ "${cur}" == -* ]]; then
+                COMPREPLY=( $(compgen -W "${merge_duplicates_opts}" -- "${cur}") )
+            else
+                # Key name argument (optional with --all)
                 COMPREPLY=()
             fi
             ;;

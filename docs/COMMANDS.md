@@ -12,6 +12,7 @@ This document provides detailed information about all LRM commands, their option
 - [add](#add) - Add new keys
 - [update](#update) - Update existing keys
 - [delete](#delete) - Delete keys
+- [merge-duplicates](#merge-duplicates) - Merge duplicate key occurrences
 - [export](#export) - Export to various formats
 - [import](#import) - Import from CSV
 - [edit](#edit) - Interactive TUI editor
@@ -827,7 +828,7 @@ Proceed with update? [y/N]:
 
 ## delete
 
-**Description:** Delete a key from all language files. Supports handling duplicate keys by occurrence number.
+**Description:** Delete a key from all language files. If duplicates are found, requires the `--all-duplicates` flag or use of the `merge-duplicates` command.
 
 **Arguments:**
 - `<KEY>` - The key to delete (required)
@@ -836,8 +837,7 @@ Proceed with update? [y/N]:
 - `-p, --path <PATH>` - Resource folder path
 - `-y, --yes` - Skip confirmation prompt
 - `--no-backup` - Skip automatic backup creation
-- `--occurrence <NUMBER>` - Delete specific occurrence of a duplicate key (1-based index)
-- `--all` - Delete all occurrences of a duplicate key without prompting
+- `--all-duplicates` - Delete all occurrences of a duplicate key
 
 **Examples:**
 ```bash
@@ -849,29 +849,35 @@ lrm delete OldKey -y
 
 # Delete without backup
 lrm delete OldKey -y --no-backup
+
+# Delete all occurrences of a duplicate key
+lrm delete DuplicateKey --all-duplicates -y
 ```
 
 **Handling Duplicate Keys:**
 
-When a key appears multiple times in your resource files (duplicates), the delete command provides interactive and automated options:
+When a key appears multiple times in your resource files (duplicates), the delete command will error unless you use `--all-duplicates` flag or use the `merge-duplicates` command to consolidate them first:
 
 ```bash
-# Interactive mode - prompts which occurrence to delete
+# Attempting to delete a duplicate key without the flag
 lrm delete DuplicateKey
 
-# Delete specific occurrence (e.g., the 2nd occurrence)
-lrm delete DuplicateKey --occurrence 2
+# Output:
+# ✗ Key 'DuplicateKey' has 2 occurrences.
+# Use --all-duplicates to delete all occurrences, or use 'merge-duplicates' to consolidate them.
 
 # Delete all occurrences at once
-lrm delete DuplicateKey --all
+lrm delete DuplicateKey --all-duplicates
 
-# Delete all occurrences without confirmation
-lrm delete DuplicateKey --all -y
+# Or consolidate duplicates first (recommended)
+lrm merge-duplicates DuplicateKey
+# Then delete the merged entry
+lrm delete DuplicateKey
 ```
 
-**Interactive prompt for duplicates:**
+**Confirmation prompt:**
 ```
-Key to delete: ClearSelection
+Key to delete: OldKey
 
 ┌───────────────┬─────────────────────┐
 │ Language      │ Value               │
@@ -880,31 +886,124 @@ Key to delete: ClearSelection
 │ Ελληνικά (el) │ Καθαρισμός Επιλογής │
 └───────────────┴─────────────────────┘
 
-Found 2 occurrences of key 'ClearSelection':
-
-  [1] "Clear Selection"
-  [2] "Clear selection"
-
-Which occurrence do you want to delete?
-> [1]
-  [2]
-  All
-  Cancel
+Delete key 'OldKey' from all languages? [y/N]:
 ```
 
-**Confirmation prompt (single key):**
-```
-This will delete 'OldKey' from all languages:
-  - English: Old Value
-  - Greek: Παλιά Αξία
+**Behavior:**
+- Deletes the key from **all language files**
+- If duplicates exist, requires `--all-duplicates` flag to proceed (deletes all occurrences)
+- For selective duplicate handling, use `merge-duplicates` command instead
 
-Are you sure? [y/N]:
+---
+
+## merge-duplicates
+
+**Description:** Merge duplicate occurrences of a key into a single entry by selecting which occurrence to keep for each language.
+
+**Arguments:**
+- `[KEY]` - The key to merge (optional if using `--all`)
+
+**Options:**
+- `-p, --path <PATH>` - Resource folder path
+- `--all` - Merge all duplicate keys in the resource files
+- `--auto-first` - Automatically select first occurrence from each language without prompting
+- `-y, --yes` - Skip final confirmation prompt
+- `--no-backup` - Skip automatic backup creation
+
+**Examples:**
+```bash
+# Interactive mode - prompts for each language
+lrm merge-duplicates DuplicateKey
+
+# Auto mode - keeps first occurrence from each language
+lrm merge-duplicates DuplicateKey --auto-first
+
+# Merge all duplicate keys in the file (auto mode)
+lrm merge-duplicates --all --auto-first
+
+# Merge without backup or confirmation
+lrm merge-duplicates DuplicateKey --auto-first -y --no-backup
 ```
 
-**Behavior with duplicates:**
-- Deletes the specified occurrence from **all language files** (cross-file synchronization by occurrence number)
-- If deleting occurrence #2, the 2nd occurrence is removed from default and all translation files
-- Prompts interactively when duplicates are detected and no `--occurrence` or `--all` flag is provided
+**Interactive Mode:**
+
+When running in interactive mode (default), the command prompts you to select which occurrence to keep for each language:
+
+```
+Merging key: DuplicateKey
+
+  Ελληνικά (el) has 2 occurrences:
+  Which occurrence to keep for Ελληνικά (el)?
+  > [1] "Πρώτη εμφάνιση"
+    [2] "Δεύτερη εμφάνιση"
+
+  English (default) has 3 occurrences:
+  Which occurrence to keep for English (default)?
+  > [1] "First occurrence"
+    [2] "Second occurrence"
+    [3] "Third occurrence"
+
+Preview of merged entry:
+
+┌───────────────┬─────────────────────┐
+│ Language      │ Selected Value      │
+├───────────────┼─────────────────────┤
+│ Default       │ First occurrence    │
+│ Ελληνικά (el) │ Πρώτη εμφάνιση      │
+└───────────────┴─────────────────────┘
+
+Apply merge for key 'DuplicateKey'? [Y/n]:
+```
+
+**Auto Mode (`--auto-first`):**
+
+Automatically selects the first occurrence from each language file:
+
+```bash
+lrm merge-duplicates DuplicateKey --auto-first
+
+# Output:
+# ✓ Merged 'DuplicateKey' (kept first occurrence from each language)
+```
+
+**Batch Processing (`--all`):**
+
+Merge all duplicate keys at once:
+
+```bash
+lrm merge-duplicates --all --auto-first
+
+# Output:
+# Found 3 key(s) with duplicates
+#
+# ✓ Merged 'DuplicateKey1' (kept first occurrence from each language)
+# ✓ Merged 'DuplicateKey2' (kept first occurrence from each language)
+# ✓ Merged 'DuplicateKey3' (kept first occurrence from each language)
+#
+# ✓ Successfully merged 3 keys
+```
+
+**Behavior:**
+- Per-language selection: Each language can keep a different occurrence
+- Comment preservation: Comments are kept atomically with their values
+- Cross-file synchronization: If you select occurrence #2 for English, it removes occurrences #1 and #3
+- Handles partial occurrences: If a language has fewer occurrences than others, it uses what's available
+- Error handling: If key doesn't exist or has no duplicates, shows appropriate error message
+
+**Error Cases:**
+```bash
+# Key not found
+lrm merge-duplicates NonExistentKey
+# ✗ Key 'NonExistentKey' not found
+
+# Key has no duplicates
+lrm merge-duplicates UniqueKey
+# ✗ Key 'UniqueKey' has only 1 occurrence, nothing to merge
+
+# No duplicate keys when using --all
+lrm merge-duplicates --all --auto-first
+# No duplicate keys found
+```
 
 ---
 

@@ -910,39 +910,61 @@ done
 
 ### Handling Duplicate Keys
 
-When you have duplicate keys in your resource files (multiple entries with the same key name), the delete command provides special handling:
+When you have duplicate keys in your resource files (multiple entries with the same key name), you have two options:
+
+**Option 1: Delete All Occurrences**
 
 ```bash
-# Interactive mode - prompts which occurrence to delete
+# Attempting to delete a duplicate key without the flag will error
 lrm delete DuplicateKey
-
 # Output:
-# Found 2 occurrences of key 'DuplicateKey':
-#   [1] "First value"
-#   [2] "Second value"
-#
-# Which occurrence do you want to delete?
-# > [1]
-#   [2]
-#   All
-#   Cancel
-```
-
-```bash
-# Delete specific occurrence directly (non-interactive)
-lrm delete DuplicateKey --occurrence 2
+# ✗ Key 'DuplicateKey' has 2 occurrences.
+# Use --all-duplicates to delete all occurrences, or use 'merge-duplicates' to consolidate them.
 
 # Delete all occurrences at once
-lrm delete DuplicateKey --all
+lrm delete DuplicateKey --all-duplicates
 
 # Delete all occurrences without confirmation (for automation)
-lrm delete DuplicateKey --all -y
+lrm delete DuplicateKey --all-duplicates -y
 ```
 
-**How occurrence deletion works:**
-- Deletes the Nth occurrence from **all language files** (cross-file synchronization)
-- If you delete occurrence #2 from the default file, occurrence #2 is also deleted from all translation files
-- Uses occurrence order, not array indices, so it's safe even if files have different ordering
+**Option 2: Merge Duplicates (Recommended)**
+
+Use the `merge-duplicates` command to consolidate duplicate keys by selecting the best value for each language:
+
+```bash
+# Interactive mode - prompts which occurrence to keep for each language
+lrm merge-duplicates DuplicateKey
+
+# Output:
+#   Ελληνικά (el) has 2 occurrences:
+#   Which occurrence to keep for Ελληνικά (el)?
+#   > [1] "Πρώτη εμφάνιση"
+#     [2] "Δεύτερη εμφάνιση"
+#
+#   English (default) has 2 occurrences:
+#   Which occurrence to keep for English (default)?
+#   > [1] "First occurrence"
+#     [2] "Second occurrence"
+#
+#   Preview of merged entry:
+#   ┌───────────────┬──────────────────┐
+#   │ Language      │ Selected Value   │
+#   ├───────────────┼──────────────────┤
+#   │ Default       │ First occurrence │
+#   │ Ελληνικά (el) │ Πρώτη εμφάνιση   │
+#   └───────────────┴──────────────────┘
+#
+#   Apply merge for key 'DuplicateKey'? [Y/n]:
+```
+
+```bash
+# Auto mode - keeps first occurrence from each language
+lrm merge-duplicates DuplicateKey --auto-first
+
+# Merge all duplicate keys in one command
+lrm merge-duplicates --all --auto-first
+```
 
 **Example workflow:**
 ```bash
@@ -950,15 +972,23 @@ lrm delete DuplicateKey --all -y
 lrm validate
 # Output: ⚠ Duplicate Keys found: ClearSelection (default, el)
 
-# 2. View all occurrences in TUI (shows as "ClearSelection [1]" and "ClearSelection [2]")
-lrm edit
+# 2. Merge duplicates interactively
+lrm merge-duplicates ClearSelection
+# Select which occurrence to keep for each language
 
-# 3. Delete the unwanted occurrence
-lrm delete ClearSelection --occurrence 2
-
-# 4. Verify duplicates are resolved
+# 3. Verify duplicates are resolved
 lrm validate
 # Output: ✓ All validations passed!
+```
+
+**Batch cleanup workflow:**
+```bash
+# Clean up all duplicates at once by keeping first occurrence
+lrm merge-duplicates --all --auto-first -y
+
+# Or delete all duplicates entirely
+lrm delete DuplicateKey1 --all-duplicates -y
+lrm delete DuplicateKey2 --all-duplicates -y
 ```
 
 ---

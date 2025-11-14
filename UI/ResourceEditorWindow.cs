@@ -54,6 +54,7 @@ public class ResourceEditorWindow : Window
     private Dictionary<string, List<string>> _extraKeysByLanguage = new();
     private List<CheckBox> _languageCheckboxes = new();
     private CheckBox? _regexCheckBox;
+    private bool _showComments = false;
 
     public ResourceEditorWindow(List<ResourceFile> resourceFiles, ResourceFileParser parser, string defaultLanguageCode = "default", ConfigurationModel? configuration = null)
     {
@@ -98,6 +99,13 @@ public class ResourceEditorWindow : Window
             dt.Columns.Add(rf.Language.Name, typeof(string));
         }
 
+        // Add comment columns for each language (hidden, used for filtering)
+        foreach (var rf in _resourceFiles)
+        {
+            var commentColumn = dt.Columns.Add($"_Comment_{rf.Language.Code}", typeof(string));
+            commentColumn.ColumnMapping = MappingType.Hidden;
+        }
+
         // Add internal columns for filtering (hidden from display)
         var visibleColumn = dt.Columns.Add("_Visible", typeof(bool));
         visibleColumn.ColumnMapping = MappingType.Hidden;
@@ -117,9 +125,73 @@ public class ResourceEditorWindow : Window
             {
                 var entry = rf.Entries.FirstOrDefault(e => e.Key == key);
                 row[rf.Language.Name] = entry?.Value ?? "";
+                row[$"_Comment_{rf.Language.Code}"] = entry?.Comment ?? "";
             }
 
             dt.Rows.Add(row);
+        }
+
+        return dt;
+    }
+
+    private DataTable BuildDataTableWithDoubleRows()
+    {
+        var dt = new DataTable();
+
+        // Add Key column
+        dt.Columns.Add("Key", typeof(string));
+
+        // Add column for each language
+        foreach (var rf in _resourceFiles)
+        {
+            dt.Columns.Add(rf.Language.Name, typeof(string));
+        }
+
+        // Add hidden metadata columns
+        var rowTypeColumn = dt.Columns.Add("_RowType", typeof(string));
+        rowTypeColumn.ColumnMapping = MappingType.Hidden;
+
+        var logicalKeyColumn = dt.Columns.Add("_LogicalKey", typeof(string));
+        logicalKeyColumn.ColumnMapping = MappingType.Hidden;
+
+        var visibleColumn = dt.Columns.Add("_Visible", typeof(bool));
+        visibleColumn.ColumnMapping = MappingType.Hidden;
+
+        var extraKeyColumn = dt.Columns.Add("_HasExtraKey", typeof(bool));
+        extraKeyColumn.ColumnMapping = MappingType.Hidden;
+
+        // Populate rows - 2 rows per key (value + comment)
+        foreach (var key in _allKeys)
+        {
+            // Value Row
+            var valueRow = dt.NewRow();
+            valueRow["Key"] = key;
+            valueRow["_RowType"] = "Value";
+            valueRow["_LogicalKey"] = key;
+            valueRow["_Visible"] = true;
+            valueRow["_HasExtraKey"] = false;
+
+            foreach (var rf in _resourceFiles)
+            {
+                var entry = rf.Entries.FirstOrDefault(e => e.Key == key);
+                valueRow[rf.Language.Name] = entry?.Value ?? "";
+            }
+            dt.Rows.Add(valueRow);
+
+            // Comment Row (indented with box-drawing characters)
+            var commentRow = dt.NewRow();
+            commentRow["Key"] = "  \u2514\u2500 Comment";  // "  └─ Comment"
+            commentRow["_RowType"] = "Comment";
+            commentRow["_LogicalKey"] = key;
+            commentRow["_Visible"] = true;
+            commentRow["_HasExtraKey"] = false;
+
+            foreach (var rf in _resourceFiles)
+            {
+                var entry = rf.Entries.FirstOrDefault(e => e.Key == key);
+                commentRow[rf.Language.Name] = entry?.Comment ?? "";
+            }
+            dt.Rows.Add(commentRow);
         }
 
         return dt;
@@ -193,7 +265,7 @@ public class ResourceEditorWindow : Window
             Application.MainLoop.Invoke(() => ApplyFilters());
         };
 
-        // Search scope toggle (Keys+Values / Keys Only) - on same line as search
+        // Search scope cycle (Keys+Values → Keys Only → Comments → All) - on same line as search
         var scopeButton = new Button
         {
             Text = "Keys+Values",
@@ -202,17 +274,25 @@ public class ResourceEditorWindow : Window
         };
         scopeButton.Clicked += () =>
         {
-            // Toggle between Keys+Values and Keys Only
-            if (_filterCriteria.Scope == SearchScope.KeysAndValues)
+            // Cycle through all search scopes
+            _filterCriteria.Scope = _filterCriteria.Scope switch
             {
-                _filterCriteria.Scope = SearchScope.KeysOnly;
-                scopeButton.Text = "Keys Only";
-            }
-            else
+                SearchScope.KeysAndValues => SearchScope.KeysOnly,
+                SearchScope.KeysOnly => SearchScope.Comments,
+                SearchScope.Comments => SearchScope.All,
+                SearchScope.All => SearchScope.KeysAndValues,
+                _ => SearchScope.KeysAndValues
+            };
+
+            scopeButton.Text = _filterCriteria.Scope switch
             {
-                _filterCriteria.Scope = SearchScope.KeysAndValues;
-                scopeButton.Text = "Keys+Values";
-            }
+                SearchScope.KeysAndValues => "Keys+Values",
+                SearchScope.KeysOnly => "Keys Only",
+                SearchScope.Comments => "Comments",
+                SearchScope.All => "All",
+                _ => "Keys+Values"
+            };
+
             ApplyFilters();
         };
 
@@ -308,6 +388,20 @@ public class ResourceEditorWindow : Window
         };
         moreButton.Clicked += () => ShowLanguageFilterDialog();
 
+        // Show Comments checkbox (toggle double-row display)
+        var showCommentsCheckBox = new CheckBox
+        {
+            Text = "Show Comments",
+            X = Pos.Right(moreButton) + 3,
+            Y = 3,
+            Checked = _showComments
+        };
+        showCommentsCheckBox.Toggled += (prev) =>
+        {
+            _showComments = showCommentsCheckBox.Checked;
+            RebuildTableWithCommentRows();
+        };
+
         // TableView for keys and translations (adjusted Y position for new controls)
         _tableView = new TableView
         {
@@ -322,17 +416,11 @@ public class ResourceEditorWindow : Window
 
         _tableView.CellActivated += (args) =>
         {
-            // Get the currently displayed table (might be filtered)
-            var displayedTable = _tableView.Table;
-            if (displayedTable != null && args.Row >= 0 && args.Row < displayedTable.Rows.Count)
+            // Get the logical key from the selected row (handles both single and double-row modes)
+            var key = GetLogicalKeyFromSelectedRow(args.Row);
+            if (!string.IsNullOrEmpty(key))
             {
-                var keyValue = displayedTable.Rows[args.Row]["Key"].ToString();
-                if (!string.IsNullOrEmpty(keyValue))
-                {
-                    // Strip warning marker if present
-                    var key = keyValue.TrimStart('⚠', ' ');
-                    EditKey(key);
-                }
+                EditKey(key);
             }
         };
 
@@ -351,7 +439,7 @@ public class ResourceEditorWindow : Window
         {
             Add(checkbox);
         }
-        Add(moreButton);
+        Add(moreButton, showCommentsCheckBox);
         Add(_tableView, _statusLabel);
 
         // Keyboard shortcuts
@@ -523,21 +611,24 @@ public class ResourceEditorWindow : Window
         };
 
         var fields = new Dictionary<string, TextField>();
+        var commentFields = new Dictionary<string, TextField>();
         var yPos = 1;
 
         foreach (var rf in _resourceFiles)
         {
             var entry = rf.Entries.FirstOrDefault(e => e.Key == key);
             var currentValue = entry?.Value ?? string.Empty;
+            var currentComment = entry?.Comment ?? string.Empty;
 
-            var label = new Label
+            // Value label and field
+            var valueLabel = new Label
             {
                 Text = $"{rf.Language.Name}:",
                 X = 1,
                 Y = yPos
             };
 
-            var textField = new TextField
+            var valueField = new TextField
             {
                 Text = currentValue,
                 X = 1,
@@ -545,10 +636,41 @@ public class ResourceEditorWindow : Window
                 Width = Dim.Fill() - 1
             };
 
-            fields[rf.Language.Code] = textField;
-            dialog.Add(label, textField);
-            yPos += 3;
+            // Comment label and field
+            var commentLabel = new Label
+            {
+                Text = "  Comment:",
+                X = 1,
+                Y = yPos + 2
+            };
+
+            var commentField = new TextField
+            {
+                Text = currentComment,
+                X = 1,
+                Y = yPos + 3,
+                Width = Dim.Fill() - 1
+            };
+
+            fields[rf.Language.Code] = valueField;
+            commentFields[rf.Language.Code] = commentField;
+            dialog.Add(valueLabel, valueField, commentLabel, commentField);
+            yPos += 5;
         }
+
+        // Auto-Translate button (left side)
+        var btnAutoTranslate = new Button
+        {
+            Text = "Auto-Translate (Ctrl+T)",
+            X = 1,
+            Y = Pos.AnchorEnd(2)
+        };
+
+        btnAutoTranslate.Clicked += () =>
+        {
+            Application.RequestStop(); // Close edit dialog
+            Application.MainLoop.Invoke(() => ShowTranslateDialog(new List<string> { key }));
+        };
 
         var btnSave = new Button
         {
@@ -561,12 +683,13 @@ public class ResourceEditorWindow : Window
         var btnCancel = new Button
         {
             Text = "Cancel",
-            X = Pos.Center() + 5,
+            X = Pos.Center() + 10,
             Y = Pos.AnchorEnd(2)
         };
 
         btnSave.Clicked += () =>
         {
+            // Save values
             foreach (var kvp in fields)
             {
                 var rf = _resourceFiles.FirstOrDefault(r => r.Language.Code == kvp.Key);
@@ -588,6 +711,28 @@ public class ResourceEditorWindow : Window
                 }
             }
 
+            // Save comments
+            foreach (var kvp in commentFields)
+            {
+                var rf = _resourceFiles.FirstOrDefault(r => r.Language.Code == kvp.Key);
+                if (rf != null)
+                {
+                    var entry = rf.Entries.FirstOrDefault(ent => ent.Key == key);
+                    if (entry != null)
+                    {
+                        entry.Comment = kvp.Value.Text.ToString();
+                        _hasUnsavedChanges = true;
+
+                        // Update DataTable comment column
+                        var row = _dataTable.Rows.Cast<DataRow>().FirstOrDefault(r => r["Key"].ToString() == key);
+                        if (row != null)
+                        {
+                            row[$"_Comment_{rf.Language.Code}"] = kvp.Value.Text.ToString();
+                        }
+                    }
+                }
+            }
+
             UpdateStatus();
             Application.RequestStop();
         };
@@ -597,7 +742,7 @@ public class ResourceEditorWindow : Window
             Application.RequestStop();
         };
 
-        dialog.Add(btnSave, btnCancel);
+        dialog.Add(btnAutoTranslate, btnSave, btnCancel);
         Application.Run(dialog);
         dialog.Dispose();
     }
@@ -608,7 +753,7 @@ public class ResourceEditorWindow : Window
         {
             Title = "Add New Key",
             Width = 60,
-            Height = 10 + _resourceFiles.Count * 3
+            Height = 10 + _resourceFiles.Count * 5  // Increased for comment fields
         };
 
         var keyLabel = new Label
@@ -629,18 +774,20 @@ public class ResourceEditorWindow : Window
         dialog.Add(keyLabel, keyField);
 
         var valueFields = new Dictionary<string, TextField>();
+        var commentFields = new Dictionary<string, TextField>();
         var yPos = 4;
 
         foreach (var rf in _resourceFiles)
         {
-            var label = new Label
+            // Value label and field
+            var valueLabel = new Label
             {
                 Text = $"{rf.Language.Name}:",
                 X = 1,
                 Y = yPos
             };
 
-            var textField = new TextField
+            var valueField = new TextField
             {
                 X = 1,
                 Y = yPos + 1,
@@ -648,9 +795,26 @@ public class ResourceEditorWindow : Window
                 Text = ""
             };
 
-            valueFields[rf.Language.Code] = textField;
-            dialog.Add(label, textField);
-            yPos += 3;
+            // Comment label and field
+            var commentLabel = new Label
+            {
+                Text = "  Comment:",
+                X = 1,
+                Y = yPos + 2
+            };
+
+            var commentField = new TextField
+            {
+                X = 1,
+                Y = yPos + 3,
+                Width = Dim.Fill() - 1,
+                Text = ""
+            };
+
+            valueFields[rf.Language.Code] = valueField;
+            commentFields[rf.Language.Code] = commentField;
+            dialog.Add(valueLabel, valueField, commentLabel, commentField);
+            yPos += 5;
         }
 
         var btnAdd = new Button
@@ -688,10 +852,15 @@ public class ResourceEditorWindow : Window
                 var rf = _resourceFiles.FirstOrDefault(r => r.Language.Code == kvp.Key);
                 if (rf != null)
                 {
+                    var comment = commentFields.ContainsKey(kvp.Key)
+                        ? commentFields[kvp.Key].Text.ToString()
+                        : "";
+
                     rf.Entries.Add(new ResourceEntry
                     {
                         Key = key,
-                        Value = kvp.Value.Text.ToString()
+                        Value = kvp.Value.Text.ToString(),
+                        Comment = comment
                     });
                 }
             }
@@ -699,22 +868,17 @@ public class ResourceEditorWindow : Window
             _allKeys.Add(key);
             _allKeys = _allKeys.OrderBy(k => k).ToList();
 
-            // Add to DataTable
-            var newRow = _dataTable.NewRow();
-            newRow["Key"] = key;
-            foreach (var kvp in valueFields)
+            // Rebuild the entire table to account for new key
+            // This handles both single-row and double-row modes correctly
+            if (_showComments)
             {
-                var rf = _resourceFiles.FirstOrDefault(r => r.Language.Code == kvp.Key);
-                if (rf != null)
-                {
-                    newRow[rf.Language.Name] = kvp.Value.Text.ToString();
-                }
+                _dataTable = BuildDataTableWithDoubleRows();
             }
-            _dataTable.Rows.Add(newRow);
+            else
+            {
+                _dataTable = BuildDataTable();
+            }
 
-            // Re-sort DataTable
-            _dataTable.DefaultView.Sort = "Key ASC";
-            _dataTable = _dataTable.DefaultView.ToTable();
             if (_tableView != null)
             {
                 _tableView.Table = _dataTable;
@@ -739,14 +903,9 @@ public class ResourceEditorWindow : Window
     {
         if (_tableView == null || _tableView.SelectedRow < 0) return;
 
-        var displayedTable = _tableView.Table;
-        if (displayedTable == null || _tableView.SelectedRow >= displayedTable.Rows.Count) return;
-
-        var keyValue = displayedTable.Rows[_tableView.SelectedRow]["Key"].ToString();
-        if (string.IsNullOrEmpty(keyValue)) return;
-
-        // Strip warning marker if present
-        var key = keyValue.TrimStart('⚠', ' ');
+        // Get the logical key from the selected row (handles both single and double-row modes)
+        var key = GetLogicalKeyFromSelectedRow(_tableView.SelectedRow);
+        if (string.IsNullOrEmpty(key)) return;
 
         var result = MessageBox.Query("Confirm Delete",
             $"Delete key '{key}' from all languages?", "Yes", "No");
@@ -764,11 +923,27 @@ public class ResourceEditorWindow : Window
 
             _allKeys.Remove(key);
 
-            // Remove from DataTable
-            var rowToDelete = _dataTable.Rows.Cast<DataRow>().FirstOrDefault(r => r["Key"].ToString() == key);
-            if (rowToDelete != null)
+            // Remove from DataTable (in double-row mode, this removes both value and comment rows)
+            if (_dataTable.Columns.Contains("_LogicalKey"))
             {
-                _dataTable.Rows.Remove(rowToDelete);
+                // Double-row mode: remove all rows with matching _LogicalKey
+                var rowsToDelete = _dataTable.Rows.Cast<DataRow>()
+                    .Where(r => r["_LogicalKey"].ToString() == key)
+                    .ToList();
+                foreach (var row in rowsToDelete)
+                {
+                    _dataTable.Rows.Remove(row);
+                }
+            }
+            else
+            {
+                // Single-row mode: remove row with matching Key
+                var rowToDelete = _dataTable.Rows.Cast<DataRow>()
+                    .FirstOrDefault(r => r["Key"].ToString()?.TrimStart('⚠', ' ') == key);
+                if (rowToDelete != null)
+                {
+                    _dataTable.Rows.Remove(rowToDelete);
+                }
             }
 
             _hasUnsavedChanges = true;
@@ -1274,6 +1449,74 @@ public class ResourceEditorWindow : Window
         ApplyFilters();
     }
 
+    private void RebuildTableWithCommentRows()
+    {
+        // Rebuild DataTable based on _showComments state
+        if (_showComments)
+        {
+            // Use double-row layout (value + comment rows)
+            _dataTable = BuildDataTableWithDoubleRows();
+        }
+        else
+        {
+            // Use standard single-row layout
+            _dataTable = BuildDataTable();
+        }
+
+        // Update TableView
+        if (_tableView != null)
+        {
+            _tableView.Table = _dataTable;
+        }
+
+        // Reapply filters
+        ApplyFilters();
+    }
+
+    /// <summary>
+    /// Gets the logical key from a selected row, handling both single-row and double-row modes
+    /// </summary>
+    private string? GetLogicalKeyFromSelectedRow(int rowIndex)
+    {
+        // Use the source DataTable instead of displayed table to access metadata columns
+        var sourceTable = _dataTable;
+        if (sourceTable == null)
+        {
+            return null;
+        }
+
+        // Find the corresponding row in the source table using the DefaultView's RowFilter
+        var displayedTable = _tableView?.Table;
+        if (displayedTable == null || rowIndex < 0 || rowIndex >= displayedTable.Rows.Count)
+        {
+            return null;
+        }
+
+        // Get the key from the displayed row
+        var displayedKeyValue = displayedTable.Rows[rowIndex]["Key"]?.ToString();
+        if (string.IsNullOrEmpty(displayedKeyValue))
+        {
+            return null;
+        }
+
+        // In double-row mode, the source table has _LogicalKey metadata
+        if (sourceTable.Columns.Contains("_LogicalKey"))
+        {
+            // Find the matching row in source table by comparing displayed Key value
+            var sourceRow = sourceTable.AsEnumerable()
+                .FirstOrDefault(r => r.RowState != DataRowState.Deleted &&
+                                    r["Key"]?.ToString() == displayedKeyValue);
+
+            if (sourceRow != null)
+            {
+                return sourceRow["_LogicalKey"]?.ToString();
+            }
+        }
+
+        // In single-row mode, use Key column (strip warning marker if present)
+        return displayedKeyValue.TrimStart('⚠', ' ');
+    }
+
     private void ShowLanguageFilterDialog()
     {
         var dialog = new Dialog
@@ -1439,17 +1682,12 @@ public class ResourceEditorWindow : Window
             return;
         }
 
-        var displayedTable = _tableView.Table;
-        if (displayedTable == null || _tableView.SelectedRow >= displayedTable.Rows.Count)
+        // Get the logical key from the selected row (handles both single and double-row modes)
+        var key = GetLogicalKeyFromSelectedRow(_tableView.SelectedRow);
+        if (string.IsNullOrEmpty(key))
         {
             return;
         }
-
-        var keyValue = displayedTable.Rows[_tableView.SelectedRow]["Key"].ToString();
-        if (string.IsNullOrEmpty(keyValue)) return;
-
-        // Strip warning marker if present
-        var key = keyValue.TrimStart('⚠', ' ');
 
         ShowTranslateDialog(new List<string> { key });
     }
@@ -1500,9 +1738,71 @@ public class ResourceEditorWindow : Window
             Height = Dim.Percent(70)
         };
 
+        var yPos = 1;
+
+        // Show context information if translating a single key
+        if (keysToTranslate.Count == 1)
+        {
+            var key = keysToTranslate[0];
+            var defaultFile = _resourceFiles.FirstOrDefault(rf => rf.Language.IsDefault);
+            var entry = defaultFile?.Entries.FirstOrDefault(e => e.Key == key);
+
+            var contextLabel = new Label("Translation Context:")
+            {
+                X = 1,
+                Y = yPos,
+                ColorScheme = new ColorScheme
+                {
+                    Normal = Terminal.Gui.Attribute.Make(Color.BrightCyan, Color.Black)
+                }
+            };
+
+            var keyLabel = new Label($"Key: {key}")
+            {
+                X = 1,
+                Y = yPos + 1
+            };
+
+            var valueLabel = new Label($"Source Text: {entry?.Value ?? "(empty)"}")
+            {
+                X = 1,
+                Y = yPos + 2,
+                Width = Dim.Fill() - 1
+            };
+
+            dialog.Add(contextLabel, keyLabel, valueLabel);
+            yPos += 3;
+
+            // Add comment if present
+            if (!string.IsNullOrWhiteSpace(entry?.Comment))
+            {
+                var commentLabel = new Label($"Comment: {entry.Comment}")
+                {
+                    X = 1,
+                    Y = yPos,
+                    Width = Dim.Fill() - 1,
+                    ColorScheme = new ColorScheme
+                    {
+                        Normal = Terminal.Gui.Attribute.Make(Color.BrightYellow, Color.Black)
+                    }
+                };
+                dialog.Add(commentLabel);
+                yPos++;
+            }
+
+            // Add separator
+            var separator = new Label(new string('─', 60))
+            {
+                X = 1,
+                Y = yPos
+            };
+            dialog.Add(separator);
+            yPos++;
+        }
+
         // Provider selection
-        var providerLabel = new Label("Translation Provider:") { X = 1, Y = 1 };
-        var providers = new[] { "google", "deepl", "libretranslate" };
+        var providerLabel = new Label("Translation Provider:") { X = 1, Y = yPos };
+        var providers = TranslationProviderFactory.GetSupportedProviders();
         var defaultProvider = _configuration?.Translation?.DefaultProvider ?? "google";
         var selectedProviderIdx = Array.IndexOf(providers, defaultProvider);
         if (selectedProviderIdx < 0) selectedProviderIdx = 0;
@@ -1510,22 +1810,24 @@ public class ResourceEditorWindow : Window
         var providerCombo = new ComboBox
         {
             X = 1,
-            Y = 2,
+            Y = yPos + 1,
             Width = 20,
-            Height = 4
+            Height = 8
         };
         providerCombo.SetSource(providers);
         providerCombo.SelectedItem = selectedProviderIdx;
 
+        yPos += 3; // Move past provider label and combo
+
         // Target languages selection
-        var langLabel = new Label("Target Languages:") { X = 1, Y = 4 };
+        var langLabel = new Label("Target Languages:") { X = 1, Y = yPos };
         var targetLanguages = _resourceFiles
             .Where(rf => !rf.Language.IsDefault)
             .Select(rf => rf.Language.Code)
             .ToList();
 
         var langCheckboxes = new List<CheckBox>();
-        var yPos = 5;
+        yPos++;
 
         foreach (var lang in targetLanguages)
         {
@@ -1588,9 +1890,9 @@ public class ResourceEditorWindow : Window
                 var translationProvider = TranslationProviderFactory.Create(provider, _configuration);
                 if (!translationProvider.IsConfigured())
                 {
-                    MessageBox.ErrorQuery("Error",
-                        $"Translation provider '{provider}' is not configured.\n\n" +
-                        "Please configure API keys in lrm.json or environment variables.",
+                    var configHelp = GetProviderConfigurationHelp(provider);
+                    MessageBox.ErrorQuery("Provider Not Configured",
+                        $"Translation provider '{provider}' is not configured.\n\n{configHelp}",
                         "OK");
                     return;
                 }
@@ -1721,12 +2023,20 @@ public class ResourceEditorWindow : Window
                       "1. Environment Variables (recommended):\n" +
                       "   LRM_GOOGLE_API_KEY\n" +
                       "   LRM_DEEPL_API_KEY\n" +
-                      "   LRM_LIBRETRANSLATE_API_KEY\n\n" +
+                      "   LRM_LIBRETRANSLATE_API_KEY\n" +
+                      "   LRM_OLLAMA_API_KEY\n" +
+                      "   LRM_OPENAI_API_KEY\n" +
+                      "   LRM_CLAUDE_API_KEY\n" +
+                      "   LRM_AZUREOPENAI_API_KEY\n" +
+                      "   LRM_AZURETRANSLATOR_API_KEY\n\n" +
                       "2. Secure Credential Store:\n" +
                       "   lrm config set-api-key --provider <name> --key <key>\n\n" +
                       "3. Configuration File (lrm.json):\n" +
-                      "   Add to Translation.ApiKeys section\n\n" +
-                      "See docs/TRANSLATION.md for details.";
+                      "   Add to Translation section\n\n" +
+                      "IMPORTANT:\n" +
+                      "- Azure OpenAI requires: API key + Endpoint + Deployment name\n" +
+                      "- AI providers (OpenAI, Claude, Ollama) support optional model selection\n" +
+                      "- Configure these in lrm.json (see docs/TRANSLATION.md for details)";
 
         var textView = new TextView
         {
@@ -1748,5 +2058,57 @@ public class ResourceEditorWindow : Window
         dialog.Add(textView, btnClose);
         Application.Run(dialog);
         dialog.Dispose();
+    }
+
+    private static string GetProviderConfigurationHelp(string provider)
+    {
+        return provider.ToLower() switch
+        {
+            "google" => "Required: LRM_GOOGLE_API_KEY\n\n" +
+                       "Set via environment variable or add to lrm.json:\n" +
+                       "\"Translation\": { \"Google\": { \"ApiKey\": \"your-key\" } }",
+
+            "deepl" => "Required: LRM_DEEPL_API_KEY\n\n" +
+                      "Set via environment variable or add to lrm.json:\n" +
+                      "\"Translation\": { \"DeepL\": { \"ApiKey\": \"your-key\" } }",
+
+            "libretranslate" => "Optional: LRM_LIBRETRANSLATE_API_KEY\n\n" +
+                               "Also configure API URL if using custom instance:\n" +
+                               "\"Translation\": { \"LibreTranslate\": { \"ApiUrl\": \"url\" } }",
+
+            "ollama" => "Required: Ollama API URL (default: http://localhost:11434)\n" +
+                       "Optional: Model name (default: llama3.2)\n\n" +
+                       "Configure in lrm.json:\n" +
+                       "\"Translation\": { \"Ollama\": { \"ApiUrl\": \"url\", \"Model\": \"model\" } }",
+
+            "openai" => "Required: LRM_OPENAI_API_KEY\n" +
+                       "Optional: Model (default: gpt-4o-mini)\n\n" +
+                       "Set via environment variable or add to lrm.json:\n" +
+                       "\"Translation\": { \"OpenAI\": { \"ApiKey\": \"key\", \"Model\": \"model\" } }",
+
+            "claude" => "Required: LRM_CLAUDE_API_KEY\n" +
+                       "Optional: Model (default: claude-3-5-sonnet-20241022)\n\n" +
+                       "Set via environment variable or add to lrm.json:\n" +
+                       "\"Translation\": { \"Claude\": { \"ApiKey\": \"key\", \"Model\": \"model\" } }",
+
+            "azureopenai" => "Required:\n" +
+                            "- LRM_AZUREOPENAI_API_KEY\n" +
+                            "- Endpoint URL (e.g., https://your-resource.openai.azure.com)\n" +
+                            "- Deployment name\n\n" +
+                            "Configure in lrm.json:\n" +
+                            "\"Translation\": { \"AzureOpenAI\": {\n" +
+                            "  \"ApiKey\": \"key\",\n" +
+                            "  \"Endpoint\": \"url\",\n" +
+                            "  \"DeploymentName\": \"name\"\n" +
+                            "} }",
+
+            "azuretranslator" => "Required: LRM_AZURETRANSLATOR_API_KEY\n" +
+                                "Optional: Region (for regional endpoint)\n\n" +
+                                "Set via environment variable or add to lrm.json:\n" +
+                                "\"Translation\": { \"AzureTranslator\": { \"ApiKey\": \"key\", \"Region\": \"region\" } }",
+
+            _ => "Please configure API keys in lrm.json or environment variables.\n" +
+                "See documentation for provider-specific requirements."
+        };
     }
 }

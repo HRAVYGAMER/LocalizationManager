@@ -61,7 +61,7 @@ public enum FilterMode
 }
 
 /// <summary>
-/// The scope of the search: keys only or keys + translation values
+/// The scope of the search: keys, values, comments, or combinations
 /// </summary>
 public enum SearchScope
 {
@@ -73,5 +73,15 @@ public enum SearchScope
     /// <summary>
     /// Search only in key names (useful for patterns like "Error.*")
     /// </summary>
-    KeysOnly
+    KeysOnly,
+
+    /// <summary>
+    /// Search only in comments across all languages
+    /// </summary>
+    Comments,
+
+    /// <summary>
+    /// Search in keys, values, AND comments
+    /// </summary>
+    All
 }

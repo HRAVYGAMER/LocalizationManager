@@ -53,16 +53,116 @@ public class ResourceFilterService
             return matchingIndices;
         }
 
-        // Filter rows
-        for (int i = 0; i < table.Rows.Count; i++)
+        // Check if this is double-row mode (has _RowType column)
+        var isDoubleRowMode = table.Columns.Contains("_RowType");
+
+        if (isDoubleRowMode)
         {
-            if (MatchesFilter(table.Rows[i], criteria, regex))
+            // In double-row mode, process pairs of rows together (value + comment)
+            for (int i = 0; i < table.Rows.Count; i += 2)
             {
-                matchingIndices.Add(i);
+                if (i + 1 >= table.Rows.Count) break; // Safety check
+
+                var valueRow = table.Rows[i];
+                var commentRow = table.Rows[i + 1];
+
+                // Check if either value or comment row matches
+                var valueMatches = MatchesFilterForDoubleRow(valueRow, criteria, regex, isValueRow: true);
+                var commentMatches = MatchesFilterForDoubleRow(commentRow, criteria, regex, isValueRow: false);
+
+                // If either matches, include both rows (value + comment)
+                if (valueMatches || commentMatches)
+                {
+                    matchingIndices.Add(i);     // Value row
+                    matchingIndices.Add(i + 1); // Comment row
+                }
+            }
+        }
+        else
+        {
+            // Single-row mode: use existing logic
+            for (int i = 0; i < table.Rows.Count; i++)
+            {
+                if (MatchesFilter(table.Rows[i], criteria, regex))
+                {
+                    matchingIndices.Add(i);
+                }
             }
         }
 
         return matchingIndices;
+    }
+
+    /// <summary>
+    /// Checks if a row matches the filter criteria in double-row mode
+    /// </summary>
+    private bool MatchesFilterForDoubleRow(DataRow row, FilterCriteria criteria, Regex? regex, bool isValueRow)
+    {
+        if (string.IsNullOrWhiteSpace(criteria.SearchText))
+        {
+            return true;
+        }
+
+        regex ??= GetOrCreateRegex(criteria);
+
+        // Get the actual key from _LogicalKey metadata
+        var key = row["_LogicalKey"]?.ToString() ?? string.Empty;
+
+        // For value rows: check key and/or values
+        if (isValueRow)
+        {
+            // Check key if scope includes keys
+            if (criteria.Scope == SearchScope.KeysOnly ||
+                criteria.Scope == SearchScope.KeysAndValues ||
+                criteria.Scope == SearchScope.All)
+            {
+                if (MatchesPattern(key, criteria.SearchText, regex, criteria))
+                {
+                    return true;
+                }
+            }
+
+            // Check values if scope includes values
+            if (criteria.Scope == SearchScope.KeysAndValues || criteria.Scope == SearchScope.All)
+            {
+                var translationColumns = row.Table.Columns.Cast<DataColumn>()
+                    .Where(c => c.ColumnName != "Key" && !c.ColumnName.StartsWith("_"))
+                    .Select(c => c.ColumnName);
+
+                foreach (var columnName in translationColumns)
+                {
+                    if (criteria.TargetColumn != null && criteria.TargetColumn != columnName)
+                    {
+                        continue;
+                    }
+
+                    var value = row[columnName]?.ToString() ?? string.Empty;
+                    if (MatchesPattern(value, criteria.SearchText, regex, criteria))
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+        // For comment rows: check comments if scope includes comments
+        else if (criteria.Scope == SearchScope.Comments || criteria.Scope == SearchScope.All)
+        {
+            var translationColumns = row.Table.Columns.Cast<DataColumn>()
+                .Where(c => c.ColumnName != "Key" && !c.ColumnName.StartsWith("_"))
+                .Select(c => c.ColumnName);
+
+            foreach (var columnName in translationColumns)
+            {
+                var comment = row[columnName]?.ToString() ?? string.Empty;
+                if (!string.IsNullOrWhiteSpace(comment) &&
+                    MatchesPattern(comment, criteria.SearchText, regex, criteria))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /// <summary>
@@ -78,7 +178,7 @@ public class ResourceFilterService
         regex ??= GetOrCreateRegex(criteria);
 
         // Check key column if searching keys
-        if (criteria.Scope == SearchScope.KeysOnly || criteria.Scope == SearchScope.KeysAndValues)
+        if (criteria.Scope == SearchScope.KeysOnly || criteria.Scope == SearchScope.KeysAndValues || criteria.Scope == SearchScope.All)
         {
             var keyValue = row["Key"]?.ToString() ?? string.Empty;
 
@@ -95,9 +195,9 @@ public class ResourceFilterService
         }
 
         // Check translation columns if searching values
-        if (criteria.Scope == SearchScope.KeysAndValues)
+        if (criteria.Scope == SearchScope.KeysAndValues || criteria.Scope == SearchScope.All)
         {
-            // Get all columns except "Key", "_Visible", "_HasExtraKey"
+            // Get all columns except "Key" and internal columns (starting with "_")
             var translationColumns = row.Table.Columns.Cast<DataColumn>()
                 .Where(c => c.ColumnName != "Key" &&
                            !c.ColumnName.StartsWith("_"))
@@ -113,6 +213,24 @@ public class ResourceFilterService
 
                 var value = row[columnName]?.ToString() ?? string.Empty;
                 if (MatchesPattern(value, criteria.SearchText, regex, criteria))
+                {
+                    return true;
+                }
+            }
+        }
+
+        // Check comment columns if searching comments
+        if (criteria.Scope == SearchScope.Comments || criteria.Scope == SearchScope.All)
+        {
+            // Get all comment columns (_Comment_*)
+            var commentColumns = row.Table.Columns.Cast<DataColumn>()
+                .Where(c => c.ColumnName.StartsWith("_Comment_"))
+                .Select(c => c.ColumnName);
+
+            foreach (var columnName in commentColumns)
+            {
+                var value = row[columnName]?.ToString() ?? string.Empty;
+                if (!string.IsNullOrWhiteSpace(value) && MatchesPattern(value, criteria.SearchText, regex, criteria))
                 {
                     return true;
                 }

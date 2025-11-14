@@ -81,7 +81,15 @@ app.Configure(config =>
         .WithDescription("Delete a localization key from all language files")
         .WithExample(new[] { "delete", "OldKey" })
         .WithExample(new[] { "delete", "OldKey", "-y" })
+        .WithExample(new[] { "delete", "DuplicateKey", "--all-duplicates", "-y" })
         .WithExample(new[] { "delete", "OldKey", "-y", "--no-backup" });
+
+    config.AddCommand<MergeDuplicatesCommand>("merge-duplicates")
+        .WithDescription("Merge duplicate occurrences of a key into a single entry")
+        .WithExample(new[] { "merge-duplicates", "DuplicateKey" })
+        .WithExample(new[] { "merge-duplicates", "DuplicateKey", "--auto-first" })
+        .WithExample(new[] { "merge-duplicates", "--all", "--auto-first" })
+        .WithExample(new[] { "merge-duplicates", "DuplicateKey", "-y", "--no-backup" });
 
     config.AddCommand<ExportCommand>("export")
         .WithDescription("Export resource files to various formats (CSV, JSON, or simple text)")

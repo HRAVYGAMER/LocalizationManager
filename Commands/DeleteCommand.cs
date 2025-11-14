@@ -46,13 +46,9 @@ public class DeleteCommand : Command<DeleteCommand.Settings>
         [Description("Skip confirmation prompt")]
         public bool SkipConfirmation { get; set; }
 
-        [CommandOption("--occurrence <NUMBER>")]
-        [Description("Delete specific occurrence of a duplicate key (1-based index)")]
-        public int? Occurrence { get; set; }
-
-        [CommandOption("--all")]
-        [Description("Delete all occurrences of a duplicate key without prompting")]
-        public bool DeleteAll { get; set; }
+        [CommandOption("--all-duplicates")]
+        [Description("Delete all occurrences of a duplicate key")]
+        public bool AllDuplicates { get; set; }
     }
 
     public override int Execute(CommandContext context, Settings settings, CancellationToken cancellationToken = default)
@@ -102,15 +98,20 @@ public class DeleteCommand : Command<DeleteCommand.Settings>
                 return 1;
             }
 
-            // Check for duplicates in default file
-            var occurrences = defaultFile?.Entries
-                .Select((e, i) => (e, i))
-                .Where(x => x.e.Key == settings.Key)
-                .ToList() ?? new List<(Core.Models.ResourceEntry e, int i)>();
+            // Check if key exists and count occurrences
+            var occurrenceCount = defaultFile.Entries.Count(e => e.Key == settings.Key);
 
-            if (occurrences.Count == 0)
+            if (occurrenceCount == 0)
             {
                 AnsiConsole.MarkupLine($"[yellow]⚠ Key '{settings.Key.EscapeMarkup()}' not found[/]");
+                return 1;
+            }
+
+            // Check for duplicates
+            if (occurrenceCount > 1 && !settings.AllDuplicates)
+            {
+                AnsiConsole.MarkupLine($"[red]✗ Key '{settings.Key.EscapeMarkup()}' has {occurrenceCount} occurrences.[/]");
+                AnsiConsole.MarkupLine($"[yellow]Use --all-duplicates to delete all occurrences, or use 'merge-duplicates' to consolidate them.[/]");
                 return 1;
             }
 
@@ -128,95 +129,26 @@ public class DeleteCommand : Command<DeleteCommand.Settings>
 
             AnsiConsole.WriteLine();
             AnsiConsole.MarkupLine($"[yellow]Key to delete:[/] [bold]{settings.Key.EscapeMarkup()}[/]");
+            if (occurrenceCount > 1)
+            {
+                AnsiConsole.MarkupLine($"[yellow]Occurrences:[/] {occurrenceCount}");
+            }
             AnsiConsole.WriteLine();
             AnsiConsole.Write(table);
             AnsiConsole.WriteLine();
 
-            int? occurrenceToDelete = null;
-            bool deleteAllOccurrences = false;
-
-            // Handle duplicate key scenarios
-            if (occurrences.Count > 1)
+            // Confirmation
+            if (!settings.SkipConfirmation)
             {
-                AnsiConsole.MarkupLine($"[yellow]Found {occurrences.Count} occurrences of key '{settings.Key.EscapeMarkup()}':[/]");
-                AnsiConsole.WriteLine();
+                var confirmMessage = occurrenceCount > 1
+                    ? $"Delete ALL {occurrenceCount} occurrences of '{settings.Key.EscapeMarkup()}' from all languages?"
+                    : $"Delete key '{settings.Key.EscapeMarkup()}' from all languages?";
 
-                for (int i = 0; i < occurrences.Count; i++)
+                if (!AnsiConsole.Confirm(confirmMessage, false))
                 {
-                    var (entry, index) = occurrences[i];
-                    var value = entry.Value ?? string.Empty;
-                    var preview = value.Length > 50 ? value.Substring(0, 47) + "..." : value;
-                    AnsiConsole.MarkupLine($"  [[{i + 1}]] \"{preview.EscapeMarkup()}\"");
+                    AnsiConsole.MarkupLine("[yellow]⚠ Deletion cancelled[/]");
+                    return 0;
                 }
-                AnsiConsole.WriteLine();
-
-                if (settings.DeleteAll)
-                {
-                    // --all flag: delete all occurrences
-                    deleteAllOccurrences = true;
-                    if (!settings.SkipConfirmation)
-                    {
-                        if (!AnsiConsole.Confirm($"Delete ALL {occurrences.Count} occurrences?", false))
-                        {
-                            AnsiConsole.MarkupLine("[yellow]⚠ Deletion cancelled[/]");
-                            return 0;
-                        }
-                    }
-                }
-                else if (settings.Occurrence.HasValue)
-                {
-                    // --occurrence flag: delete specific occurrence
-                    if (settings.Occurrence.Value < 1 || settings.Occurrence.Value > occurrences.Count)
-                    {
-                        AnsiConsole.MarkupLine($"[red]✗ Invalid occurrence number. Must be between 1 and {occurrences.Count}[/]");
-                        return 1;
-                    }
-                    occurrenceToDelete = settings.Occurrence.Value;
-                }
-                else
-                {
-                    // Interactive prompt: ask user which to delete
-                    var choices = new List<string>();
-                    for (int i = 1; i <= occurrences.Count; i++)
-                    {
-                        choices.Add($"[{i}]");
-                    }
-                    choices.Add("All");
-                    choices.Add("Cancel");
-
-                    var selection = AnsiConsole.Prompt(
-                        new SelectionPrompt<string>()
-                            .Title("Which occurrence do you want to delete?")
-                            .AddChoices(choices));
-
-                    if (selection == "Cancel")
-                    {
-                        AnsiConsole.MarkupLine("[yellow]⚠ Deletion cancelled[/]");
-                        return 0;
-                    }
-                    else if (selection == "All")
-                    {
-                        deleteAllOccurrences = true;
-                    }
-                    else
-                    {
-                        // Extract number from "[N]"
-                        occurrenceToDelete = int.Parse(selection.Trim('[', ']'));
-                    }
-                }
-            }
-            else
-            {
-                // Single occurrence: normal confirmation
-                if (!settings.SkipConfirmation)
-                {
-                    if (!AnsiConsole.Confirm($"Delete key '{settings.Key.EscapeMarkup()}' from all languages?", false))
-                    {
-                        AnsiConsole.MarkupLine("[yellow]⚠ Deletion cancelled[/]");
-                        return 0;
-                    }
-                }
-                occurrenceToDelete = 1;
             }
 
             // Create backups
@@ -228,38 +160,20 @@ public class DeleteCommand : Command<DeleteCommand.Settings>
                 AnsiConsole.MarkupLine("[dim]✓ Backups created[/]");
             }
 
-            // Delete key from all languages
+            // Delete key from all languages (removes all occurrences)
             int deletedCount = 0;
 
-            if (deleteAllOccurrences)
+            foreach (var rf in resourceFiles)
             {
-                // Delete all occurrences
-                foreach (var rf in resourceFiles)
-                {
-                    var removed = rf.Entries.RemoveAll(e => e.Key == settings.Key);
-                    if (removed > 0) deletedCount++;
-                }
-                AnsiConsole.MarkupLine($"[green]✓ Successfully deleted all {occurrences.Count} occurrences from {deletedCount} language file(s)[/]");
+                var removed = rf.Entries.RemoveAll(e => e.Key == settings.Key);
+                if (removed > 0) deletedCount++;
             }
-            else if (occurrenceToDelete.HasValue)
-            {
-                // Delete specific occurrence from each file
-                foreach (var rf in resourceFiles)
-                {
-                    var indices = rf.Entries
-                        .Select((e, i) => (e, i))
-                        .Where(x => x.e.Key == settings.Key)
-                        .Select(x => x.i)
-                        .ToList();
 
-                    if (indices.Count >= occurrenceToDelete.Value)
-                    {
-                        rf.Entries.RemoveAt(indices[occurrenceToDelete.Value - 1]);
-                        deletedCount++;
-                    }
-                }
-                AnsiConsole.MarkupLine($"[green]✓ Successfully deleted occurrence #{occurrenceToDelete} from {deletedCount} language file(s)[/]");
-            }
+            var successMessage = occurrenceCount > 1
+                ? $"[green]✓ Successfully deleted all {occurrenceCount} occurrences from {deletedCount} language file(s)[/]"
+                : $"[green]✓ Successfully deleted key from {deletedCount} language file(s)[/]";
+
+            AnsiConsole.MarkupLine(successMessage);
 
             // Save changes
             foreach (var rf in resourceFiles)

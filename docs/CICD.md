@@ -107,28 +107,60 @@ fi
 lrm validate
 ```
 
-### Enhanced Flow with Code Scanning
+### Two Distinct Workflows
+
+#### Workflow A: Scan Code → Add Keys Interactively → Translate
+
+For adding missing keys found in code with proper source text:
 
 ```bash
 # 1. Validate .resx files
 lrm validate
 
 # 2. Scan code for missing keys
-lrm scan --format json > scan-results.json
+lrm scan --show-missing
 
-# 3. Add missing keys found in code
-if [ -s scan-results.json ]; then
-  missing_keys=$(jq -r '.missingKeys[]?.key // empty' scan-results.json)
-  for key in $missing_keys; do
-    lrm add --key "$key" --value "$key" --comment "Auto-added from code scan"
-  done
-fi
+# 3. Add keys interactively (prompts for values in each language)
+lrm add MissingKeyName -i
 
-# 4. Translate missing keys
+# 4. Validate the additions
+lrm validate
+```
+
+**With completion support**, use Tab to quickly add keys:
+```bash
+# Type the key and press Tab - LRM suggests the command
+lrm add <Tab>
+```
+
+#### Workflow B: Translate Existing Keys
+
+For keys that already exist in default language with proper values:
+
+```bash
+# 1. Check what needs translation
+lrm validate --missing-only
+
+# 2. Auto-translate missing languages
 lrm translate --only-missing --provider google
 
-# 5. Re-validate
+# 3. Re-validate
 lrm validate
+```
+
+#### ⚠️ Warning: Placeholder Values
+
+Adding keys with placeholder values for later manual editing:
+```bash
+# Add with key name as placeholder
+lrm add "$key" --lang default:"$key" --comment "TODO: Add proper text"
+
+# ❌ DO NOT auto-translate immediately - this translates the placeholder!
+# ✅ INSTEAD: Manually edit values in TUI or .resx files first
+lrm edit
+
+# ✅ THEN translate to other languages
+lrm translate --only-missing --provider google
 ```
 
 ### Exit Codes
@@ -253,21 +285,24 @@ jobs:
             echo "</details>" >> $GITHUB_STEP_SUMMARY
           fi
 
-      - name: ➕ Step 3 - Add Missing Keys from Code
+      - name: ➕ Step 3 - Add Missing Keys as Placeholders
         if: steps.scan.outputs.missing_keys_count != '0'
         run: |
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### ➕ Adding Missing Keys" >> $GITHUB_STEP_SUMMARY
+          echo "⚠️  **Note:** Keys added with placeholder values - manual review required before translation" >> $GITHUB_STEP_SUMMARY
 
           added_count=0
           while IFS= read -r key; do
             if [ -n "$key" ]; then
-              lrm add -p ./Resources --key "$key" --value "$key" --comment "Auto-added from code scan" || true
+              lrm add "$key" -p ./Resources --lang default:"$key" --comment "TODO: Add proper text (from code scan)" || true
               added_count=$((added_count + 1))
             fi
           done < <(jq -r '.missingKeys[]?.key // empty' scan-results.json)
 
-          echo "Added **$added_count** new keys to resource files" >> $GITHUB_STEP_SUMMARY
+          echo "Added **$added_count** placeholder keys to resource files" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "⚠️  **Action Required:** Edit .resx files to replace placeholder values with proper text before auto-translating" >> $GITHUB_STEP_SUMMARY
 
       - name: 🔎 Step 4 - Check for Untranslated Keys
         id: check_missing
@@ -294,10 +329,16 @@ jobs:
         env:
           LRM_GOOGLE_API_KEY: ${{ secrets.GOOGLE_TRANSLATE_API_KEY }}
         run: |
+          # ⚠️  WARNING: This will translate whatever values are in the default language
+          # If Step 3 added placeholder values, they will be translated as placeholders!
+          # Best practice: Skip this step and use manual/TUI editing for placeholder values
+          # Or: Only run this if default language has proper source text values
+
           lrm translate -p ./Resources --only-missing --provider google --format json > translation-results.json
 
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 🤖 Translation Results" >> $GITHUB_STEP_SUMMARY
+          echo "⚠️  **Note:** If default language has placeholder values, translations may be incorrect" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
           jq -r '
@@ -870,17 +911,19 @@ else
 fi
 echo ""
 
-# Step 3: Add missing keys from code
+# Step 3: Add missing keys as placeholders
 if [ "$missing_in_code" -gt "0" ]; then
-    echo "➕ Step 3: Adding missing keys to .resx..."
+    echo "➕ Step 3: Adding missing keys as placeholders to .resx..."
+    echo "⚠️  Note: Using key names as placeholder values"
     added_count=0
     while IFS= read -r key; do
         if [ -n "$key" ]; then
-            lrm add -p "$RESOURCES_PATH" --key "$key" --value "$key" --comment "Auto-added from code scan" || true
+            lrm add "$key" -p "$RESOURCES_PATH" --lang default:"$key" --comment "TODO: Add proper text (from code scan)" || true
             added_count=$((added_count + 1))
         fi
     done < <(jq -r '.missingKeys[]?.key // empty' scan-results.json)
-    echo "✅ Added $added_count keys"
+    echo "✅ Added $added_count placeholder keys"
+    echo "⚠️  IMPORTANT: Edit .resx files to replace placeholders with proper text before translating!"
     echo ""
 fi
 
@@ -901,20 +944,28 @@ echo ""
 # Step 5: Translate missing keys
 if [ "$missing_count" -gt "0" ]; then
     echo "🌐 Step 5: Translating missing keys..."
-    lrm translate -p "$RESOURCES_PATH" --only-missing --provider "$PROVIDER" --format json > translation-results.json
-
+    echo "⚠️  WARNING: If default language has placeholder values, translations will be incorrect!"
+    echo "⚠️  Best practice: Skip this step and use 'lrm edit' to add proper values first"
     echo ""
-    echo "📝 Translation results by language:"
-    jq -r '
-      .translations |
-      group_by(.language) |
-      map({
-        language: .[0].language,
-        count: length,
-        success: map(select(.status == "success" or .status == "✓")) | length
-      }) |
-      .[] | "  - \(.language): \(.success)/\(.count) translated"
-    ' translation-results.json
+
+    # Uncomment the following to translate (only if default language has proper source text):
+    # lrm translate -p "$RESOURCES_PATH" --only-missing --provider "$PROVIDER" --format json > translation-results.json
+    # echo ""
+    # echo "📝 Translation results by language:"
+    # jq -r '
+    #   .translations |
+    #   group_by(.language) |
+    #   map({
+    #     language: .[0].language,
+    #     count: length,
+    #     success: map(select(.status == "success" or .status == "✓")) | length
+    #   }) |
+    #   .[] | "  - \(.language): \(.success)/\(.count) translated"
+    # ' translation-results.json
+    # echo ""
+
+    echo "ℹ️  Skipped auto-translation to prevent translating placeholder values"
+    echo "ℹ️  Run 'lrm edit' to add proper source text, then 'lrm translate --only-missing'"
     echo ""
 fi
 

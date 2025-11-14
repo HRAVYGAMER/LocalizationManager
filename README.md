@@ -231,8 +231,14 @@ lrm scan --resource-classes "Resources,AppStrings" --source-path ./src
 # Strict mode (high-confidence static references only)
 lrm scan --strict --exclude "**/obj/**,**/bin/**"
 
-# Add a new key
+# Add a new key interactively (prompts for values in all languages)
 lrm add NewKey -i
+
+# Add with specific values
+lrm add NewKey --lang default:"New Value" --lang el:"Νέα Τιμή"
+
+# Use Tab completion for suggestions
+lrm add <Tab>  # Press Tab for key suggestions and command options
 
 # List all languages
 lrm list-languages
@@ -360,25 +366,35 @@ Launch with `lrm edit` to get a visual interface:
 
 **Features:**
 - Side-by-side multi-language view
-- Real-time search and filtering
-- Visual key editing
+- Real-time search and filtering with regex/wildcard support
+- **Advanced search scopes** - Search in keys only, values, comments, or all
+- **Comment editing** - Add/edit comments for each language in the edit dialog
+- **Comment display** - Toggle to show comments below values with visual hierarchy
+- Visual key editing with auto-translate button
 - Automatic validation
 - Unsaved changes tracking
-- **In-app translation** 🆕 - Translate selected keys with `Ctrl+T`
-- **Translation dialog** 🆕 - Choose provider, target languages, and cache options
+- **In-app translation** - Translate selected keys with `Ctrl+T`
+- **8 Translation providers** - Google, DeepL, LibreTranslate, Ollama, OpenAI, Claude, Azure OpenAI, Azure Translator
+- **Translation context** - Shows key name, source text, and comments when translating
 
 **Keyboard Shortcuts:**
 - `↑/↓` or `j/k` - Navigate keys
 - `Enter` - Edit selected key
 - `Ctrl+N` - Add new key
 - `Del` - Delete key
-- `Ctrl+T` - Translate selected key 🆕
-- `F4` - Translate all missing values 🆕
-- `F5` - Configure translation providers 🆕
+- `Ctrl+T` - Translate selected key or auto-translate in edit dialog
+- `F4` - Translate all missing values
+- `F5` - Configure translation providers
 - `Ctrl+S` - Save changes
 - `Ctrl+Q` - Quit
 - `F1` - Help
 - `/` - Search
+
+**Search & Filter:**
+- Toggle search scope: Keys+Values → Keys Only → Comments → All
+- Regex mode for advanced pattern matching
+- Wildcard support (`*` and `?`)
+- Filter by specific languages
 
 ---
 

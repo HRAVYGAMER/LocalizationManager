@@ -745,14 +745,20 @@ Greek: Απαγορεύεται
 
 **Examples:**
 ```bash
-# Interactive mode (recommended for multiple languages)
+# Interactive mode (recommended - prompts for proper values in each language)
 lrm add NewKey -i
 
-# Non-interactive with all values
+# With completion support - press Tab for suggestions
+lrm add <Tab>  # Suggests existing keys, common patterns
+
+# Non-interactive with all values (good for automation)
 lrm add NewKey --lang default:"Value" --lang el:"Τιμή"
 
 # Add with comment
 lrm add SaveButton -i --comment "Button label for save action"
+
+# Add with placeholder for later manual editing
+lrm add ErrorMessage --lang default:"ErrorMessage" --comment "TODO: Add actual error text"
 
 # Quick add without backup
 lrm add TestKey -l default:"Test" -l el:"Δοκιμή" --no-backup
@@ -763,6 +769,13 @@ lrm add TestKey -l default:"Test" -l el:"Δοκιμή" --no-backup
 2. Shows preview of changes
 3. Creates backup (unless --no-backup)
 4. Saves changes to all .resx files
+
+**When to use interactive vs non-interactive:**
+- **Interactive (`-i`)**: Best for manual development when you know the proper text values
+- **Non-interactive with values**: Good for scripting when values are known
+- **Non-interactive with placeholders**: For automation where manual review happens later (e.g., from code scan)
+
+⚠️ **Important**: If adding placeholder values (like `--lang default:"KeyName"`), do NOT auto-translate immediately. Edit the .resx manually first, then translate. See [Two Workflows for Handling Missing Keys](#two-workflows-for-handling-missing-keys) for details.
 
 ---
 
@@ -975,11 +988,15 @@ lrm import translations.csv --no-backup
 - Side-by-side multi-language view
 - Advanced search and filtering (wildcard, substring, regex)
 - Smart wildcard detection (like CLI `view` command)
-- Search scope toggle (Keys+Values / Keys Only)
+- **Search scope toggle** (Keys+Values / Keys Only / Comments / All)
+- **Comment editing** - Add/edit comments for each language
+- **Comment display toggle** - Show comments below values with double-row layout
 - Language visibility controls
 - Real-time filtering with debouncing (300ms)
 - Extra keys detection and warnings
-- Visual key editing
+- Visual key editing with auto-translate button
+- **8 translation providers** - Google, DeepL, LibreTranslate, Ollama, OpenAI, Claude, Azure OpenAI, Azure Translator
+- **Translation context** - Shows key name, source text, and comments when translating
 - Automatic validation
 - Unsaved changes tracking
 - Keyboard-driven interface
@@ -997,11 +1014,13 @@ The TUI includes powerful filtering capabilities that mirror the CLI `view` comm
 **Search Scope:**
 - **Keys+Values** (default) - Search in both key names and translation values
 - **Keys Only** - Search only in key names (useful for patterns like `Error.*`)
+- **Comments** - Search only in comment fields across all languages
+- **All** - Search in keys, values, AND comments together
 
 **Filter Controls:**
 ```
 Search: [___________] ☐ Case-sensitive  [Keys+Values]  ☐ Regex
-Show languages: ☑ Default  ☑ fr  ☑ el  [More...]
+Show languages: ☑ Default  ☑ fr  ☑ el  [More...]  ☐ Show Comments
 ```
 
 **Example Filters:**
@@ -1041,9 +1060,14 @@ The TUI automatically detects and warns about keys that exist in translation fil
 - `PgUp/PgDn` - Page up/down
 
 **Key Management:**
-- `Enter` - Edit selected key
+- `Enter` - Edit selected key (includes comment fields and auto-translate button)
 - `Ctrl+N` - Add new key
 - `Del` - Delete selected key
+
+**Translation:**
+- `Ctrl+T` - Translate selected key (or auto-translate in edit dialog)
+- `F4` - Translate all missing values
+- `F5` - Configure translation providers
 
 **Language Management:**
 - `F2` - Add new language
@@ -1647,6 +1671,94 @@ See the [Configuration File](#configuration-file) section for more details.
 4. **Combine with validate** command for complete resource file quality checks
 5. **Use JSON output** for integration with CI/CD pipelines and custom tooling
 6. **Check warnings** - dynamic patterns may indicate maintenance issues or legitimate use cases
+
+---
+
+## Two Workflows for Handling Missing Keys
+
+When `lrm scan --show-missing` finds keys used in code but missing from .resx files, you have two distinct workflows to follow:
+
+### Workflow A: Add Keys with Interactive Mode
+
+**Best for:** Manual development, ensuring proper source text from the start
+
+```bash
+# 1. Scan code to find missing keys
+lrm scan --show-missing
+
+# 2. Add each key interactively (prompts for text in each language)
+lrm add MissingKeyName -i
+
+# 3. Validate the additions
+lrm validate
+```
+
+**With completion support**, press Tab to get command suggestions:
+```bash
+# Start typing and press Tab
+lrm add <Tab>
+# LRM suggests keys, commands, and options
+```
+
+### Workflow B: Add with Placeholders → Manual Edit → Translate
+
+**Best for:** Batch processing, automation scenarios where manual review happens later
+
+```bash
+# 1. Scan code to find missing keys
+lrm scan --format json > scan-results.json
+
+# 2. Add keys with placeholder values (key name as value)
+jq -r '.missingKeys[].key' scan-results.json | while read key; do
+  lrm add "$key" --lang default:"$key" --comment "TODO: Add proper text"
+done
+
+# 3. IMPORTANT: Edit the .resx file or use TUI to replace placeholders with real text
+lrm edit  # or manually edit .resx files
+
+# 4. ONLY AFTER proper text is added, translate to other languages
+lrm translate --only-missing
+
+# 5. Validate
+lrm validate
+```
+
+### ⚠️ Critical Warning: Do NOT Auto-Translate Placeholders
+
+**BROKEN WORKFLOW** (will produce incorrect translations):
+```bash
+# ❌ WRONG - This will translate "ErrorMessage" literally
+lrm add ErrorMessage --lang default:"ErrorMessage"
+lrm translate --only-missing  # Translates placeholder as if it were real content!
+# Result: French gets "MessageErreur" instead of actual error message
+```
+
+**CORRECT WORKFLOW**:
+```bash
+# ✅ RIGHT - Add placeholder, edit manually, then translate
+lrm add ErrorMessage --lang default:"ErrorMessage" --comment "TODO: Add actual error message"
+lrm edit  # Replace "ErrorMessage" with "An error occurred"
+lrm translate --only-missing  # NOW safe to translate
+```
+
+### Why This Matters
+
+The `translate` command sends the **value** from the default language .resx to the AI/translation service:
+
+- If value = `"ErrorMessage"` (placeholder), AI translates it literally → `"MessageErreur"` ❌
+- If value = `"An error occurred"` (proper text), AI translates the actual message → `"Une erreur s'est produite"` ✅
+
+**Rule of thumb:** Only use `lrm translate` when the default language .resx file contains proper source text, not placeholder values.
+
+### Which Workflow Should I Use?
+
+| Scenario | Recommended Workflow |
+|----------|----------------------|
+| Adding 1-5 keys manually | Workflow A (interactive `-i`) |
+| Adding many keys from scan | Workflow B (placeholders → edit → translate) |
+| CI/CD automation | Workflow B (add placeholders, require manual review) |
+| Dev adds key to code | Workflow A (immediately add with proper text) |
+| Batch import from scan | Workflow B (placeholders, team reviews before translating) |
 
 ---
 

@@ -604,6 +604,151 @@ lrm view "*" --cultures el
 
 ---
 
+## Handling Missing Keys Found in Code Scans
+
+### Scenario: Code Uses Keys Not in .resx Files
+
+You've been developing and used `Resources.ErrorMessage` in your code, but forgot to add it to the .resx files. Here's how to fix it properly.
+
+#### Workflow A: Add Keys Interactively (Recommended for Small Numbers)
+
+**Best when:** You're adding 1-5 keys and know the proper text values.
+
+```bash
+# Step 1: Scan code to find what's missing
+lrm scan --show-missing
+
+# Output shows:
+# Missing in .resx (but found in code):
+#   - ErrorMessage (3 refs in Program.cs, HomeController.cs)
+#   - SuccessMessage (1 ref in HomeController.cs)
+
+# Step 2: Add each key interactively
+lrm add ErrorMessage -i
+
+# Prompts appear:
+# Enter value for English (default): An error occurred
+# Enter value for Ελληνικά (el): Παρουσιάστηκε σφάλμα
+
+# Step 3: Validate
+lrm validate
+# ✓ All keys synchronized!
+```
+
+**With completion support:**
+```bash
+# Press Tab to get suggestions while typing
+lrm add <Tab>
+# Shows available keys, commands, and options
+```
+
+#### Workflow B: Batch Add → Manual Edit → Translate (For Many Keys)
+
+**Best when:** Code scan found many keys, or automation/CI/CD scenario.
+
+```bash
+# Step 1: Scan and save results
+lrm scan --format json > scan-results.json
+
+# See what was found
+jq -r '.missingKeys[] | "Key: \(.key), Used \(.referenceCount) times in \(.references[0].file)"' scan-results.json
+# Output:
+# Key: ErrorMessage, Used 3 times in src/Program.cs
+# Key: SuccessMessage, Used 1 times in src/HomeController.cs
+
+# Step 2: Add with placeholder values
+jq -r '.missingKeys[].key' scan-results.json | while read key; do
+  lrm add "$key" --lang default:"$key" --comment "TODO: Add proper text (from code scan)"
+done
+
+# This creates entries like:
+# <data name="ErrorMessage">
+#   <value>ErrorMessage</value>
+#   <comment>TODO: Add proper text (from code scan)</comment>
+# </data>
+
+# Step 3: IMPORTANT - Edit to add real text values
+lrm edit
+# Or manually edit .resx files
+# Replace "ErrorMessage" with "An error occurred"
+# Replace "SuccessMessage" with "Operation completed successfully"
+
+# Step 4: ONLY NOW translate to other languages
+lrm translate --only-missing
+
+# Step 5: Validate
+lrm validate
+```
+
+### ⚠️ Critical Warning: The Broken Workflow
+
+**DON'T DO THIS** - it produces incorrect translations:
+
+```bash
+# ❌ WRONG - This workflow is BROKEN
+lrm scan --format json > scan.json
+jq -r '.missingKeys[].key' scan.json | while read key; do
+  lrm add "$key" --lang default:"$key"
+done
+lrm translate --only-missing  # ❌ Translates "ErrorMessage" literally!
+
+# Result in French .resx:
+# <data name="ErrorMessage">
+#   <value>MessageErreur</value>  ❌ Wrong! This is a literal translation of the placeholder
+# </data>
+#
+# What you actually wanted:
+# <data name="ErrorMessage">
+#   <value>Une erreur s'est produite</value>  ✓ Correct translation of actual error message
+# </data>
+```
+
+**Why it's broken:**
+1. `lrm add ErrorMessage --lang default:"ErrorMessage"` creates a .resx entry with value = `"ErrorMessage"`
+2. `lrm translate` sends `"ErrorMessage"` to the AI/translation service
+3. AI thinks you want to translate the English word "ErrorMessage" literally
+4. French translation becomes "MessageErreur" or "Message d'erreur"
+5. **This is NOT the actual error message** - it's just a literal translation of a placeholder!
+
+**The fix:**
+Always edit placeholder values to be proper source text **before** running auto-translate.
+
+### Comparison: Which Workflow Should You Use?
+
+| Situation | Use Workflow A (Interactive) | Use Workflow B (Batch) |
+|-----------|------------------------------|------------------------|
+| Found 1-5 missing keys | ✅ Yes - quick and ensures proper text | ❌ Overkill |
+| Found 10+ missing keys | ❌ Too tedious | ✅ Yes - batch add, team reviews placeholders |
+| CI/CD automation | ❌ Can't prompt for input | ✅ Yes - add placeholders, require manual review before auto-translate |
+| Know proper text values | ✅ Yes - add them immediately | ⚠️ Can use, but interactive is faster |
+| Don't know proper text yet | ❌ Nothing to enter | ✅ Yes - placeholders for later review |
+
+### Real-World Example: Team Development Workflow
+
+**Scenario:** Your team of 3 developers added 20 new localization keys to code over the last sprint, but forgot to add them to .resx files.
+
+```bash
+# Developer runs scan before release
+lrm scan --show-missing --format json > missing-keys.json
+
+# Found 20 keys! Too many for interactive mode
+echo "Found $(jq '.summary.missingKeys' missing-keys.json) missing keys"
+
+# Create a task for content team to review
+jq -r '.missingKeys[] | "- [ ] **\(.key)** - Used in \(.references[0].file):\(.references[0].line)"' missing-keys.json > keys-to-review.md
+
+# Developer adds placeholders to unblock CI/CD
+jq -r '.missingKeys[].key' missing-keys.json | while read key; do
+  lrm add "$key" --lang default:"$key" --comment "TODO: Content team - add proper text"
+done
+
+# Content team reviews keys-to-review.md, edits .resx files with proper text
+# Then: lrm translate --only-missing
+# Finally: lrm validate
+```
+
+---
+
 ## Adding New Keys
 
 ### Interactive Mode (Prompts for All Languages)
@@ -928,6 +1073,98 @@ The TUI automatically detects keys that exist in translation files but not in de
 **Save and Exit:**
 1. Press Ctrl+S to save (prompts for backup)
 2. Press Ctrl+Q to quit (prompts if unsaved changes)
+
+**Working with Comments:**
+
+Comments provide context for translators and developers. Each language can have its own comment.
+
+**Add/Edit Comments:**
+1. Press Enter on any key to open edit dialog
+2. For each language, you'll see:
+   - Language name and value field
+   - Comment field below each value
+3. Add contextual information in comments
+4. Press OK to save both values and comments
+
+**Example - Adding Translation Context:**
+```
+Key: ValidationError.EmailFormat
+Default Value: Invalid email address format
+Default Comment: Shown when user enters malformed email (e.g., "test@" or "invalid.com")
+
+French Value: Format d'adresse e-mail invalide
+French Comment: Affiché lorsque l'utilisateur saisit un e-mail mal formé
+```
+
+**Search in Comments:**
+1. Click the scope button to cycle: Keys+Values → Keys Only → Comments → All
+2. Set scope to "Comments" to search only in comment fields
+3. Type search term (e.g., "email")
+4. Results show keys where ANY language's comment contains "email"
+5. Set scope to "All" to search keys, values, AND comments together
+
+**Example - Find All Email-Related Keys:**
+1. Set scope to "Comments"
+2. Type "email" in search box
+3. All keys with email-related comments appear
+4. Switch to "All" scope to also include keys/values mentioning email
+
+**Display Comments in Table:**
+1. Check "Show Comments" checkbox (next to language filters)
+2. Table switches to double-row mode:
+   - First row: Key name and translation values
+   - Second row: "  └─ Comment" with comment text for each language
+3. Each key gets 2 rows for easy viewing
+4. Uncheck to return to compact single-row mode
+5. Comments are indented with box-drawing characters for visual hierarchy
+
+**Auto-Translate from Edit Dialog:**
+1. Press Enter on any key to edit
+2. Click "Auto-Translate (Ctrl+T)" button in the edit dialog
+3. Edit dialog closes and translation dialog opens for that specific key
+4. Shows translation context: key name, source text, and comment
+5. Configure provider and target languages
+6. Translate and return to editing
+
+**Translation with Context:**
+
+When translating a single key (Ctrl+T on selected row), the translation dialog shows:
+- **Key name** - The resource key being translated
+- **Source Text** - The default language value
+- **Comment** - Context information (if available)
+
+This helps you verify you're translating the right key and provides context for better translations.
+
+**Example - Translate with Full Context:**
+```
+Translation Context:
+Key: HomePage.WelcomeMessage
+Source Text: Welcome to our application!
+Comment: Greeting shown on homepage after user login
+
+Provider: Google Cloud Translation
+Target Languages: [French, German, Spanish]
+Cache Translations: ✓
+```
+
+**All 8 Translation Providers:**
+
+The TUI now supports all translation providers:
+1. Google Cloud Translation
+2. DeepL API
+3. LibreTranslate (self-hosted or api.libretranslate.com)
+4. Ollama (local LLM)
+5. OpenAI (GPT models)
+6. Claude (Anthropic)
+7. Azure OpenAI
+8. Azure Translator
+
+**Configure Providers:**
+1. Press F5 to open provider configuration
+2. Select provider from dropdown (all 8 available)
+3. If not configured, helpful error message shows required settings
+4. Configure in lrm.json as shown in error message
+5. See [docs/TRANSLATION.md](TRANSLATION.md) for provider setup details
 
 **Language Management:**
 1. Press F2 to add new language

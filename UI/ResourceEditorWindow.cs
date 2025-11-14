@@ -32,13 +32,18 @@ using Terminal.Gui;
 namespace LocalizationManager.UI;
 
 /// <summary>
-/// Tracks occurrence information for resource entries to handle duplicates
+/// Represents a reference to a specific occurrence of a resource entry.
+/// Used to track and manage duplicate keys in the TUI.
 /// </summary>
 internal class EntryReference
 {
     public string Key { get; set; } = string.Empty;
     public int OccurrenceNumber { get; set; }  // 1-based
     public int TotalOccurrences { get; set; }
+
+    public string DisplayKey => TotalOccurrences > 1
+        ? $"{Key} [{OccurrenceNumber}]"
+        : Key;
 }
 
 /// <summary>
@@ -81,11 +86,14 @@ public class ResourceEditorWindow : Window
         // Initialize visible languages (all visible by default)
         _filterCriteria.VisibleLanguageCodes = _resourceFiles.Select(rf => rf.Language.Code).ToList();
 
+        // Build entry references (tracks all occurrences including duplicates)
+        BuildEntryReferences();
+
         // Load keys
         var defaultFile = resourceFiles.FirstOrDefault(rf => rf.Language.IsDefault);
         if (defaultFile != null)
         {
-            _allKeys = defaultFile.Entries.Select(e => e.Key).OrderBy(k => k).ToList();
+            _allKeys = defaultFile.Entries.Select(e => e.Key).Distinct().OrderBy(k => k).ToList();
         }
 
         // Build DataTable
@@ -117,38 +125,26 @@ public class ResourceEditorWindow : Window
             commentColumn.ColumnMapping = MappingType.Hidden;
         }
 
-        // Add internal columns for filtering (hidden from display)
-        var visibleColumn = dt.Columns.Add("_Visible", typeof(bool));
-        visibleColumn.ColumnMapping = MappingType.Hidden;
-
-        var extraKeyColumn = dt.Columns.Add("_HasExtraKey", typeof(bool));
-        extraKeyColumn.ColumnMapping = MappingType.Hidden;
-
-        // Add metadata columns for duplicate tracking
+        // Add internal columns for tracking occurrences (hidden from display)
         var actualKeyColumn = dt.Columns.Add("_ActualKey", typeof(string));
         actualKeyColumn.ColumnMapping = MappingType.Hidden;
 
         var occurrenceColumn = dt.Columns.Add("_OccurrenceNumber", typeof(int));
         occurrenceColumn.ColumnMapping = MappingType.Hidden;
 
-        // Build entry references with occurrence tracking from default file
-        var defaultFile = _resourceFiles.FirstOrDefault(rf => rf.Language.IsDefault);
-        if (defaultFile != null)
-        {
-            BuildEntryReferences(defaultFile);
-        }
+        var visibleColumn = dt.Columns.Add("_Visible", typeof(bool));
+        visibleColumn.ColumnMapping = MappingType.Hidden;
 
-        // Populate rows based on entry references
+        var extraKeyColumn = dt.Columns.Add("_HasExtraKey", typeof(bool));
+        extraKeyColumn.ColumnMapping = MappingType.Hidden;
+
+        // Populate rows - one row per entry reference (including all duplicate occurrences)
         foreach (var entryRef in _allEntries)
         {
             var row = dt.NewRow();
 
             // Display key with [N] suffix if duplicates exist
-            var displayKey = entryRef.TotalOccurrences > 1
-                ? $"{entryRef.Key} [{entryRef.OccurrenceNumber}]"
-                : entryRef.Key;
-
-            row["Key"] = displayKey;
+            row["Key"] = entryRef.DisplayKey;
             row["_ActualKey"] = entryRef.Key;
             row["_OccurrenceNumber"] = entryRef.OccurrenceNumber;
             row["_Visible"] = true;
@@ -157,9 +153,9 @@ public class ResourceEditorWindow : Window
             // Get the Nth occurrence from each language file
             foreach (var rf in _resourceFiles)
             {
-                var nthEntry = GetNthOccurrence(rf.Entries, entryRef.Key, entryRef.OccurrenceNumber);
-                row[rf.Language.Name] = nthEntry?.Value ?? "";
-                row[$"_Comment_{rf.Language.Code}"] = nthEntry?.Comment ?? "";
+                var entry = GetNthOccurrence(rf, entryRef.Key, entryRef.OccurrenceNumber);
+                row[rf.Language.Name] = entry?.Value ?? "";
+                row[$"_Comment_{rf.Language.Code}"] = entry?.Comment ?? "";
             }
 
             dt.Rows.Add(row);
@@ -168,39 +164,6 @@ public class ResourceEditorWindow : Window
         return dt;
     }
 
-    /// <summary>
-    /// Builds the _allEntries list with occurrence tracking from the default file
-    /// </summary>
-    private void BuildEntryReferences(ResourceFile defaultFile)
-    {
-        _allEntries.Clear();
-
-        // Count occurrences of each key
-        var entryCounts = defaultFile.Entries
-            .GroupBy(e => e.Key)
-            .ToDictionary(g => g.Key, g => g.Count());
-
-        // Track occurrence numbers
-        var seenKeys = new Dictionary<string, int>();
-
-        foreach (var entry in defaultFile.Entries)
-        {
-            var key = entry.Key;
-            var occurrenceNumber = seenKeys.ContainsKey(key)
-                ? ++seenKeys[key]
-                : (seenKeys[key] = 1);
-
-            _allEntries.Add(new EntryReference
-            {
-                Key = key,
-                OccurrenceNumber = occurrenceNumber,
-                TotalOccurrences = entryCounts[key]
-            });
-        }
-
-        // Update _allKeys for legacy compatibility (unique keys only)
-        _allKeys = defaultFile.Entries.Select(e => e.Key).Distinct().OrderBy(k => k).ToList();
-    }
 
     private DataTable BuildDataTableWithDoubleRows()
     {
@@ -222,39 +185,26 @@ public class ResourceEditorWindow : Window
         var logicalKeyColumn = dt.Columns.Add("_LogicalKey", typeof(string));
         logicalKeyColumn.ColumnMapping = MappingType.Hidden;
 
-        var visibleColumn = dt.Columns.Add("_Visible", typeof(bool));
-        visibleColumn.ColumnMapping = MappingType.Hidden;
-
-        var extraKeyColumn = dt.Columns.Add("_HasExtraKey", typeof(bool));
-        extraKeyColumn.ColumnMapping = MappingType.Hidden;
-
-        // Add metadata columns for duplicate tracking
         var actualKeyColumn = dt.Columns.Add("_ActualKey", typeof(string));
         actualKeyColumn.ColumnMapping = MappingType.Hidden;
 
         var occurrenceColumn = dt.Columns.Add("_OccurrenceNumber", typeof(int));
         occurrenceColumn.ColumnMapping = MappingType.Hidden;
 
-        // Build entry references with occurrence tracking from default file
-        var defaultFile = _resourceFiles.FirstOrDefault(rf => rf.Language.IsDefault);
-        if (defaultFile != null)
-        {
-            BuildEntryReferences(defaultFile);
-        }
+        var visibleColumn = dt.Columns.Add("_Visible", typeof(bool));
+        visibleColumn.ColumnMapping = MappingType.Hidden;
 
-        // Populate rows - 2 rows per entry (value + comment)
+        var extraKeyColumn = dt.Columns.Add("_HasExtraKey", typeof(bool));
+        extraKeyColumn.ColumnMapping = MappingType.Hidden;
+
+        // Populate rows - 2 rows per entry reference (value + comment, including all duplicate occurrences)
         foreach (var entryRef in _allEntries)
         {
-            // Display key with [N] suffix if duplicates exist
-            var displayKey = entryRef.TotalOccurrences > 1
-                ? $"{entryRef.Key} [{entryRef.OccurrenceNumber}]"
-                : entryRef.Key;
-
             // Value Row
             var valueRow = dt.NewRow();
-            valueRow["Key"] = displayKey;
+            valueRow["Key"] = entryRef.DisplayKey;
             valueRow["_RowType"] = "Value";
-            valueRow["_LogicalKey"] = displayKey;  // Store display key for compatibility
+            valueRow["_LogicalKey"] = entryRef.DisplayKey;
             valueRow["_ActualKey"] = entryRef.Key;
             valueRow["_OccurrenceNumber"] = entryRef.OccurrenceNumber;
             valueRow["_Visible"] = true;
@@ -263,8 +213,8 @@ public class ResourceEditorWindow : Window
             // Get the Nth occurrence from each language file
             foreach (var rf in _resourceFiles)
             {
-                var nthEntry = GetNthOccurrence(rf.Entries, entryRef.Key, entryRef.OccurrenceNumber);
-                valueRow[rf.Language.Name] = nthEntry?.Value ?? "";
+                var entry = GetNthOccurrence(rf, entryRef.Key, entryRef.OccurrenceNumber);
+                valueRow[rf.Language.Name] = entry?.Value ?? "";
             }
             dt.Rows.Add(valueRow);
 
@@ -272,7 +222,7 @@ public class ResourceEditorWindow : Window
             var commentRow = dt.NewRow();
             commentRow["Key"] = "  \u2514\u2500 Comment";  // "  └─ Comment"
             commentRow["_RowType"] = "Comment";
-            commentRow["_LogicalKey"] = displayKey;  // Store display key for compatibility
+            commentRow["_LogicalKey"] = entryRef.DisplayKey;
             commentRow["_ActualKey"] = entryRef.Key;
             commentRow["_OccurrenceNumber"] = entryRef.OccurrenceNumber;
             commentRow["_Visible"] = true;
@@ -280,13 +230,70 @@ public class ResourceEditorWindow : Window
 
             foreach (var rf in _resourceFiles)
             {
-                var nthEntry = GetNthOccurrence(rf.Entries, entryRef.Key, entryRef.OccurrenceNumber);
-                commentRow[rf.Language.Name] = nthEntry?.Comment ?? "";
+                var entry = GetNthOccurrence(rf, entryRef.Key, entryRef.OccurrenceNumber);
+                commentRow[rf.Language.Name] = entry?.Comment ?? "";
             }
             dt.Rows.Add(commentRow);
         }
 
         return dt;
+    }
+
+    /// <summary>
+    /// Builds a list of entry references from the default file, tracking all occurrences of each key.
+    /// </summary>
+    private void BuildEntryReferences()
+    {
+        _allEntries.Clear();
+
+        var defaultFile = _resourceFiles.FirstOrDefault(rf => rf.Language.IsDefault);
+        if (defaultFile == null) return;
+
+        // Count occurrences of each key
+        var occurrenceCounts = new Dictionary<string, int>();
+        foreach (var entry in defaultFile.Entries)
+        {
+            if (!occurrenceCounts.ContainsKey(entry.Key))
+            {
+                occurrenceCounts[entry.Key] = 0;
+            }
+            occurrenceCounts[entry.Key]++;
+        }
+
+        // Build entry references with occurrence numbers
+        var occurrenceIndices = new Dictionary<string, int>();
+        foreach (var entry in defaultFile.Entries)
+        {
+            if (!occurrenceIndices.ContainsKey(entry.Key))
+            {
+                occurrenceIndices[entry.Key] = 0;
+            }
+            occurrenceIndices[entry.Key]++;
+
+            _allEntries.Add(new EntryReference
+            {
+                Key = entry.Key,
+                OccurrenceNumber = occurrenceIndices[entry.Key],
+                TotalOccurrences = occurrenceCounts[entry.Key]
+            });
+        }
+    }
+
+    /// <summary>
+    /// Gets the Nth occurrence of a key from a resource file.
+    /// </summary>
+    /// <param name="resourceFile">The resource file to search</param>
+    /// <param name="key">The key to find</param>
+    /// <param name="occurrenceNumber">The occurrence number (1-based)</param>
+    /// <returns>The entry, or null if not found</returns>
+    private ResourceEntry? GetNthOccurrence(ResourceFile resourceFile, string key, int occurrenceNumber)
+    {
+        var occurrences = resourceFile.Entries.Where(e => e.Key == key).ToList();
+        if (occurrenceNumber < 1 || occurrenceNumber > occurrences.Count)
+        {
+            return null;
+        }
+        return occurrences[occurrenceNumber - 1];
     }
 
     private void InitializeComponents()
@@ -307,11 +314,15 @@ public class ResourceEditorWindow : Window
                 new MenuItem("_Edit Key", "Edit selected key", () => {
                     if (_tableView?.SelectedRow >= 0)
                     {
-                        var (key, occurrenceNumber) = GetLogicalKeyAndOccurrenceFromSelectedRow(_tableView.SelectedRow);
-                        if (!string.IsNullOrEmpty(key) && occurrenceNumber > 0) EditKey(key, occurrenceNumber);
+                        var entryRef = GetEntryReferenceFromSelectedRow(_tableView.SelectedRow);
+                        if (entryRef != null)
+                        {
+                            EditKey(entryRef.Key, entryRef.OccurrenceNumber);
+                        }
                     }
                 }, null, null, Key.Enter),
-                new MenuItem("_Delete Key", "Delete selected key", () => DeleteSelectedKey(), null, null, Key.DeleteChar)
+                new MenuItem("_Delete Key", "Delete selected key", () => DeleteSelectedKey(), null, null, Key.DeleteChar),
+                new MenuItem("_Merge Duplicates", "Merge duplicate keys", () => ShowMergeDuplicatesDialog(), null, null, Key.M | Key.CtrlMask)
             }),
             new MenuBarItem("_Languages", new MenuItem[]
             {
@@ -514,11 +525,11 @@ public class ResourceEditorWindow : Window
 
         _tableView.CellActivated += (args) =>
         {
-            // Get the logical key and occurrence number from the selected row
-            var (key, occurrenceNumber) = GetLogicalKeyAndOccurrenceFromSelectedRow(args.Row);
-            if (!string.IsNullOrEmpty(key) && occurrenceNumber > 0)
+            // Get the entry reference from the selected row
+            var entryRef = GetEntryReferenceFromSelectedRow(args.Row);
+            if (entryRef != null)
             {
-                EditKey(key, occurrenceNumber);
+                EditKey(entryRef.Key, entryRef.OccurrenceNumber);
             }
         };
 
@@ -701,14 +712,14 @@ public class ResourceEditorWindow : Window
 
     private void EditKey(string key, int occurrenceNumber = 1)
     {
-        // Create display key with occurrence suffix if needed
+        // Check if this is a duplicate key
         var defaultFile = _resourceFiles.FirstOrDefault(rf => rf.Language.IsDefault);
-        var totalOccurrences = defaultFile?.Entries.Count(e => e.Key == key) ?? 1;
-        var displayKey = totalOccurrences > 1 ? $"{key} [{occurrenceNumber}]" : key;
+        var totalOccurrences = defaultFile?.Entries.Count(e => e.Key == key) ?? 0;
+        var titleSuffix = totalOccurrences > 1 ? $" [{occurrenceNumber}]" : "";
 
         var dialog = new Dialog
         {
-            Title = $"Edit: {displayKey}",
+            Title = $"Edit: {key}{titleSuffix}",
             Width = Dim.Percent(80),
             Height = Dim.Percent(70)
         };
@@ -720,7 +731,7 @@ public class ResourceEditorWindow : Window
         foreach (var rf in _resourceFiles)
         {
             // Get the Nth occurrence of this key
-            var entry = GetNthOccurrence(rf.Entries, key, occurrenceNumber);
+            var entry = GetNthOccurrence(rf, key, occurrenceNumber);
             var currentValue = entry?.Value ?? string.Empty;
             var currentComment = entry?.Comment ?? string.Empty;
 
@@ -799,7 +810,7 @@ public class ResourceEditorWindow : Window
                 var rf = _resourceFiles.FirstOrDefault(r => r.Language.Code == kvp.Key);
                 if (rf != null)
                 {
-                    var entry = GetNthOccurrence(rf.Entries, key, occurrenceNumber);
+                    var entry = GetNthOccurrence(rf, key, occurrenceNumber);
                     if (entry != null)
                     {
                         entry.Value = kvp.Value.Text.ToString();
@@ -814,7 +825,7 @@ public class ResourceEditorWindow : Window
                 var rf = _resourceFiles.FirstOrDefault(r => r.Language.Code == kvp.Key);
                 if (rf != null)
                 {
-                    var entry = GetNthOccurrence(rf.Entries, key, occurrenceNumber);
+                    var entry = GetNthOccurrence(rf, key, occurrenceNumber);
                     if (entry != null)
                     {
                         entry.Comment = kvp.Value.Text.ToString();
@@ -1009,65 +1020,450 @@ public class ResourceEditorWindow : Window
     {
         if (_tableView == null || _tableView.SelectedRow < 0) return;
 
-        // Get the logical key and occurrence number from the selected row
-        var (actualKey, occurrenceNumber) = GetLogicalKeyAndOccurrenceFromSelectedRow(_tableView.SelectedRow);
-        if (string.IsNullOrEmpty(actualKey) || occurrenceNumber == 0) return;
+        // Get the entry reference from the selected row
+        var entryRef = GetEntryReferenceFromSelectedRow(_tableView.SelectedRow);
+        if (entryRef == null) return;
 
-        // Count how many files have this occurrence
-        var filesWithOccurrence = _resourceFiles
-            .Count(rf => rf.Entries.Count(e => e.Key == actualKey) >= occurrenceNumber);
-
-        // Build confirmation message
-        var displayKey = actualKey;
-        var totalOccurrences = _resourceFiles.FirstOrDefault(rf => rf.Language.IsDefault)
-            ?.Entries.Count(e => e.Key == actualKey) ?? 1;
-
-        if (totalOccurrences > 1)
+        // Check if this key has duplicates
+        if (entryRef.TotalOccurrences > 1)
         {
-            displayKey = $"{actualKey} [{occurrenceNumber}]";
+            // Show options dialog for handling duplicates
+            ShowDeleteDuplicateDialog(entryRef);
+        }
+        else
+        {
+            // Single occurrence - simple deletion
+            var message = $"Delete key '{entryRef.Key}' from all languages?";
+            var result = MessageBox.Query("Confirm Delete", message, "Yes", "No");
+
+            if (result == 0)
+            {
+                DeleteAllOccurrences(entryRef.Key);
+            }
+        }
+    }
+
+    private void ShowDeleteDuplicateDialog(EntryReference entryRef)
+    {
+        var dialog = new Dialog
+        {
+            Title = "Delete Duplicate Key",
+            Width = 60,
+            Height = 16
+        };
+
+        var message = new Label
+        {
+            Text = $"Key '{entryRef.Key}' has {entryRef.TotalOccurrences} occurrences.\n\n" +
+                   $"You are viewing occurrence [{entryRef.OccurrenceNumber}].\n\n" +
+                   "What would you like to do?",
+            X = 1,
+            Y = 1,
+            Width = Dim.Fill() - 1,
+            Height = 5
+        };
+
+        var btnDeleteThis = new Button
+        {
+            Text = $"Delete This [{entryRef.OccurrenceNumber}]",
+            X = 1,
+            Y = 7
+        };
+
+        var btnDeleteAll = new Button
+        {
+            Text = "Delete All",
+            X = 1,
+            Y = 8
+        };
+
+        var btnMerge = new Button
+        {
+            Text = "Merge Duplicates",
+            X = 1,
+            Y = 9
+        };
+
+        var btnCancel = new Button
+        {
+            Text = "Cancel",
+            X = 1,
+            Y = 11
+        };
+
+        btnDeleteThis.Clicked += () =>
+        {
+            Application.RequestStop();
+            var confirmMessage = $"Delete occurrence [{entryRef.OccurrenceNumber}] of '{entryRef.Key}' from all languages?";
+            var result = MessageBox.Query("Confirm Delete", confirmMessage, "Yes", "No");
+            if (result == 0)
+            {
+                DeleteSpecificOccurrence(entryRef.Key, entryRef.OccurrenceNumber);
+            }
+        };
+
+        btnDeleteAll.Clicked += () =>
+        {
+            Application.RequestStop();
+            var confirmMessage = $"Delete ALL {entryRef.TotalOccurrences} occurrences of '{entryRef.Key}' from all languages?";
+            var result = MessageBox.Query("Confirm Delete", confirmMessage, "Yes", "No");
+            if (result == 0)
+            {
+                DeleteAllOccurrences(entryRef.Key);
+            }
+        };
+
+        btnMerge.Clicked += () =>
+        {
+            Application.RequestStop();
+            Application.MainLoop.Invoke(() => PerformMerge(entryRef.Key));
+        };
+
+        btnCancel.Clicked += () => Application.RequestStop();
+
+        dialog.Add(message, btnDeleteThis, btnDeleteAll, btnMerge, btnCancel);
+        Application.Run(dialog);
+        dialog.Dispose();
+    }
+
+    private void DeleteSpecificOccurrence(string key, int occurrenceNumber)
+    {
+        // Delete the Nth occurrence from all language files
+        foreach (var rf in _resourceFiles)
+        {
+            var occurrences = rf.Entries
+                .Select((e, i) => (Entry: e, Index: i))
+                .Where(x => x.Entry.Key == key)
+                .ToList();
+
+            if (occurrenceNumber > 0 && occurrenceNumber <= occurrences.Count)
+            {
+                rf.Entries.RemoveAt(occurrences[occurrenceNumber - 1].Index);
+            }
         }
 
-        var message = totalOccurrences > 1
-            ? $"Delete '{displayKey}' (occurrence #{occurrenceNumber} of {totalOccurrences})?\n\n" +
-              $"Will be removed from {filesWithOccurrence}/{_resourceFiles.Count} language files."
-            : $"Delete key '{displayKey}' from all languages?";
+        // Rebuild entry references and table
+        BuildEntryReferences();
+        RebuildTable();
+        _hasUnsavedChanges = true;
+    }
 
-        var result = MessageBox.Query("Confirm Delete", message, "Yes", "No");
-
-        if (result == 0)
+    private void DeleteAllOccurrences(string key)
+    {
+        // Delete all occurrences from all files
+        foreach (var rf in _resourceFiles)
         {
-            // Delete occurrence N from each file that has it
-            foreach (var rf in _resourceFiles)
-            {
-                var indices = rf.Entries
-                    .Select((e, i) => (e, i))
-                    .Where(x => x.e.Key == actualKey)
-                    .Select(x => x.i)
-                    .ToList();
+            rf.Entries.RemoveAll(e => e.Key == key);
+        }
 
-                if (indices.Count >= occurrenceNumber)
+        // Rebuild entry references and table
+        BuildEntryReferences();
+        RebuildTable();
+        _hasUnsavedChanges = true;
+    }
+
+    private void RebuildTable()
+    {
+        // Rebuild DataTable to reflect changes
+        if (_showComments)
+        {
+            _dataTable = BuildDataTableWithDoubleRows();
+        }
+        else
+        {
+            _dataTable = BuildDataTable();
+        }
+
+        if (_tableView != null)
+        {
+            _tableView.Table = _dataTable;
+        }
+
+        FilterKeys();
+    }
+
+    // Merge Duplicates Functionality
+
+    private void ShowMergeDuplicatesDialog()
+    {
+        // Check if a key with duplicates is selected
+        EntryReference? selectedEntry = null;
+        if (_tableView != null && _tableView.SelectedRow >= 0)
+        {
+            selectedEntry = GetEntryReferenceFromSelectedRow(_tableView.SelectedRow);
+        }
+
+        var dialog = new Dialog
+        {
+            Title = "Merge Duplicates",
+            Width = 70,
+            Height = 18
+        };
+
+        var yPos = 1;
+
+        // Show selection info if a duplicate is selected
+        if (selectedEntry != null && selectedEntry.TotalOccurrences > 1)
+        {
+            var selectionInfo = new Label
+            {
+                Text = $"Selected: '{selectedEntry.Key}' (has {selectedEntry.TotalOccurrences} occurrences)",
+                X = 1,
+                Y = yPos,
+                Width = Dim.Fill() - 1
+            };
+            dialog.Add(selectionInfo);
+            yPos += 2;
+        }
+
+        var message = new Label
+        {
+            Text = "Choose an option to merge duplicate keys:",
+            X = 1,
+            Y = yPos,
+            Width = Dim.Fill() - 1
+        };
+
+        var btnMergeSelected = new Button
+        {
+            Text = selectedEntry != null && selectedEntry.TotalOccurrences > 1
+                ? $"Merge '{selectedEntry.Key}'"
+                : "Merge Selected (no duplicate selected)",
+            X = 1,
+            Y = yPos + 2,
+            Enabled = selectedEntry != null && selectedEntry.TotalOccurrences > 1
+        };
+
+        var btnMergeAll = new Button
+        {
+            Text = "Merge All Duplicate Keys",
+            X = 1,
+            Y = yPos + 4
+        };
+
+        var btnCancel = new Button
+        {
+            Text = "Cancel",
+            X = 1,
+            Y = yPos + 6
+        };
+
+        var helpText = new Label
+        {
+            Text = "Merging allows you to consolidate duplicate occurrences\n" +
+                   "by choosing which value to keep for each language.",
+            X = 1,
+            Y = yPos + 8,
+            Width = Dim.Fill() - 1,
+            Height = 3
+        };
+
+        btnMergeSelected.Clicked += () =>
+        {
+            if (selectedEntry != null)
+            {
+                Application.RequestStop();
+                PerformMerge(selectedEntry.Key);
+            }
+        };
+
+        btnMergeAll.Clicked += () =>
+        {
+            Application.RequestStop();
+            PerformMergeAll();
+        };
+
+        btnCancel.Clicked += () => Application.RequestStop();
+
+        dialog.Add(message, btnMergeSelected, btnMergeAll, btnCancel, helpText);
+        Application.Run(dialog);
+        dialog.Dispose();
+    }
+
+    private void PerformMerge(string key)
+    {
+        var defaultFile = _resourceFiles.FirstOrDefault(rf => rf.Language.IsDefault);
+        if (defaultFile == null) return;
+
+        var occurrences = defaultFile.Entries.Where(e => e.Key == key).ToList();
+        if (occurrences.Count <= 1)
+        {
+            MessageBox.Query("No Duplicates", $"Key '{key}' has only one occurrence.", "OK");
+            return;
+        }
+
+        // Collect selections for each language
+        var selections = new Dictionary<string, int>(); // language code -> selected occurrence index (1-based)
+
+        foreach (var rf in _resourceFiles)
+        {
+            var langOccurrences = rf.Entries.Where(e => e.Key == key).ToList();
+
+            if (langOccurrences.Count == 0)
+            {
+                continue; // Key not found in this language
+            }
+
+            if (langOccurrences.Count == 1)
+            {
+                selections[rf.Language.Code] = 1; // Only one occurrence
+                continue;
+            }
+
+            // Multiple occurrences: ask user
+            var selectedIndex = ShowOccurrenceSelectionDialog(rf.Language.Name, key, langOccurrences);
+            if (selectedIndex == -1)
+            {
+                // User cancelled
+                return;
+            }
+
+            selections[rf.Language.Code] = selectedIndex;
+        }
+
+        // Apply the merge
+        foreach (var rf in _resourceFiles)
+        {
+            if (!selections.ContainsKey(rf.Language.Code))
+                continue;
+
+            var selectedOccurrence = selections[rf.Language.Code];
+            var indices = rf.Entries
+                .Select((e, i) => (Entry: e, Index: i))
+                .Where(x => x.Entry.Key == key)
+                .Select(x => x.Index)
+                .ToList();
+
+            if (indices.Count <= 1)
+                continue;
+
+            // Remove all except the selected one (in reverse to maintain indices)
+            for (int i = indices.Count - 1; i >= 0; i--)
+            {
+                if (i + 1 != selectedOccurrence)
                 {
-                    rf.Entries.RemoveAt(indices[occurrenceNumber - 1]);
+                    rf.Entries.RemoveAt(indices[i]);
                 }
             }
+        }
 
-            // Rebuild table completely to reflect deletion
-            if (_showComments)
-            {
-                _dataTable = BuildDataTableWithDoubleRows();
-            }
-            else
-            {
-                _dataTable = BuildDataTable();
-            }
+        // Rebuild and refresh
+        BuildEntryReferences();
+        RebuildTable();
+        _hasUnsavedChanges = true;
 
-            if (_tableView != null)
-            {
-                _tableView.Table = _dataTable;
-            }
+        MessageBox.Query("Success", $"Successfully merged '{key}'", "OK");
+    }
 
-            _hasUnsavedChanges = true;
-            FilterKeys();
+    private int ShowOccurrenceSelectionDialog(string languageName, string key, List<ResourceEntry> occurrences)
+    {
+        var dialog = new Dialog
+        {
+            Title = $"Select Occurrence for {languageName}",
+            Width = Dim.Percent(80),
+            Height = Dim.Percent(60)
+        };
+
+        var message = new Label
+        {
+            Text = $"Key '{key}' has {occurrences.Count} occurrences in {languageName}.\n" +
+                   "Select which one to keep:",
+            X = 1,
+            Y = 1,
+            Width = Dim.Fill() - 1,
+            Height = 3
+        };
+
+        var listView = new ListView
+        {
+            X = 1,
+            Y = 4,
+            Width = Dim.Fill() - 1,
+            Height = Dim.Fill() - 7
+        };
+
+        var items = new List<string>();
+        for (int i = 0; i < occurrences.Count; i++)
+        {
+            var entry = occurrences[i];
+            var value = entry.Value ?? "";
+            var comment = !string.IsNullOrWhiteSpace(entry.Comment) ? $" // {entry.Comment}" : "";
+            var preview = value.Length > 80 ? value.Substring(0, 77) + "..." : value;
+            items.Add($"[{i + 1}] \"{preview}\"{comment}");
+        }
+
+        listView.SetSource(items);
+        listView.SelectedItem = 0;
+
+        var btnSelect = new Button
+        {
+            Text = "Select",
+            X = 1,
+            Y = Pos.AnchorEnd(2),
+            IsDefault = true
+        };
+
+        var btnCancel = new Button
+        {
+            Text = "Cancel",
+            X = Pos.Right(btnSelect) + 2,
+            Y = Pos.AnchorEnd(2)
+        };
+
+        int selectedIndex = -1;
+
+        btnSelect.Clicked += () =>
+        {
+            selectedIndex = listView.SelectedItem + 1; // Convert to 1-based
+            Application.RequestStop();
+        };
+
+        btnCancel.Clicked += () =>
+        {
+            selectedIndex = -1;
+            Application.RequestStop();
+        };
+
+        dialog.Add(message, listView, btnSelect, btnCancel);
+        Application.Run(dialog);
+        dialog.Dispose();
+
+        return selectedIndex;
+    }
+
+    private void PerformMergeAll()
+    {
+        var defaultFile = _resourceFiles.FirstOrDefault(rf => rf.Language.IsDefault);
+        if (defaultFile == null) return;
+
+        // Find all keys with duplicates
+        var keysToMerge = defaultFile.Entries
+            .GroupBy(e => e.Key)
+            .Where(g => g.Count() > 1)
+            .Select(g => g.Key)
+            .ToList();
+
+        if (keysToMerge.Count == 0)
+        {
+            MessageBox.Query("No Duplicates", "No duplicate keys found.", "OK");
+            return;
+        }
+
+        var confirmMessage = $"Found {keysToMerge.Count} key(s) with duplicates.\n\n" +
+                           "You will be asked to select which occurrence to keep\n" +
+                           "for each language with multiple occurrences.\n\n" +
+                           "Proceed?";
+
+        var result = MessageBox.Query("Confirm Merge All", confirmMessage, "Yes", "No");
+        if (result != 0)
+        {
+            return;
+        }
+
+        // Merge each key
+        foreach (var key in keysToMerge)
+        {
+            PerformMerge(key);
         }
     }
 
@@ -1434,7 +1830,8 @@ public class ResourceEditorWindow : Window
                    "Key Management:\n" +
                    "Enter     - Edit selected key\n" +
                    "Ctrl+N    - Add new key\n" +
-                   "Del       - Delete selected key\n\n" +
+                   "Del       - Delete selected key\n" +
+                   "Ctrl+M    - Merge duplicate keys\n\n" +
                    "Language Management:\n" +
                    "Ctrl+L    - List languages\n" +
                    "F2        - Add new language\n" +
@@ -1594,78 +1991,83 @@ public class ResourceEditorWindow : Window
     }
 
     /// <summary>
-    /// Gets the Nth occurrence of a key from a list of entries
+    /// Gets the key from a selected row
     /// </summary>
-    /// <param name="entries">List of resource entries</param>
-    /// <param name="key">Key to search for</param>
-    /// <param name="n">Occurrence number (1-based)</param>
-    /// <returns>The Nth entry with the specified key, or null if not found</returns>
-    private ResourceEntry? GetNthOccurrence(List<ResourceEntry> entries, string key, int n)
+    /// <returns>The key, or null if not found</returns>
+    private string? GetKeyFromSelectedRow(int rowIndex)
     {
-        var matches = entries.Where(e => e.Key == key).ToList();
-        return n <= matches.Count ? matches[n - 1] : null;
-    }
-
-    /// <summary>
-    /// Gets the logical key and occurrence number from a selected row, handling both single-row and double-row modes
-    /// </summary>
-    /// <returns>Tuple of (ActualKey without suffix, OccurrenceNumber). Returns (null, 0) if not found.</returns>
-    private (string? Key, int OccurrenceNumber) GetLogicalKeyAndOccurrenceFromSelectedRow(int rowIndex)
-    {
-        // Use the source DataTable instead of displayed table to access metadata columns
-        var sourceTable = _dataTable;
-        if (sourceTable == null)
-        {
-            return (null, 0);
-        }
-
-        // Find the corresponding row in the source table using the DefaultView's RowFilter
         var displayedTable = _tableView?.Table;
         if (displayedTable == null || rowIndex < 0 || rowIndex >= displayedTable.Rows.Count)
         {
-            return (null, 0);
+            return null;
         }
 
         // Get the key from the displayed row
         var displayedKeyValue = displayedTable.Rows[rowIndex]["Key"]?.ToString();
         if (string.IsNullOrEmpty(displayedKeyValue))
         {
-            return (null, 0);
+            return null;
         }
 
-        // Check for metadata columns (_ActualKey and _OccurrenceNumber)
-        if (sourceTable.Columns.Contains("_ActualKey") && sourceTable.Columns.Contains("_OccurrenceNumber"))
+        // Strip warning marker if present
+        var key = displayedKeyValue.TrimStart('⚠', ' ');
+
+        // Strip [N] suffix for duplicates (e.g., "AppName [2]" -> "AppName")
+        var bracketIndex = key.LastIndexOf(" [");
+        if (bracketIndex > 0 && key.EndsWith("]"))
         {
-            // Find the matching row in source table by comparing displayed Key value
-            var sourceRow = sourceTable.AsEnumerable()
-                .FirstOrDefault(r => r.RowState != DataRowState.Deleted &&
-                                    r["Key"]?.ToString() == displayedKeyValue);
-
-            if (sourceRow != null)
-            {
-                var actualKey = sourceRow["_ActualKey"]?.ToString();
-                var occurrence = Convert.ToInt32(sourceRow["_OccurrenceNumber"]);
-                return (actualKey, occurrence);
-            }
+            key = key.Substring(0, bracketIndex);
         }
-        // Legacy support for _LogicalKey in double-row mode
-        else if (sourceTable.Columns.Contains("_LogicalKey"))
+
+        return key;
+    }
+
+    /// <summary>
+    /// Gets the EntryReference from a selected row (includes occurrence tracking)
+    /// </summary>
+    /// <returns>The entry reference, or null if not found</returns>
+    private EntryReference? GetEntryReferenceFromSelectedRow(int rowIndex)
+    {
+        // Find the row in _dataTable that corresponds to the displayed row
+        var displayedTable = _tableView?.Table;
+        if (displayedTable == null || rowIndex < 0 || rowIndex >= displayedTable.Rows.Count)
         {
-            // Find the matching row in source table by comparing displayed Key value
-            var sourceRow = sourceTable.AsEnumerable()
-                .FirstOrDefault(r => r.RowState != DataRowState.Deleted &&
-                                    r["Key"]?.ToString() == displayedKeyValue);
-
-            if (sourceRow != null)
-            {
-                var key = sourceRow["_LogicalKey"]?.ToString();
-                return (key, 1);  // Assume single occurrence for legacy mode
-            }
+            return null;
         }
 
-        // In single-row mode without metadata, use Key column (strip warning marker if present)
-        var cleanKey = displayedKeyValue.TrimStart('⚠', ' ');
-        return (cleanKey, 1);  // Assume single occurrence
+        var displayedKeyValue = displayedTable.Rows[rowIndex]["Key"]?.ToString();
+        if (string.IsNullOrEmpty(displayedKeyValue))
+        {
+            return null;
+        }
+
+        // In the filtered/displayed table, we need to map back to _dataTable
+        // The displayed table doesn't have the hidden columns, so we match by visible key value
+        var matchingDataRow = _dataTable.Rows.Cast<DataRow>()
+            .FirstOrDefault(r =>
+            {
+                var keyVal = r["Key"]?.ToString();
+                return keyVal == displayedKeyValue ||
+                       keyVal == displayedKeyValue.TrimStart('⚠', ' ');
+            });
+
+        if (matchingDataRow == null)
+        {
+            return null;
+        }
+
+        // Extract from hidden columns
+        var actualKey = matchingDataRow["_ActualKey"]?.ToString();
+        var occurrenceNumber = matchingDataRow["_OccurrenceNumber"] as int? ?? 1;
+
+        if (string.IsNullOrEmpty(actualKey))
+        {
+            return null;
+        }
+
+        // Find the matching entry reference
+        return _allEntries.FirstOrDefault(e =>
+            e.Key == actualKey && e.OccurrenceNumber == occurrenceNumber);
     }
 
     private void ShowLanguageFilterDialog()
@@ -1833,15 +2235,13 @@ public class ResourceEditorWindow : Window
             return;
         }
 
-        // Get the logical key and occurrence number from the selected row
-        var (key, occurrenceNumber) = GetLogicalKeyAndOccurrenceFromSelectedRow(_tableView.SelectedRow);
+        // Get the key from the selected row
+        var key = GetKeyFromSelectedRow(_tableView.SelectedRow);
         if (string.IsNullOrEmpty(key))
         {
             return;
         }
 
-        // For now, translate all occurrences of the key (not just the specific occurrence)
-        // TODO: In future, could add occurrence-specific translation
         ShowTranslateDialog(new List<string> { key });
     }
 
@@ -2000,7 +2400,7 @@ public class ResourceEditorWindow : Window
         {
             X = 1,
             Y = yPos + 1,
-            Checked = true
+            Checked = false  // Default to translating all (user can check this to skip existing values)
         };
 
         // Status label
@@ -2062,8 +2462,9 @@ public class ResourceEditorWindow : Window
 
                 foreach (var key in keysToTranslate)
                 {
-                    var sourceEntry = defaultFile.Entries.FirstOrDefault(e => e.Key == key);
-                    if (sourceEntry == null || string.IsNullOrWhiteSpace(sourceEntry.Value))
+                    // Get all occurrences of this key in the default file
+                    var sourceEntries = defaultFile.Entries.Where(e => e.Key == key).ToList();
+                    if (sourceEntries.Count == 0)
                         continue;
 
                     foreach (var targetLang in selectedLangs)
@@ -2071,67 +2472,95 @@ public class ResourceEditorWindow : Window
                         var targetFile = _resourceFiles.FirstOrDefault(rf => rf.Language.Code == targetLang);
                         if (targetFile == null) continue;
 
-                        var targetEntry = targetFile.Entries.FirstOrDefault(e => e.Key == key);
+                        // Get all occurrences in target language
+                        var targetEntries = targetFile.Entries.Where(e => e.Key == key).ToList();
 
-                        // Skip if only missing and value exists
-                        if (onlyMissingCheckbox.Checked && targetEntry != null && !string.IsNullOrWhiteSpace(targetEntry.Value))
-                            continue;
+                        // If source has more occurrences than target, we need to add entries
+                        // If source has fewer, we only update existing ones
+                        for (int i = 0; i < sourceEntries.Count; i++)
+                        {
+                            var sourceEntry = sourceEntries[i];
+                            if (string.IsNullOrWhiteSpace(sourceEntry.Value))
+                                continue;
 
-                        var request = new TranslationRequest
-                        {
-                            SourceText = sourceEntry.Value,
-                            SourceLanguage = null, // Auto-detect
-                            TargetLanguage = targetLang!
-                        };
+                            ResourceEntry? targetEntry = i < targetEntries.Count ? targetEntries[i] : null;
 
-                        // Try cache first
-                        TranslationResponse? response = null;
-                        if (cache.TryGet(request, provider, out var cachedResponse) && cachedResponse != null)
-                        {
-                            response = cachedResponse;
-                        }
-                        else
-                        {
-                            response = await translationProvider.TranslateAsync(request);
-                            cache.Store(request, response);
-                        }
+                            // Skip if only missing and value exists
+                            if (onlyMissingCheckbox.Checked && targetEntry != null && !string.IsNullOrWhiteSpace(targetEntry.Value))
+                                continue;
 
-                        // Update entry
-                        if (response != null && targetEntry != null)
-                        {
-                            targetEntry.Value = response.TranslatedText;
-                        }
-                        else if (response != null)
-                        {
-                            targetFile.Entries.Add(new ResourceEntry
+                            var request = new TranslationRequest
                             {
-                                Key = key,
-                                Value = response.TranslatedText,
-                                Comment = sourceEntry.Comment
-                            });
-                        }
+                                SourceText = sourceEntry.Value,
+                                SourceLanguage = null, // Auto-detect
+                                TargetLanguage = targetLang!
+                            };
 
-                        // Update DataTable
-                        var row = _dataTable.Rows.Cast<DataRow>().FirstOrDefault(r =>
-                            r["Key"].ToString()?.TrimStart('⚠', ' ') == key);
-                        if (row != null && response != null)
-                        {
-                            row[targetFile.Language.Name] = response.TranslatedText;
-                        }
+                            // Try cache first
+                            TranslationResponse? response = null;
+                            if (cache.TryGet(request, provider, out var cachedResponse) && cachedResponse != null)
+                            {
+                                response = cachedResponse;
+                            }
+                            else
+                            {
+                                response = await translationProvider.TranslateAsync(request);
+                                cache.Store(request, response);
+                            }
 
-                        translated++;
-                        statusLabel.Text = $"Translated {translated}...";
-                        Application.Refresh();
+                            // Update or add entry
+                            if (response != null && !string.IsNullOrWhiteSpace(response.TranslatedText))
+                            {
+                                if (targetEntry != null)
+                                {
+                                    targetEntry.Value = response.TranslatedText;
+                                    if (!string.IsNullOrWhiteSpace(sourceEntry.Comment) && string.IsNullOrWhiteSpace(targetEntry.Comment))
+                                    {
+                                        targetEntry.Comment = sourceEntry.Comment;
+                                    }
+                                    translated++;
+                                }
+                                else
+                                {
+                                    targetFile.Entries.Add(new ResourceEntry
+                                    {
+                                        Key = key,
+                                        Value = response.TranslatedText,
+                                        Comment = sourceEntry.Comment
+                                    });
+                                    translated++;
+                                }
+                            }
+
+                            statusLabel.Text = $"Translated {translated}...";
+                            Application.Refresh();
+                        }
                     }
                 }
 
-                _hasUnsavedChanges = true;
-                FilterKeys(); // Refresh display
-                UpdateStatus();
+                // Only mark as changed and rebuild if something was actually translated
+                if (translated > 0)
+                {
+                    _hasUnsavedChanges = true;
 
-                MessageBox.Query("Success",
-                    $"Translated {translated} value(s) successfully.",
-                    "OK");
+                    // Rebuild table to show translated values
+                    RebuildTable();
+                    UpdateStatus();
+
+                    MessageBox.Query("Success",
+                        $"Translated {translated} value(s) successfully.",
+                        "OK");
+                }
+                else
+                {
+                    MessageBox.Query("No Changes",
+                        "No values were translated.\n\n" +
+                        "Possible reasons:\n" +
+                        "- Target language(s) already have values and 'Only translate missing values' is checked\n" +
+                        "- Translation provider returned empty results\n" +
+                        "- Source values are empty",
+                        "OK");
+                }
 
                 Application.RequestStop();
             }

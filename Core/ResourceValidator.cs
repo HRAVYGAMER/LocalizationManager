@@ -20,6 +20,7 @@
 // SOFTWARE.
 
 using LocalizationManager.Core.Models;
+using LocalizationManager.Core.Validation;
 
 namespace LocalizationManager.Core;
 
@@ -90,6 +91,25 @@ public class ResourceValidator
             if (duplicateKeys.Any())
             {
                 result.DuplicateKeys[langCode] = duplicateKeys;
+            }
+
+            // Validate placeholders
+            var placeholderErrors = new Dictionary<string, string>();
+            foreach (var entry in resourceFile.Entries)
+            {
+                var defaultEntry = defaultFile.Entries.FirstOrDefault(e => e.Key == entry.Key);
+                if (defaultEntry != null && !string.IsNullOrEmpty(defaultEntry.Value) && !string.IsNullOrEmpty(entry.Value))
+                {
+                    var validationResult = PlaceholderValidator.Validate(defaultEntry.Value, entry.Value);
+                    if (!validationResult.IsValid)
+                    {
+                        placeholderErrors[entry.Key] = validationResult.GetSummary();
+                    }
+                }
+            }
+            if (placeholderErrors.Any())
+            {
+                result.PlaceholderMismatches[langCode] = placeholderErrors;
             }
         }
 

@@ -94,7 +94,10 @@ LRM solves this by providing:
   - In-app translation with Ctrl+T
   - Real-time validation and search
   - Full duplicate key support (view, edit, delete, merge)
-- **🔍 Validation** - Detect missing translations, duplicates, empty values
+- **🔍 Validation** - Detect missing translations, duplicates, empty values, and placeholder mismatches
+  - Automatic placeholder validation for .NET format strings (`{0}`, `{name}`), printf-style (`%s`, `%d`), ICU MessageFormat, and template literals (`${var}`)
+  - Ensures dynamic content and format strings are correctly preserved across all languages
+  - Full [placeholder validation docs →](docs/PLACEHOLDERS.md)
 - **🔄 Duplicate Handling** - Comprehensive duplicate key management
   - View all occurrences with [N] suffix in TUI
   - Edit specific occurrences independently
@@ -442,6 +445,7 @@ LocalizationManager/
 | [docs/COMMANDS.md](docs/COMMANDS.md) | Detailed command reference with all options |
 | [**docs/CONFIGURATION.md**](docs/CONFIGURATION.md) 🆕 | **Configuration file guide (lrm.json schema and examples)** |
 | [**docs/BACKUP.md**](docs/BACKUP.md) 🆕 | **Backup & versioning system guide (automatic backups, diff, restore)** |
+| [**docs/PLACEHOLDERS.md**](docs/PLACEHOLDERS.md) 🆕 | **Placeholder validation guide (.NET/printf/ICU/template literal formats)** |
 | [docs/EXAMPLES.md](docs/EXAMPLES.md) | Usage examples and workflow scenarios |
 | [**docs/CICD.md**](docs/CICD.md) 🆕 | **CI/CD automation workflows with translation tracking** ⭐ |
 | [**docs/TRANSLATION.md**](docs/TRANSLATION.md) 🆕 | **Machine translation guide (Google/DeepL/LibreTranslate)** |

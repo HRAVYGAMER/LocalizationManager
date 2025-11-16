@@ -51,13 +51,20 @@ public class ValidationResult
     public Dictionary<string, List<string>> EmptyValues { get; set; } = new();
 
     /// <summary>
+    /// Keys with placeholder mismatches between source and translation.
+    /// Dictionary: Language Code -> Dictionary of Key -> Error Message
+    /// </summary>
+    public Dictionary<string, Dictionary<string, string>> PlaceholderMismatches { get; set; } = new();
+
+    /// <summary>
     /// Indicates if the validation passed without any issues.
     /// </summary>
     public bool IsValid =>
         !MissingKeys.Any(kv => kv.Value.Any()) &&
         !ExtraKeys.Any(kv => kv.Value.Any()) &&
         !DuplicateKeys.Any(kv => kv.Value.Any()) &&
-        !EmptyValues.Any(kv => kv.Value.Any());
+        !EmptyValues.Any(kv => kv.Value.Any()) &&
+        !PlaceholderMismatches.Any(kv => kv.Value.Any());
 
     /// <summary>
     /// Gets the total number of issues found.
@@ -66,5 +73,6 @@ public class ValidationResult
         MissingKeys.Sum(kv => kv.Value.Count) +
         ExtraKeys.Sum(kv => kv.Value.Count) +
         DuplicateKeys.Sum(kv => kv.Value.Count) +
-        EmptyValues.Sum(kv => kv.Value.Count);
+        EmptyValues.Sum(kv => kv.Value.Count) +
+        PlaceholderMismatches.Sum(kv => kv.Value.Count);
 }

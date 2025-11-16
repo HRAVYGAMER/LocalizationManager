@@ -1519,7 +1519,8 @@ public class ResourceEditorWindow : Window
               $"Missing: {result.MissingKeys.Sum(kv => kv.Value.Count)}\n" +
               $"Extra: {result.ExtraKeys.Sum(kv => kv.Value.Count)}\n" +
               $"Duplicates: {result.DuplicateKeys.Sum(kv => kv.Value.Count)}\n" +
-              $"Empty: {result.EmptyValues.Sum(kv => kv.Value.Count)}";
+              $"Empty: {result.EmptyValues.Sum(kv => kv.Value.Count)}\n" +
+              $"Placeholder Mismatches: {result.PlaceholderMismatches.Sum(kv => kv.Value.Count)}";
 
         MessageBox.Query("Validation", message, "OK");
     }

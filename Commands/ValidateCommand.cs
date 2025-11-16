@@ -266,6 +266,41 @@ public class ValidateCommand : Command<BaseFormattableCommandSettings>
             }
 
             AnsiConsole.Write(table);
+            AnsiConsole.WriteLine();
+        }
+
+        // Placeholder mismatches
+        if (result.PlaceholderMismatches.Any(kv => kv.Value.Any()))
+        {
+            var table = new Table();
+            table.Title = new TableTitle("[red]Placeholder Mismatches[/]");
+            table.AddColumn("Language");
+            table.AddColumn("Key");
+            table.AddColumn("Error");
+
+            var defaultCode = settings.LoadedConfiguration?.DefaultLanguageCode ?? "default";
+            foreach (var kvp in result.PlaceholderMismatches.Where(kv => kv.Value.Any()))
+            {
+                var langDisplay = string.IsNullOrEmpty(kvp.Key) ? defaultCode : kvp.Key;
+                foreach (var error in kvp.Value.Take(10))
+                {
+                    table.AddRow(
+                        langDisplay,
+                        error.Key.EscapeMarkup(),
+                        error.Value.EscapeMarkup()
+                    );
+                }
+                if (kvp.Value.Count > 10)
+                {
+                    table.AddRow(
+                        langDisplay,
+                        "[dim]...[/]",
+                        $"[dim]({kvp.Value.Count - 10} more errors)[/]"
+                    );
+                }
+            }
+
+            AnsiConsole.Write(table);
         }
     }
 
@@ -288,6 +323,10 @@ public class ValidateCommand : Command<BaseFormattableCommandSettings>
             kvp => string.IsNullOrEmpty(kvp.Key) ? "default" : kvp.Key,
             kvp => kvp.Value
         );
+        var normalizedPlaceholderMismatches = result.PlaceholderMismatches.ToDictionary(
+            kvp => string.IsNullOrEmpty(kvp.Key) ? "default" : kvp.Key,
+            kvp => kvp.Value
+        );
 
         var output = new
         {
@@ -296,7 +335,8 @@ public class ValidateCommand : Command<BaseFormattableCommandSettings>
             missingKeys = normalizedMissingKeys,
             extraKeys = normalizedExtraKeys,
             duplicateKeys = normalizedDuplicateKeys,
-            emptyValues = normalizedEmptyValues
+            emptyValues = normalizedEmptyValues,
+            placeholderMismatches = normalizedPlaceholderMismatches
         };
 
         Console.WriteLine(OutputFormatter.FormatJson(output));
@@ -362,6 +402,23 @@ public class ValidateCommand : Command<BaseFormattableCommandSettings>
             {
                 var langDisplay = string.IsNullOrEmpty(kvp.Key) ? defaultCode : kvp.Key;
                 Console.WriteLine($"  {langDisplay}: {string.Join(", ", kvp.Value)}");
+            }
+            Console.WriteLine();
+        }
+
+        // Placeholder mismatches
+        if (result.PlaceholderMismatches.Any(kv => kv.Value.Any()))
+        {
+            Console.WriteLine("Placeholder Mismatches:");
+            var defaultCode = settings.LoadedConfiguration?.DefaultLanguageCode ?? "default";
+            foreach (var kvp in result.PlaceholderMismatches.Where(kv => kv.Value.Any()))
+            {
+                var langDisplay = string.IsNullOrEmpty(kvp.Key) ? defaultCode : kvp.Key;
+                Console.WriteLine($"  {langDisplay}:");
+                foreach (var error in kvp.Value)
+                {
+                    Console.WriteLine($"    {error.Key}: {error.Value}");
+                }
             }
         }
     }

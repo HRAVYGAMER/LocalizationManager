@@ -1,7 +1,7 @@
 # LocalizationManager v0.7.0 - Development Roadmap
 
 **Target Release:** v0.7.0
-**Estimated Timeline:** 14 weeks
+**Estimated Timeline:** 11 weeks
 **Start Date:** 2025-01-15
 **Architecture:** ASP.NET Core Web API + Blazor WebAssembly
 
@@ -51,60 +51,30 @@
 
 ---
 
-### 3. Multi-Format Plugin System
+### 3. Web API
 **Status:** Not Started
 **Priority:** High
-**Description:** Extensible plugin system for import/export formats
+**Description:** ASP.NET Core Web API backend for resource management
 
-**Plugin Architecture:**
-- [ ] Create LocalizationManager.Plugins SDK
-- [ ] IFormatPlugin, IImportPlugin, IExportPlugin interfaces
-- [ ] PluginManager implementation
-- [ ] PluginRegistry implementation
-- [ ] ScriptPluginLoader (Roslyn C# scripts)
-- [ ] Plugin sandboxing/security
-
-**Built-in Plugins:**
-- [ ] ResxPlugin (refactor existing)
-- [ ] CsvPlugin (refactor existing)
-- [ ] JsonPlugin (nested and flat formats)
-- [ ] PoPlugin (Gettext .po files)
-- [ ] XliffPlugin (XLIFF 1.2/2.0)
-- [ ] AndroidPlugin (strings.xml)
-- [ ] IosPlugin (Localizable.strings)
-- [ ] YamlPlugin (YAML i18n)
-
-**Integration:**
-- [ ] CLI plugin commands
-- [ ] API plugin endpoints
-- [ ] Blazor plugin management page
-- [ ] Plugin documentation
-- [ ] Unit tests for each plugin
-- [ ] Integration tests
-
----
-
-### 4. Web-Based UI (Blazor WASM + API)
-**Status:** Not Started
-**Priority:** High
-**Description:** Browser-based editor with full feature parity
-
-**API (LocalizationManager.Api):**
 - [ ] Create project structure
 - [ ] ResourcesController
 - [ ] ValidationController
 - [ ] TranslationController
-- [ ] PluginController
-- [ ] FlowController
 - [ ] BackupController
 - [ ] StatsController
 - [ ] TranslationProgressHub (SignalR)
 - [ ] ValidationHub (SignalR)
-- [ ] FlowProgressHub (SignalR)
 - [ ] CORS configuration
 - [ ] Swagger/OpenAPI setup
 - [ ] Middleware (exception, logging)
 - [ ] API integration tests
+
+---
+
+### 4. Blazor WASM UI
+**Status:** Not Started
+**Priority:** High
+**Description:** Browser-based editor with full feature parity
 
 **Blazor WASM (LocalizationManager.Web):**
 - [ ] Create project structure
@@ -113,8 +83,6 @@
 - [ ] Validation.razor
 - [ ] Translation.razor
 - [ ] BackupHistory.razor
-- [ ] Plugins.razor
-- [ ] FlowBuilder.razor
 - [ ] Settings.razor
 
 **Shared Components:**
@@ -130,9 +98,7 @@
 - [ ] ResourceApiClient
 - [ ] ValidationApiClient
 - [ ] TranslationApiClient
-- [ ] PluginApiClient
 - [ ] BackupApiClient
-- [ ] FlowApiClient
 - [ ] SignalR integration
 
 **Other:**
@@ -144,24 +110,28 @@
 
 ---
 
-### 5. Smart Flow System
+### 5. Simple CLI Chaining
 **Status:** Not Started
-**Priority:** Medium
-**Description:** Chain commands with in-memory pipeline
+**Priority:** Low
+**Description:** Run multiple LRM commands sequentially in one invocation
 
-- [ ] FlowEngine implementation
-- [ ] FlowDefinition, FlowStep, FlowContext models
-- [ ] Step executors (Import, Validate, Translate, Export)
-- [ ] FlowCommand (CLI)
-- [ ] Config-based flows (lrm.json)
-- [ ] CLI flow syntax support
-- [ ] API flow endpoints
-- [ ] SignalR progress updates
-- [ ] Blazor FlowBuilder page (drag-drop UI)
-- [ ] Flow templates
+- [ ] ChainCommand implementation
+- [ ] Full argument support for each step
+- [ ] Command parsing (double-dash separator, complex args)
+- [ ] Progress display
+- [ ] `--stop-on-error` flag (default: true)
+- [ ] `--continue-on-error` flag
+- [ ] `--dry-run` support
+- [ ] Exit code propagation
+- [ ] Shell completion
 - [ ] Unit tests
 - [ ] Integration tests
 - [ ] Documentation
+
+**Examples:**
+- `lrm chain validate --format json -- translate --only-missing -- export -o output.csv`
+- `lrm chain validate -- scan -- backup create`
+- `lrm chain import file.csv -- validate -- translate --provider google -- export`
 
 ---
 
@@ -298,150 +268,68 @@
 
 ---
 
-### Phase 3: Plugin System (Week 3-5)
+### Phase 3: Simple CLI Chaining (Week 3)
 **Status:** Not Started
 **Dates:** TBD
 
-- [ ] Create LocalizationManager.Plugins SDK
-  - [ ] Create project structure
-  - [ ] Define IFormatPlugin interface
-  - [ ] Define IImportPlugin interface
-  - [ ] Define IExportPlugin interface
-  - [ ] Define PluginCapabilities enum
-  - [ ] Create PluginBase abstract class
-  - [ ] Create ImportOptions/ExportOptions models
+- [ ] Create Commands/ChainCommand.cs
+  - [ ] Command argument parsing (double-dash separator)
+  - [ ] Split chain by " -- " separator into individual commands
+  - [ ] Parse each command into command name + arguments
+  - [ ] Support for commands with arguments (e.g., validate --format json)
+  - [ ] Support for commands without arguments (e.g., validate)
+  - [ ] Support for complex arguments with flags and options
 
-- [ ] Implement Plugin Infrastructure
-  - [ ] Create LocalizationManager.Core/Plugins/ directory
-  - [ ] Implement PluginManager.cs
-    - [ ] Plugin discovery (scan directories)
-    - [ ] DLL loading (AssemblyLoadContext)
-    - [ ] Plugin registration
-    - [ ] Plugin execution
-  - [ ] Implement PluginRegistry.cs
-    - [ ] Plugin catalog
-    - [ ] Version management
-    - [ ] Enable/disable plugins
-  - [ ] Implement ScriptPluginLoader.cs
-    - [ ] Roslyn scripting integration
-    - [ ] C# script compilation
-    - [ ] Script caching
-  - [ ] Implement PluginSandbox.cs
-    - [ ] Security constraints
-    - [ ] Resource limits
+- [ ] Implement Command Execution Engine
+  - [ ] Create CommandApp instance programmatically
+  - [ ] Execute each command in sequence
+  - [ ] Capture exit codes from each command
+  - [ ] Pass context between commands
 
-- [ ] Create Built-in Format Plugins
-  - [ ] Create LocalizationManager.Plugins.Formats/ project
-  - [ ] ResxPlugin (refactor existing code)
-  - [ ] CsvPlugin (refactor existing code)
-  - [ ] JsonPlugin
-    - [ ] Nested format support
-    - [ ] Flat format support
-    - [ ] Import implementation
-    - [ ] Export implementation
-  - [ ] PoPlugin (Gettext)
-    - [ ] .po file parser
-    - [ ] msgid/msgstr handling
-    - [ ] Comment support
-    - [ ] Import/export
-  - [ ] XliffPlugin
-    - [ ] XLIFF 1.2 support
-    - [ ] XLIFF 2.0 support
-    - [ ] Import/export
-  - [ ] AndroidPlugin
-    - [ ] strings.xml parser
-    - [ ] Plurals support
-    - [ ] Import/export
-  - [ ] IosPlugin
-    - [ ] .strings file parser
-    - [ ] Import/export
-  - [ ] YamlPlugin
-    - [ ] YAML parser (YamlDotNet)
-    - [ ] Nested structure
-    - [ ] Import/export
+- [ ] Error Handling Modes
+  - [ ] Implement --stop-on-error (default behavior)
+  - [ ] Implement --continue-on-error flag
+  - [ ] Error reporting and logging
+  - [ ] Exit code propagation to shell
 
-- [ ] CLI Integration
-  - [ ] Create Commands/PluginCommand.cs
-  - [ ] Implement: list, info, install, uninstall, enable, disable
-  - [ ] Update import/export commands to use plugins
-  - [ ] Add --format flag
+- [ ] Progress Display
+  - [ ] Step-by-step progress UI using Spectre.Console
+  - [ ] Show current command being executed
+  - [ ] Show completed/pending/failed steps
+  - [ ] Summary at completion
 
-- [ ] Configuration
-  - [ ] Add plugins section to lrm.json
-  - [ ] Plugin directory configuration
-  - [ ] Trusted sources
+- [ ] Dry Run Support
+  - [ ] Implement --dry-run flag
+  - [ ] Display commands that would be executed
+  - [ ] No actual command execution in dry-run mode
+
+- [ ] Shell Integration
+  - [ ] Update lrm-completion.bash with chain command
+  - [ ] Update _lrm (zsh) with chain command
+  - [ ] Add command examples to completions
 
 - [ ] Testing
-  - [ ] PluginManagerTests.cs
-  - [ ] ScriptPluginLoaderTests.cs
-  - [ ] Tests for each format plugin
-  - [ ] Integration tests
+  - [ ] Create ChainCommandTests.cs
+  - [ ] Test command parsing (double-dash separator)
+  - [ ] Test commands with and without arguments
+  - [ ] Test complex argument parsing (flags, options, values)
+  - [ ] Test error handling modes
+  - [ ] Test exit code propagation
+  - [ ] Integration tests (full chain execution)
+  - [ ] Test dry-run mode
 
 - [ ] Documentation
-  - [ ] Create docs/PLUGINS.md
-  - [ ] Plugin development guide
-  - [ ] API reference
-  - [ ] Examples (DLL and script)
+  - [ ] Add chain command to COMMANDS.md
+  - [ ] Add examples to README.md
+  - [ ] Common workflow examples:
+    - [ ] Translation pipeline: `lrm chain import translations.csv -- validate -- translate --only-missing --provider google -- export -o output.csv`
+    - [ ] Validation workflow: `lrm chain validate --format json -- scan --strict`
+    - [ ] Backup workflow: `lrm chain backup create -- update SaveButton --lang default:"Save" -- validate`
+  - [ ] Add help text to command
 
 ---
 
-### Phase 4: Flow System (Week 5-6)
-**Status:** Not Started
-**Dates:** TBD
-
-- [ ] Create LocalizationManager.Core/Flow/ directory
-
-- [ ] Implement Flow Engine
-  - [ ] FlowEngine.cs
-    - [ ] ExecuteAsync method
-    - [ ] Step execution logic
-    - [ ] Error handling
-    - [ ] Progress events
-  - [ ] FlowContext.cs
-    - [ ] In-memory data storage
-    - [ ] Variables dictionary
-    - [ ] Current step tracking
-  - [ ] FlowDefinition.cs
-  - [ ] FlowStep.cs
-  - [ ] FlowResult.cs
-  - [ ] FlowStepType enum
-
-- [ ] Implement Step Executors
-  - [ ] ExecuteImportAsync
-  - [ ] ExecuteValidateAsync
-  - [ ] ExecuteTranslateAsync
-  - [ ] ExecuteTransformAsync
-  - [ ] ExecuteExportAsync
-
-- [ ] CLI Integration
-  - [ ] Create Commands/FlowCommand.cs
-  - [ ] Parse command-line flow syntax
-  - [ ] Implement --import, --validate, --translate, --export flags
-  - [ ] Implement --dry-run mode
-  - [ ] Implement flow run {name} subcommand
-  - [ ] Variable substitution (--set)
-
-- [ ] Configuration
-  - [ ] Add flows section to lrm.json
-  - [ ] Flow definition schema
-  - [ ] Predefined flow templates
-
-- [ ] Testing
-  - [ ] FlowEngineTests.cs
-  - [ ] Test each step type
-  - [ ] Test error handling
-  - [ ] Test variable substitution
-  - [ ] Integration tests (full workflows)
-
-- [ ] Documentation
-  - [ ] Create docs/FLOWS.md
-  - [ ] CLI syntax examples
-  - [ ] Config-based flow examples
-  - [ ] Use cases
-
----
-
-### Phase 5: Web API (Week 7-8)
+### Phase 4: Web API (Week 4-5)
 **Status:** Not Started
 **Dates:** TBD
 
@@ -467,13 +355,6 @@
     - [ ] POST /api/translation/translate
     - [ ] GET /api/translation/providers
     - [ ] POST /api/translation/estimate
-  - [ ] PluginController.cs
-    - [ ] GET /api/plugins
-    - [ ] POST /api/plugins/install
-    - [ ] DELETE /api/plugins/{name}
-  - [ ] FlowController.cs
-    - [ ] POST /api/flows/execute
-    - [ ] GET /api/flows/templates
   - [ ] BackupController.cs
     - [ ] GET /api/backups/{fileName}
     - [ ] POST /api/backups/{fileName}/create
@@ -485,7 +366,6 @@
 - [ ] Implement SignalR Hubs
   - [ ] TranslationProgressHub.cs
   - [ ] ValidationHub.cs
-  - [ ] FlowProgressHub.cs
 
 - [ ] Middleware & Configuration
   - [ ] CORS configuration
@@ -508,7 +388,7 @@
 
 ---
 
-### Phase 6: Blazor WASM UI (Week 9-12)
+### Phase 5: Blazor WASM UI (Week 6-9)
 **Status:** Not Started
 **Dates:** TBD
 
@@ -523,9 +403,7 @@
   - [ ] ResourceApiClient.cs
   - [ ] ValidationApiClient.cs
   - [ ] TranslationApiClient.cs
-  - [ ] PluginApiClient.cs
   - [ ] BackupApiClient.cs
-  - [ ] FlowApiClient.cs
   - [ ] HttpClient configuration
 
 - [ ] Implement Core Pages
@@ -556,15 +434,6 @@
     - [ ] Timeline visualization
     - [ ] Diff viewer
     - [ ] Restore wizard
-  - [ ] Plugins.razor
-    - [ ] Plugin list
-    - [ ] Install/uninstall UI
-    - [ ] Configuration UI
-  - [ ] FlowBuilder.razor
-    - [ ] Visual flow builder
-    - [ ] Drag-drop steps
-    - [ ] Step configuration
-    - [ ] Flow execution
   - [ ] Settings.razor
     - [ ] API keys
     - [ ] Default settings
@@ -602,7 +471,7 @@
 
 ---
 
-### Phase 7: Integration & Polish (Week 13)
+### Phase 6: Integration & Polish (Week 10)
 **Status:** Not Started
 **Dates:** TBD
 
@@ -616,7 +485,6 @@
   - [ ] Full workflow tests
   - [ ] CLI to API integration
   - [ ] API to Blazor integration
-  - [ ] Plugin system integration
 
 - [ ] Performance Testing
   - [ ] Large file handling (10k+ keys)
@@ -625,7 +493,6 @@
   - [ ] Optimization
 
 - [ ] Security Audit
-  - [ ] Plugin sandboxing review
   - [ ] API authentication (optional)
   - [ ] Input validation
   - [ ] XSS/CSRF protection
@@ -635,8 +502,6 @@
   - [ ] Update all docs/
   - [ ] Create migration guide
   - [ ] API examples
-  - [ ] Plugin examples
-  - [ ] Flow examples
 
 - [ ] Polish
   - [ ] Error messages
@@ -647,7 +512,7 @@
 
 ---
 
-### Phase 8: Release (Week 14)
+### Phase 7: Release (Week 11)
 **Status:** Not Started
 **Dates:** TBD
 
@@ -705,20 +570,16 @@
 ### Architecture
 - **API Backend:** ASP.NET Core Web API (RESTful + SignalR)
 - **Frontend:** Blazor WebAssembly (C# full-stack)
-- **Plugin System:** C# DLL + C# Scripts (Roslyn)
 - **Backup Storage:** File-based with JSON manifests
 - **Flow Execution:** In-memory pipeline
 
 ### Dependencies
-- ✅ Microsoft.CodeAnalysis.CSharp.Scripting (C# scripts)
 - ✅ Microsoft.AspNetCore.SignalR.Client (real-time)
 - ✅ Swashbuckle.AspNetCore (Swagger)
 - ✅ bUnit (Blazor testing)
-- ✅ YamlDotNet (YAML plugin)
 
 ### Future Considerations
-- 🔮 Process-based plugins (language-agnostic) - deferred to v0.8.0
-- 🔮 WASM plugins - deferred to v0.9.0
+- 🔮 Plugin system (multi-format support) - deferred to v0.8.0+
 - 🔮 Translation Memory - deferred
 - 🔮 Mobile apps - deferred
 
@@ -726,24 +587,23 @@
 
 ## 📊 Progress Tracking
 
-**Overall Progress:** ~25% (2/8 phases completed)
+**Overall Progress:** ~29% (2/7 phases completed)
 
 ### Feature Completion
 - [x] Variable/Placeholder Validation (100% ✅ - Complete: Core + CLI + TUI + Tests + Docs)
 - [x] Enhanced Backup System + Diff View (100% ✅ - Complete: Core + CLI + TUI + Tests + Docs)
-- [ ] Multi-Format Plugin System (0%)
-- [ ] Web-Based UI (0%)
-- [ ] Smart Flow System (5% - Shared models created)
+- [ ] Simple CLI Chaining (0%)
+- [ ] Web API (0%)
+- [ ] Blazor WASM UI (0%)
 
 ### Phase Completion
 - [x] Phase 1: Foundation & Backup System (100% ✅ - COMPLETED 2025-01-16)
 - [x] Phase 2: Variable Validation (100% ✅ - COMPLETED 2025-01-16)
-- [ ] Phase 3: Plugin System (0%)
-- [ ] Phase 4: Flow System (0%)
-- [ ] Phase 5: Web API (0%)
-- [ ] Phase 6: Blazor WASM UI (0%)
-- [ ] Phase 7: Integration & Polish (0%)
-- [ ] Phase 8: Release (0%)
+- [ ] Phase 3: Simple CLI Chaining (0%)
+- [ ] Phase 4: Web API (0%)
+- [ ] Phase 5: Blazor WASM UI (0%)
+- [ ] Phase 6: Integration & Polish (0%)
+- [ ] Phase 7: Release (0%)
 
 ---
 
@@ -753,10 +613,11 @@
 None
 
 ### Important Decisions Made
-1. Plugin system will support C# DLL + C# Scripts (process-based deferred)
-2. Diff view integrated with backup system (not git-based)
-3. Web UI will be Blazor WASM + ASP.NET Core API
-4. Flow system will use in-memory pipeline for performance
+1. Diff view integrated with backup system (not git-based)
+2. Web UI will be Blazor WASM + ASP.NET Core API
+3. Simple CLI chaining for command automation (lightweight alternative to complex flow system)
+4. Plugin system deferred to future release (v0.8.0+)
+5. Full flow system deferred to future release (v0.8.0+ if user demand exists)
 
 ### Questions to Resolve
 None
@@ -769,18 +630,17 @@ None
 |-------|----------|--------|------------|----------|
 | Phase 1: Foundation & Backup | 2 days | ✅ **Completed** | 2025-01-15 | 2025-01-16 |
 | Phase 2: Variable Validation | 1 day | ✅ **Completed** | 2025-01-16 | 2025-01-16 |
-| Phase 3: Plugin System | 2 weeks | Not Started | TBD | TBD |
-| Phase 4: Flow System | 1 week | Not Started | TBD | TBD |
-| Phase 5: Web API | 2 weeks | Not Started | TBD | TBD |
-| Phase 6: Blazor WASM UI | 4 weeks | Not Started | TBD | TBD |
-| Phase 7: Integration & Polish | 1 week | Not Started | TBD | TBD |
-| Phase 8: Release | 1 week | Not Started | TBD | TBD |
-| **Total** | **14 weeks** | **25%** | **2025-01-15** | **TBD** |
+| Phase 3: Simple CLI Chaining | 1 week | Not Started | TBD | TBD |
+| Phase 4: Web API | 2 weeks | Not Started | TBD | TBD |
+| Phase 5: Blazor WASM UI | 4 weeks | Not Started | TBD | TBD |
+| Phase 6: Integration & Polish | 1 week | Not Started | TBD | TBD |
+| Phase 7: Release | 1 week | Not Started | TBD | TBD |
+| **Total** | **11 weeks** | **29%** | **2025-01-15** | **TBD** |
 
 ---
 
 **Last Updated:** 2025-01-16
-**Current Phase:** Phase 3 - Plugin System (Not Started)
+**Current Phase:** Phase 3 - Web API (Not Started)
 
 **Phase 1 Completed (2025-01-16):**
 - ✅ LocalizationManager.Shared project
@@ -815,4 +675,4 @@ None
 - ✅ Build succeeds with 0 errors/warnings
 - ✅ Comprehensive documentation (PLACEHOLDERS.md, README.md updated)
 
-**Next Milestone:** Phase 3 - Multi-Format Plugin System
+**Next Milestone:** Phase 3 - Web API

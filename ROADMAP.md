@@ -26,24 +26,28 @@
 ---
 
 ### 2. Enhanced Backup System with Versioning + Diff View
-**Status:** Not Started
+**Status:** ✅ **COMPLETED** (Basic Implementation)
 **Priority:** High
-**Description:** Version history with smart rotation and visual diff comparison
+**Description:** Version history with automatic rotation and visual diff comparison
 
-- [ ] BackupVersionManager with smart rotation
-- [ ] Manifest system (JSON metadata)
-- [ ] BackupRotationPolicy implementation
-- [ ] BackupDiffService (compare versions)
-- [ ] BackupDiffFormatter (text/JSON/HTML)
-- [ ] BackupRestoreService with preview
-- [ ] CLI backup commands
-- [ ] TUI Backup Manager (F7)
-- [ ] TUI Diff Viewer window
+**Implemented:**
+- [x] BackupVersionManager with simple rotation (keeps last 10 versions)
+- [x] Manifest system (JSON metadata)
+- [x] BackupDiffService (compare versions)
+- [x] BackupDiffFormatter (text/JSON/HTML)
+- [x] BackupRestoreService with preview
+- [x] CLI backup commands (list, create, restore, diff, info, prune)
+- [x] TUI Backup Manager (F7)
+- [x] TUI Diff Viewer window
+- [x] Unit tests
+- [x] Integration tests
+- [x] Documentation
+
+**Not Implemented (Future Enhancement):**
+- [ ] Smart rotation with configurable retention policies
+- [ ] Backup configuration (currently hardcoded: 10 versions max)
 - [ ] API endpoints
 - [ ] Blazor BackupHistory page
-- [ ] Unit tests
-- [ ] Integration tests
-- [ ] Documentation
 
 ---
 
@@ -179,10 +183,11 @@
     - [x] Backup creation with metadata
     - [x] Manifest.json management
     - [x] Version numbering
-  - [x] Implement BackupRotationPolicy.cs
-    - [x] Smart rotation algorithm
-    - [x] Configurable retention rules
-    - [x] Cleanup old backups
+    - [x] Simple rotation (keeps last 10 versions)
+    - [x] Automatic cleanup of old backups
+  - [ ] ~~Implement BackupRotationPolicy.cs~~ (code exists but not used)
+    - [ ] ~~Smart rotation algorithm~~ (not implemented)
+    - [ ] ~~Configurable retention rules~~ (not implemented)
   - [x] Implement BackupDiffService.cs
     - [x] Compare two backup versions
     - [x] Compare current vs backup
@@ -219,9 +224,9 @@
   - [x] Add restore functionality in TUI (full restore with preview)
   - [x] Interactive backup management (list, restore, diff, delete, prune)
 
-- [x] Configuration
-  - [x] Add backup section to lrm.json schema
-  - [x] Update Configuration classes (BackupConfiguration, RetentionConfiguration, AutoBackupConfiguration)
+- [ ] ~~Configuration~~ (not implemented - backups controlled by --no-backup flag only)
+  - [ ] ~~Add backup section to lrm.json schema~~ (removed - not used)
+  - [ ] ~~Update Configuration classes~~ (removed - not used)
 
 - [x] Testing
   - [x] BackupVersionManagerTests.cs (comprehensive unit tests)

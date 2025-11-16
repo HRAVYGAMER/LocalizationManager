@@ -13,6 +13,7 @@ NC='\033[0m' # No Color
 
 # Files to update
 CSPROJ_FILE="LocalizationManager.csproj"
+SHARED_CSPROJ_FILE="LocalizationManager.Shared/LocalizationManager.Shared.csproj"
 
 # Function to display usage
 usage() {
@@ -94,17 +95,18 @@ calculate_new_version() {
 update_csproj() {
     local old_version=$1
     local new_version=$2
+    local csproj_file=${3:-$CSPROJ_FILE}
     local old_assembly="${old_version}.0"
     local new_assembly="${new_version}.0"
 
     # Update Version tag
-    sed -i "s|<Version>$old_version</Version>|<Version>$new_version</Version>|g" "$CSPROJ_FILE"
+    sed -i "s|<Version>$old_version</Version>|<Version>$new_version</Version>|g" "$csproj_file"
 
     # Update AssemblyVersion tag
-    sed -i "s|<AssemblyVersion>$old_assembly</AssemblyVersion>|<AssemblyVersion>$new_assembly</AssemblyVersion>|g" "$CSPROJ_FILE"
+    sed -i "s|<AssemblyVersion>$old_assembly</AssemblyVersion>|<AssemblyVersion>$new_assembly</AssemblyVersion>|g" "$csproj_file"
 
     # Update FileVersion tag
-    sed -i "s|<FileVersion>$old_assembly</FileVersion>|<FileVersion>$new_assembly</FileVersion>|g" "$CSPROJ_FILE"
+    sed -i "s|<FileVersion>$old_assembly</FileVersion>|<FileVersion>$new_assembly</FileVersion>|g" "$csproj_file"
 }
 
 
@@ -150,6 +152,7 @@ main() {
     echo ""
     echo "Files to update:"
     echo -e "  ${BLUE}•${NC} $CSPROJ_FILE"
+    echo -e "  ${BLUE}•${NC} $SHARED_CSPROJ_FILE"
     echo ""
 
     # Confirmation prompt (unless -y flag)
@@ -166,8 +169,11 @@ main() {
     echo ""
     echo -e "${BLUE}Updating files...${NC}"
 
-    update_csproj "$CURRENT_VERSION" "$NEW_VERSION"
+    update_csproj "$CURRENT_VERSION" "$NEW_VERSION" "$CSPROJ_FILE"
     echo -e "${GREEN}✓${NC} Updated $CSPROJ_FILE"
+
+    update_csproj "$CURRENT_VERSION" "$NEW_VERSION" "$SHARED_CSPROJ_FILE"
+    echo -e "${GREEN}✓${NC} Updated $SHARED_CSPROJ_FILE"
 
     # Success message
     echo ""

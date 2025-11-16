@@ -40,6 +40,17 @@ public static class PlaceholderDetector
     /// <returns>List of detected placeholders.</returns>
     public static List<Placeholder> DetectPlaceholders(string? text)
     {
+        return DetectPlaceholders(text, PlaceholderType.All);
+    }
+
+    /// <summary>
+    /// Detects placeholders of specific types in a string.
+    /// </summary>
+    /// <param name="text">The text to analyze.</param>
+    /// <param name="enabledTypes">The placeholder types to detect.</param>
+    /// <returns>List of detected placeholders.</returns>
+    public static List<Placeholder> DetectPlaceholders(string? text, PlaceholderType enabledTypes)
+    {
         if (string.IsNullOrEmpty(text))
         {
             return new List<Placeholder>();
@@ -48,65 +59,77 @@ public static class PlaceholderDetector
         var placeholders = new List<Placeholder>();
 
         // Detect .NET format strings
-        foreach (Match match in DotNetFormatRegex.Matches(text))
+        if (enabledTypes.HasFlag(PlaceholderType.DotNetFormat))
         {
-            var index = match.Groups["index"].Success ? match.Groups["index"].Value : null;
-            var name = match.Groups["name"].Success ? match.Groups["name"].Value : null;
-            var format = match.Groups["format"].Success ? match.Groups["format"].Value : null;
-
-            placeholders.Add(new Placeholder
+            foreach (Match match in DotNetFormatRegex.Matches(text))
             {
-                Type = PlaceholderType.DotNetFormat,
-                Original = match.Value,
-                Index = index,
-                Name = name,
-                Format = format,
-                Position = match.Index
-            });
+                var index = match.Groups["index"].Success ? match.Groups["index"].Value : null;
+                var name = match.Groups["name"].Success ? match.Groups["name"].Value : null;
+                var format = match.Groups["format"].Success ? match.Groups["format"].Value : null;
+
+                placeholders.Add(new Placeholder
+                {
+                    Type = PlaceholderType.DotNetFormat,
+                    Original = match.Value,
+                    Index = index,
+                    Name = name,
+                    Format = format,
+                    Position = match.Index
+                });
+            }
         }
 
         // Detect printf-style placeholders
-        foreach (Match match in PrintfStyleRegex.Matches(text))
+        if (enabledTypes.HasFlag(PlaceholderType.PrintfStyle))
         {
-            // Skip escaped %%
-            if (match.Groups["type"].Value == "%")
+            foreach (Match match in PrintfStyleRegex.Matches(text))
             {
-                continue;
-            }
+                // Skip escaped %%
+                if (match.Groups["type"].Value == "%")
+                {
+                    continue;
+                }
 
-            placeholders.Add(new Placeholder
-            {
-                Type = PlaceholderType.PrintfStyle,
-                Original = match.Value,
-                Index = match.Groups["position"].Success ? match.Groups["position"].Value : null,
-                Format = match.Groups["type"].Value,
-                Position = match.Index
-            });
+                placeholders.Add(new Placeholder
+                {
+                    Type = PlaceholderType.PrintfStyle,
+                    Original = match.Value,
+                    Index = match.Groups["position"].Success ? match.Groups["position"].Value : null,
+                    Format = match.Groups["type"].Value,
+                    Position = match.Index
+                });
+            }
         }
 
         // Detect ICU MessageFormat placeholders
-        foreach (Match match in IcuMessageFormatRegex.Matches(text))
+        if (enabledTypes.HasFlag(PlaceholderType.IcuMessageFormat))
         {
-            placeholders.Add(new Placeholder
+            foreach (Match match in IcuMessageFormatRegex.Matches(text))
             {
-                Type = PlaceholderType.IcuMessageFormat,
-                Original = match.Value,
-                Name = match.Groups["name"].Value,
-                Format = match.Groups["type"].Success ? match.Groups["type"].Value : null,
-                Position = match.Index
-            });
+                placeholders.Add(new Placeholder
+                {
+                    Type = PlaceholderType.IcuMessageFormat,
+                    Original = match.Value,
+                    Name = match.Groups["name"].Value,
+                    Format = match.Groups["type"].Success ? match.Groups["type"].Value : null,
+                    Position = match.Index
+                });
+            }
         }
 
         // Detect template literals
-        foreach (Match match in TemplateLiteralRegex.Matches(text))
+        if (enabledTypes.HasFlag(PlaceholderType.TemplateLiteral))
         {
-            placeholders.Add(new Placeholder
+            foreach (Match match in TemplateLiteralRegex.Matches(text))
             {
-                Type = PlaceholderType.TemplateLiteral,
-                Original = match.Value,
-                Name = match.Groups["name"].Value,
-                Position = match.Index
-            });
+                placeholders.Add(new Placeholder
+                {
+                    Type = PlaceholderType.TemplateLiteral,
+                    Original = match.Value,
+                    Name = match.Groups["name"].Value,
+                    Position = match.Index
+                });
+            }
         }
 
         return placeholders.OrderBy(p => p.Position).ToList();
@@ -171,25 +194,36 @@ public class Placeholder
 /// <summary>
 /// Types of placeholders that can be detected.
 /// </summary>
+[Flags]
 public enum PlaceholderType
 {
     /// <summary>
+    /// No placeholder types.
+    /// </summary>
+    None = 0,
+
+    /// <summary>
     /// .NET format strings: {0}, {name}, {0:N2}
     /// </summary>
-    DotNetFormat,
+    DotNetFormat = 1,
 
     /// <summary>
     /// Printf-style: %s, %d, %1$s
     /// </summary>
-    PrintfStyle,
+    PrintfStyle = 2,
 
     /// <summary>
     /// ICU MessageFormat: {count, plural, one {# item} other {# items}}
     /// </summary>
-    IcuMessageFormat,
+    IcuMessageFormat = 4,
 
     /// <summary>
     /// Template literals: ${var}, ${user.name}
     /// </summary>
-    TemplateLiteral
+    TemplateLiteral = 8,
+
+    /// <summary>
+    /// All placeholder types.
+    /// </summary>
+    All = DotNetFormat | PrintfStyle | IcuMessageFormat | TemplateLiteral
 }

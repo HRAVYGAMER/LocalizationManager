@@ -36,6 +36,17 @@ public class ResourceValidator
     /// <returns>Validation result with all detected issues.</returns>
     public ValidationResult Validate(List<ResourceFile> resourceFiles)
     {
+        return Validate(resourceFiles, PlaceholderType.All);
+    }
+
+    /// <summary>
+    /// Validates a collection of resource files with specific placeholder types.
+    /// </summary>
+    /// <param name="resourceFiles">Resource files to validate.</param>
+    /// <param name="enabledPlaceholderTypes">Placeholder types to validate.</param>
+    /// <returns>Validation result with all detected issues.</returns>
+    public ValidationResult Validate(List<ResourceFile> resourceFiles, PlaceholderType enabledPlaceholderTypes)
+    {
         var result = new ValidationResult();
 
         if (!resourceFiles.Any())
@@ -95,15 +106,18 @@ public class ResourceValidator
 
             // Validate placeholders
             var placeholderErrors = new Dictionary<string, string>();
-            foreach (var entry in resourceFile.Entries)
+            if (enabledPlaceholderTypes != PlaceholderType.None)
             {
-                var defaultEntry = defaultFile.Entries.FirstOrDefault(e => e.Key == entry.Key);
-                if (defaultEntry != null && !string.IsNullOrEmpty(defaultEntry.Value) && !string.IsNullOrEmpty(entry.Value))
+                foreach (var entry in resourceFile.Entries)
                 {
-                    var validationResult = PlaceholderValidator.Validate(defaultEntry.Value, entry.Value);
-                    if (!validationResult.IsValid)
+                    var defaultEntry = defaultFile.Entries.FirstOrDefault(e => e.Key == entry.Key);
+                    if (defaultEntry != null && !string.IsNullOrEmpty(defaultEntry.Value) && !string.IsNullOrEmpty(entry.Value))
                     {
-                        placeholderErrors[entry.Key] = validationResult.GetSummary();
+                        var validationResult = PlaceholderValidator.Validate(defaultEntry.Value, entry.Value, enabledPlaceholderTypes);
+                        if (!validationResult.IsValid)
+                        {
+                            placeholderErrors[entry.Key] = validationResult.GetSummary();
+                        }
                     }
                 }
             }

@@ -16,20 +16,32 @@ public static class PlaceholderValidator
     /// <returns>Validation result with any errors found.</returns>
     public static PlaceholderValidationResult Validate(string? sourceText, string? translationText)
     {
+        return Validate(sourceText, translationText, PlaceholderType.All);
+    }
+
+    /// <summary>
+    /// Validates that translation placeholders match source placeholders for specific placeholder types.
+    /// </summary>
+    /// <param name="sourceText">The source text.</param>
+    /// <param name="translationText">The translation text.</param>
+    /// <param name="enabledTypes">The placeholder types to validate.</param>
+    /// <returns>Validation result with any errors found.</returns>
+    public static PlaceholderValidationResult Validate(string? sourceText, string? translationText, PlaceholderType enabledTypes)
+    {
         var result = new PlaceholderValidationResult
         {
             IsValid = true,
             Errors = new List<string>()
         };
 
-        // Skip validation if either is empty
-        if (string.IsNullOrWhiteSpace(sourceText) || string.IsNullOrWhiteSpace(translationText))
+        // Skip validation if either is empty or if no types are enabled
+        if (string.IsNullOrWhiteSpace(sourceText) || string.IsNullOrWhiteSpace(translationText) || enabledTypes == PlaceholderType.None)
         {
             return result;
         }
 
-        var sourcePlaceholders = PlaceholderDetector.DetectPlaceholders(sourceText);
-        var translationPlaceholders = PlaceholderDetector.DetectPlaceholders(translationText);
+        var sourcePlaceholders = PlaceholderDetector.DetectPlaceholders(sourceText, enabledTypes);
+        var translationPlaceholders = PlaceholderDetector.DetectPlaceholders(translationText, enabledTypes);
 
         // Get normalized identifiers for comparison
         var sourceIdentifiers = sourcePlaceholders

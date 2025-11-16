@@ -19,6 +19,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+using System.Reflection;
 using LocalizationManager.Commands;
 using LocalizationManager.Commands.Backup;
 using LocalizationManager.Commands.Config;
@@ -30,7 +31,7 @@ var app = new CommandApp();
 app.Configure(config =>
 {
     config.SetApplicationName("lrm");
-    config.SetApplicationVersion("0.6.11");
+    config.SetApplicationVersion(Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "0.0.0");
 
     // Propagate exceptions so we can handle them intelligently
     config.PropagateExceptions();

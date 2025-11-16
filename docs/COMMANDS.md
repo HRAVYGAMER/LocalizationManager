@@ -19,6 +19,13 @@ This document provides detailed information about all LRM commands, their option
 - [add-language](#add-language) - Create new language file
 - [remove-language](#remove-language) - Delete language file
 - [list-languages](#list-languages) - List all languages
+- [backup](#backup) - Backup and version management
+  - [backup list](#backup-list) - List backup versions
+  - [backup create](#backup-create) - Create manual backup
+  - [backup restore](#backup-restore) - Restore from backup
+  - [backup diff](#backup-diff) - Compare backup versions
+  - [backup info](#backup-info) - View backup metadata
+  - [backup prune](#backup-prune) - Clean up old backups
 - [scan](#scan) - Scan source code for key references
 - [translate](#translate) - Automatic translation (documented below)
 - [config](#config) - Configuration management (documented below)
@@ -1510,6 +1517,440 @@ lrm list-languages --path ./Resources
 - Check translation coverage
 - Export language list as JSON for automation
 - Identify incomplete translations
+
+---
+
+## backup
+
+**Description:** Backup and version management commands for resource files. LRM automatically creates backups before destructive operations (update, delete, import, translate, etc.) and provides comprehensive version control with diff comparison, selective restoration, and smart rotation policies.
+
+All backups are stored in `.lrm/backups/{FileName}/` with version history tracked in `manifest.json`.
+
+**📚 See [docs/BACKUP.md](BACKUP.md) for the complete backup system guide.**
+
+---
+
+### backup list
+
+**Description:** Display all backup versions for a resource file with metadata.
+
+**Arguments:** None
+
+**Options:**
+- `-p, --path <PATH>` - Path to Resources folder (default: current directory)
+- `-f, --file <NAME>` - Resource file name (default: auto-detect first .resx file)
+- `-d, --detailed` - Show detailed information (operation, user, changes)
+- `--format <FORMAT>` - Output format: `table` (default), `json`, or `simple`
+
+**Examples:**
+```bash
+# List all backups for default resource file
+lrm backup list
+
+# List backups for specific file
+lrm backup list --file Resources.el.resx
+
+# Show detailed information
+lrm backup list --detailed
+
+# JSON output for scripts
+lrm backup list --format json
+```
+
+**Example Output:**
+```
+Backup History: Resources.resx
+
+┌─────────┬──────────────────────┬────────────────┬──────────────┬──────┬─────────┐
+│ Version │ Timestamp            │ Operation      │ User         │ Keys │ Changed │
+├─────────┼──────────────────────┼────────────────┼──────────────┼──────┼─────────┤
+│ v003    │ 2025-01-15 14:22:10  │ delete         │ john         │ 150  │ -1      │
+│ v002    │ 2025-01-15 11:15:22  │ update         │ john         │ 151  │ 2       │
+│ v001    │ 2025-01-15 10:30:45  │ import         │ john         │ 149  │ 149     │
+└─────────┴──────────────────────┴────────────────┴──────────────┴──────┴─────────┘
+
+Total: 3 backups
+```
+
+---
+
+### backup create
+
+**Description:** Manually create a backup of a resource file. Useful before making manual edits or risky operations.
+
+**Arguments:** None
+
+**Options:**
+- `-p, --path <PATH>` - Path to Resources folder (default: current directory)
+- `-f, --file <NAME>` - Resource file name (default: all .resx files)
+- `-o, --operation <LABEL>` - Custom operation label for the backup (default: "manual")
+
+**Examples:**
+```bash
+# Create backup with default label ("manual")
+lrm backup create
+
+# Create backup with custom label
+lrm backup create --operation "before-major-refactor"
+
+# Backup specific file
+lrm backup create --file Resources.fr.resx --operation "before-translation"
+
+# Backup all files before risky operation
+lrm backup create --operation "before-v2-migration"
+```
+
+**Use Cases:**
+- Before editing `.resx` files in Visual Studio
+- Before running custom scripts
+- Before major refactoring
+- Creating named checkpoints
+
+---
+
+### backup restore
+
+**Description:** Restore a resource file from a backup version. Includes preview of changes and creates a safety backup before applying.
+
+**Arguments:** None
+
+**Options:**
+- `-p, --path <PATH>` - Path to Resources folder (default: current directory)
+- `-f, --file <NAME>` - Resource file name (default: auto-detect first .resx file)
+- `-v, --version <N>` - Backup version number to restore (required)
+- `-k, --keys <KEYS>` - Comma-separated list of keys to restore (for selective restore)
+- `-y, --yes` - Skip confirmation prompt
+- `--no-backup` - Don't create backup before restoring (not recommended)
+
+**Examples:**
+```bash
+# Restore to version 2 (with preview and confirmation)
+lrm backup restore --version 2
+
+# Restore specific file
+lrm backup restore --version 2 --file Resources.el.resx
+
+# Selective restore (only specific keys)
+lrm backup restore --version 2 --keys Key1,Key2,Key3
+
+# Skip confirmation prompt
+lrm backup restore --version 2 --yes
+
+# Restore without creating safety backup (dangerous!)
+lrm backup restore --version 2 --no-backup
+```
+
+**Workflow:**
+```bash
+# 1. List available backups
+lrm backup list
+
+# 2. Preview what would change
+lrm backup diff --version 2 --current
+
+# 3. Restore the backup
+lrm backup restore --version 2
+```
+
+**Safety Features:**
+- Shows preview of changes before restoring
+- Creates automatic backup before applying restore (unless `--no-backup`)
+- Validates backup file integrity (SHA256 hash)
+- Requires confirmation (unless `--yes`)
+
+---
+
+### backup diff
+
+**Description:** Compare two backup versions or a backup with the current file to see what changed.
+
+**Arguments:** None
+
+**Options:**
+- `-p, --path <PATH>` - Path to Resources folder (default: current directory)
+- `-f, --file <NAME>` - Resource file name (default: auto-detect first .resx file)
+- `-v, --version <N>` - First version number (required unless `--version-a` is used)
+- `--current` - Compare with current file state (use with `-v`)
+- `--version-a <N>` - First version number (for version-to-version comparison)
+- `--version-b <N>` - Second version number (for version-to-version comparison)
+- `-o, --output <FORMAT>` - Output format: `text` (default), `json`, or `html`
+- `--include-unchanged` - Include unchanged keys in output
+- `--save <PATH>` - Save diff report to file
+
+**Examples:**
+```bash
+# Compare backup v2 with current state
+lrm backup diff --version 2 --current
+
+# Compare two backup versions
+lrm backup diff --version-a 1 --version-b 3
+
+# JSON output for scripts
+lrm backup diff --version 2 --current --output json
+
+# HTML report for documentation
+lrm backup diff --version 2 --current --output html --save diff-report.html
+
+# Include unchanged keys
+lrm backup diff --version 2 --current --include-unchanged
+```
+
+**Example Output:**
+```
+Diff: v002 → Current (Resources.resx)
+
+┌──────────┬──────────────┬─────────────────┬─────────────────┐
+│ Key      │ Type         │ Old Value       │ New Value       │
+├──────────┼──────────────┼─────────────────┼─────────────────┤
+│ Key1     │ Modified     │ "Old value"     │ "New value"     │
+│ Key2     │ Deleted      │ "Some value"    │                 │
+│ Key3     │ Added        │                 │ "Added value"   │
+└──────────┴──────────────┴─────────────────┴─────────────────┘
+
+Statistics:
+  Added: 1
+  Modified: 1
+  Deleted: 1
+  Total Changes: 3
+```
+
+**Change Types:**
+- **Added:** Key exists in newer version but not in older
+- **Modified:** Key value or comment changed
+- **Deleted:** Key exists in older version but not in newer
+- **CommentChanged:** Only the comment changed
+- **Unchanged:** Key and value identical (only with `--include-unchanged`)
+
+---
+
+### backup info
+
+**Description:** Display detailed metadata for a specific backup version.
+
+**Arguments:** None
+
+**Options:**
+- `-p, --path <PATH>` - Path to Resources folder (default: current directory)
+- `-f, --file <NAME>` - Resource file name (default: auto-detect first .resx file)
+- `-v, --version <N>` - Backup version number (required)
+- `--format <FORMAT>` - Output format: `table` (default), `json`, or `simple`
+
+**Examples:**
+```bash
+# Show info for version 2
+lrm backup info --version 2
+
+# Show info for specific file
+lrm backup info --version 2 --file Resources.el.resx
+
+# JSON output
+lrm backup info --version 2 --format json
+```
+
+**Example Output:**
+```
+Backup Information: Resources.resx v002
+
+┌─────────────┬───────────────────────┐
+│ Property    │ Value                 │
+├─────────────┼───────────────────────┤
+│ Version     │ v002                  │
+│ Timestamp   │ 2025-01-15 11:15:22   │
+│ Operation   │ update                │
+│ User        │ john                  │
+│ Key Count   │ 151                   │
+│ Changed     │ 2 keys                │
+│ Hash        │ a1b2c3d4e5f6...       │
+│ File Size   │ 15.2 KB               │
+│ File Path   │ v002_2025-01-15T...   │
+└─────────────┴───────────────────────┘
+```
+
+**Metadata Includes:**
+- Version number
+- Creation timestamp
+- Operation that triggered backup
+- User who created it
+- Number of keys in backup
+- Number of keys changed from previous version
+- SHA256 hash for integrity verification
+- File size and path
+
+---
+
+### backup prune
+
+**Description:** Remove old backups according to the configured retention policy. Uses smart rotation to balance disk space and history preservation.
+
+**Arguments:** None
+
+**Options:**
+- `-p, --path <PATH>` - Path to Resources folder (default: current directory)
+- `-f, --file <NAME>` - Resource file name (default: all .resx files)
+- `-y, --yes` - Skip confirmation prompt
+- `--dry-run` - Show what would be deleted without actually deleting
+
+**Examples:**
+```bash
+# Prune old backups (uses configured retention policy)
+lrm backup prune
+
+# Prune specific file
+lrm backup prune --file Resources.el.resx
+
+# Dry run (preview what would be deleted)
+lrm backup prune --dry-run
+
+# Skip confirmation
+lrm backup prune --yes
+
+# Prune all files without confirmation
+lrm backup prune --yes
+```
+
+**Retention Policy:**
+
+The default retention policy keeps:
+- **All** backups from the last 24 hours
+- **One daily** backup for 7 days
+- **One weekly** backup for 4 weeks
+- **One monthly** backup for 6 months
+- Maximum of 100 total backups per file
+
+**Example Timeline:**
+```
+Today               : 10 backups (all kept)
+Yesterday           : 5 backups (1 kept, 4 deleted)
+2 days ago          : 8 backups (1 kept, 7 deleted)
+Last week           : 30 backups (1 kept, 29 deleted)
+Last month          : 50 backups (1 kept, 49 deleted)
+```
+
+**Configuration:**
+
+Customize retention policy in `lrm.json`:
+```json
+{
+  "Backup": {
+    "Retention": {
+      "KeepAllForHours": 24,
+      "KeepDailyForDays": 7,
+      "KeepWeeklyForWeeks": 4,
+      "KeepMonthlyForMonths": 6,
+      "MaxTotalBackups": 100
+    }
+  }
+}
+```
+
+**Predefined Policies:**
+- **Minimal:** Less disk space (6h/3d/2w/2m, max 20)
+- **Default:** Balanced (24h/7d/4w/6m, max 100)
+- **Aggressive:** More history (48h/14d/8w/12m, max 200)
+
+**Safety:**
+- Pruning respects the retention policy
+- Never deletes all backups
+- Requires confirmation unless `--yes`
+- Use `--dry-run` to preview changes
+
+---
+
+### Automatic Backups
+
+LRM automatically creates backups before any destructive operation:
+
+**Auto-backup Triggers:**
+- `lrm update` - Before updating key values
+- `lrm delete` - Before deleting keys
+- `lrm remove-lang` - Before removing language file
+- `lrm import` - Before importing data
+- `lrm translate` - Before translating keys
+- `lrm merge-duplicates` - Before merging duplicates
+
+**Note:** `lrm add-lang` does NOT trigger backups because it creates a new file rather than modifying existing files.
+
+**Configuration:**
+
+Control automatic backup behavior in `lrm.json`:
+```json
+{
+  "Backup": {
+    "AutoBackup": {
+      "Enabled": true,
+      "CreateBeforeUpdate": true,
+      "CreateBeforeDelete": true,
+      "CreateBeforeImport": true,
+      "CreateBeforeTranslate": true,
+      "AutoPrune": false,
+      "MinBackupsBeforePrune": 10
+    }
+  }
+}
+```
+
+**Options:**
+- `Enabled` - Enable/disable automatic backups (default: true)
+- `CreateBefore*` - Control which operations trigger backups (default: all true)
+- `AutoPrune` - Automatically prune after each backup (default: false)
+- `MinBackupsBeforePrune` - Minimum backups before auto-pruning (default: 10)
+
+---
+
+### Backup Storage Structure
+
+Backups are stored in `.lrm/backups/` with the following structure:
+
+```
+YourProject/
+├── Resources/
+│   ├── Resources.resx
+│   ├── Resources.el.resx
+│   └── Resources.fr.resx
+└── .lrm/
+    └── backups/
+        ├── Resources.resx/
+        │   ├── manifest.json                   # Version history metadata
+        │   ├── v001_2025-01-15T10-30-45.resx   # First backup
+        │   ├── v002_2025-01-15T11-15-22.resx   # Second backup
+        │   └── v003_2025-01-15T14-22-10.resx   # Latest backup
+        ├── Resources.el.resx/
+        │   ├── manifest.json
+        │   └── v001_2025-01-15T10-31-00.resx
+        └── Resources.fr.resx/
+            ├── manifest.json
+            └── v001_2025-01-15T14-22-20.resx
+```
+
+**Important:**
+- Add `.lrm/` to your `.gitignore` to avoid committing backups
+- Each file has independent version numbering
+- Manifest file tracks metadata for all versions
+- Backup files include timestamp in filename for easy identification
+
+---
+
+### TUI Integration
+
+Access the Backup Manager in the interactive TUI by pressing **F7**:
+
+**Features:**
+- Browse all backup versions
+- View metadata (timestamp, operation, user, changes)
+- Compare any two versions with diff viewer
+- Restore selected version with preview
+- Delete individual backups
+- Prune old backups with policy
+
+**Keyboard Shortcuts:**
+- **F7** - Open Backup Manager
+- **↑/↓** - Navigate backup list
+- **Enter** - View selected backup
+- **D** - Show diff with current
+- **R** - Restore selected backup
+- **Del** - Delete selected backup
+- **P** - Prune old backups
+- **Esc** - Close Backup Manager
 
 ---
 

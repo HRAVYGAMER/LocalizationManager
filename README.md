@@ -101,6 +101,13 @@ LRM solves this by providing:
   - Delete with options (this occurrence, all, or merge)
   - Interactive merge with per-language selection
   - Auto-merge mode for batch processing
+- **💾 Backup & Versioning** - Automatic backup system with version history
+  - Auto-backup before every destructive operation
+  - Smart rotation policy (hourly/daily/weekly/monthly retention)
+  - Compare any two versions with diff viewer
+  - Selective or full file restoration
+  - TUI Backup Manager (F7) with visual diff comparison
+  - Full [backup documentation →](docs/BACKUP.md)
 - **📊 Statistics** - Translation coverage with progress bars
 - **🔎 Code Scanning** - Find unused keys and missing references in source code
   - Scan C#, Razor, and XAML files for localization key usage
@@ -434,6 +441,7 @@ LocalizationManager/
 | [docs/INSTALLATION.md](docs/INSTALLATION.md) | Complete installation guide for all platforms |
 | [docs/COMMANDS.md](docs/COMMANDS.md) | Detailed command reference with all options |
 | [**docs/CONFIGURATION.md**](docs/CONFIGURATION.md) 🆕 | **Configuration file guide (lrm.json schema and examples)** |
+| [**docs/BACKUP.md**](docs/BACKUP.md) 🆕 | **Backup & versioning system guide (automatic backups, diff, restore)** |
 | [docs/EXAMPLES.md](docs/EXAMPLES.md) | Usage examples and workflow scenarios |
 | [**docs/CICD.md**](docs/CICD.md) 🆕 | **CI/CD automation workflows with translation tracking** ⭐ |
 | [**docs/TRANSLATION.md**](docs/TRANSLATION.md) 🆕 | **Machine translation guide (Google/DeepL/LibreTranslate)** |

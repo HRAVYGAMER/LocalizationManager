@@ -13,7 +13,7 @@ _lrm_completions() {
     prev="${COMP_WORDS[COMP_CWORD-1]}"
 
     # Main commands
-    local commands="validate stats view add update delete merge-duplicates export import edit translate config scan check list-languages add-language remove-language"
+    local commands="validate stats view add update delete merge-duplicates export import edit translate config scan check list-languages add-language remove-language backup"
 
     # Global options
     local global_opts="--path -p --help -h --version -v"
@@ -29,12 +29,12 @@ _lrm_completions() {
     local export_opts="--path -p --output -o --format --include-status --help -h"
     local import_opts="--path -p --overwrite --no-backup --help -h"
     local edit_opts="--path -p --help -h"
-    local translate_opts="--path -p --provider --target-languages --batch-size --only-missing --overwrite --dry-run --no-cache --source-language --format --config-file --help -h"
+    local translate_opts="--path -p --provider --target-languages --batch-size --only-missing --overwrite --dry-run --no-cache --no-backup --source-language --format --config-file --help -h"
     local config_opts="set-api-key get-api-key delete-api-key list-providers --help -h"
     local scan_opts="--path -p --source-path --exclude --strict --show-unused --show-missing --show-references --resource-classes --localization-methods --format --help -h"
     local check_opts="--path -p --source-path --exclude --strict --format --help -h"
     local list_languages_opts="--path -p --format --help -h"
-    local add_language_opts="--path -p --culture -c --base-name --copy-from --empty --no-backup --yes -y --help -h"
+    local add_language_opts="--path -p --culture -c --base-name --copy-from --empty --yes -y --help -h"
     local remove_language_opts="--path -p --culture -c --base-name --yes -y --no-backup --help -h"
 
     # Config subcommands
@@ -42,6 +42,15 @@ _lrm_completions() {
     local config_get_api_key_opts="--provider --help -h"
     local config_delete_api_key_opts="--provider -p --help -h"
     local config_list_providers_opts="--help -h"
+
+    # Backup subcommands
+    local backup_opts="list create restore diff info prune --help -h"
+    local backup_list_opts="--path -p --file --all --limit --show-details --help -h"
+    local backup_create_opts="--path -p --file --all --operation --help -h"
+    local backup_restore_opts="--path -p --version --keys --preview --yes -y --no-backup --help -h"
+    local backup_diff_opts="--path -p --from --to --output --show-unchanged --format --help -h"
+    local backup_info_opts="--path -p --help -h"
+    local backup_prune_opts="--path -p --file --all --version --older-than --keep --dry-run --yes -y --help -h"
 
     # Format options
     local format_opts="table json simple csv tui"
@@ -124,6 +133,26 @@ _lrm_completions() {
             ;;
         --key|-k)
             # No completion for API keys (security)
+            COMPREPLY=()
+            return 0
+            ;;
+        --file)
+            # Complete .resx files
+            COMPREPLY=( $(compgen -f -X '!*.resx' -- "${cur}") )
+            return 0
+            ;;
+        --version|--from|--to)
+            # Version numbers - no completion
+            COMPREPLY=()
+            return 0
+            ;;
+        --limit)
+            # Suggest common limits
+            COMPREPLY=( $(compgen -W "10 20 50 100 0" -- "${cur}") )
+            return 0
+            ;;
+        --operation|--keys)
+            # No completion for these
             COMPREPLY=()
             return 0
             ;;
@@ -239,6 +268,53 @@ _lrm_completions() {
                         ;;
                     list-providers)
                         COMPREPLY=( $(compgen -W "${config_list_providers_opts}" -- "${cur}") )
+                        ;;
+                    *)
+                        COMPREPLY=()
+                        ;;
+                esac
+            fi
+            ;;
+        backup)
+            # Handle backup subcommands
+            if [[ -z "${subcommand}" ]]; then
+                # No subcommand yet, suggest subcommands
+                COMPREPLY=( $(compgen -W "${backup_opts}" -- "${cur}") )
+            else
+                # Complete options for the specific subcommand
+                case "${subcommand}" in
+                    list)
+                        COMPREPLY=( $(compgen -W "${backup_list_opts}" -- "${cur}") )
+                        ;;
+                    create)
+                        COMPREPLY=( $(compgen -W "${backup_create_opts}" -- "${cur}") )
+                        ;;
+                    restore)
+                        if [[ "${cur}" == -* ]]; then
+                            COMPREPLY=( $(compgen -W "${backup_restore_opts}" -- "${cur}") )
+                        else
+                            # Complete .resx files
+                            COMPREPLY=( $(compgen -f -X '!*.resx' -- "${cur}") )
+                        fi
+                        ;;
+                    diff)
+                        if [[ "${cur}" == -* ]]; then
+                            COMPREPLY=( $(compgen -W "${backup_diff_opts}" -- "${cur}") )
+                        else
+                            # Complete .resx files
+                            COMPREPLY=( $(compgen -f -X '!*.resx' -- "${cur}") )
+                        fi
+                        ;;
+                    info)
+                        if [[ "${cur}" == -* ]]; then
+                            COMPREPLY=( $(compgen -W "${backup_info_opts}" -- "${cur}") )
+                        else
+                            # Complete .resx files or version numbers
+                            COMPREPLY=( $(compgen -f -X '!*.resx' -- "${cur}") )
+                        fi
+                        ;;
+                    prune)
+                        COMPREPLY=( $(compgen -W "${backup_prune_opts}" -- "${cur}") )
                         ;;
                     *)
                         COMPREPLY=()

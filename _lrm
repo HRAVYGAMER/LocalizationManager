@@ -17,6 +17,7 @@ _lrm() {
         'add:Add a new localization key to all language files'
         'update:Update values for an existing localization key'
         'delete:Delete a localization key from all language files'
+        'merge-duplicates:Merge duplicate occurrences of a key into single entries'
         'export:Export resource files to CSV or JSON format'
         'import:Import translations from CSV format'
         'edit:Launch interactive TUI editor for resource files'
@@ -27,6 +28,7 @@ _lrm() {
         'add-language:Add a new language resource file'
         'remove-language:Remove a language resource file'
         'config:Manage LRM configuration and API keys'
+        'backup:Backup management commands for resource files'
     )
 
     local -a global_opts
@@ -130,6 +132,15 @@ _lrm() {
                         '--no-backup[Skip backup creation]' \
                         $global_opts
                     ;;
+                merge-duplicates)
+                    _arguments \
+                        '1:key name' \
+                        '--all[Merge all duplicate keys in the resource files]' \
+                        '--auto-first[Automatically select first occurrence from each language without prompting]' \
+                        '(-y --yes)'{-y,--yes}'[Skip final confirmation prompt]' \
+                        '--no-backup[Skip creating backup files before merging]' \
+                        $global_opts
+                    ;;
                 export)
                     _arguments \
                         '(-o --output)'{-o,--output}'[Output file]:file:_files' \
@@ -154,10 +165,16 @@ _lrm() {
                     ;;
                 translate)
                     _arguments \
+                        '1:key pattern' \
                         '--provider[Translation provider]:provider:->providers' \
+                        '--source-language[Source language code]:lang' \
                         '--target-languages[Target languages (comma-separated)]:languages' \
-                        '--batch-size[Batch size for translation]:size:(5 10 20 50 100)' \
                         '--only-missing[Translate only missing keys]' \
+                        '--overwrite[Allow overwriting existing translations]' \
+                        '--dry-run[Preview translations without saving]' \
+                        '--no-cache[Disable translation cache]' \
+                        '--batch-size[Batch size for translation]:size:(5 10 20 50 100)' \
+                        '--no-backup[Skip creating backups before translating]' \
                         '--format[Output format]:format:->formats' \
                         '--config-file[Configuration file path]:file:_files -g "*.json"' \
                         $global_opts
@@ -217,7 +234,6 @@ _lrm() {
                         '--base-name[Base resource file name]:basename' \
                         '--copy-from[Copy entries from specific language]:code:(en es fr de it pt ja zh ko ru ar el tr nl pl cs sv)' \
                         '--empty[Create empty language file]' \
-                        '--no-backup[Skip creating backups]' \
                         '(-y --yes)'{-y,--yes}'[Skip confirmation prompts]' \
                         $global_opts
                     ;;
@@ -282,6 +298,89 @@ _lrm() {
                                     ;;
                                 list-providers)
                                     _arguments $global_opts
+                                    ;;
+                            esac
+                            ;;
+                    esac
+                    ;;
+                backup)
+                    local -a backup_subcommands
+                    backup_subcommands=(
+                        'list:List all backups for resource files'
+                        'create:Manually create a backup of resource files'
+                        'restore:Restore resource files from a backup'
+                        'diff:Show differences between backup versions'
+                        'info:Display detailed information about a specific backup'
+                        'prune:Remove old backups based on retention policy'
+                    )
+
+                    _arguments -C \
+                        '1: :->subcommand' \
+                        '*:: :->subargs' \
+                        && return 0
+
+                    case $state in
+                        subcommand)
+                            _describe -t backup-subcommands 'backup subcommands' backup_subcommands
+                            ;;
+                        subargs)
+                            case $words[1] in
+                                list)
+                                    _arguments \
+                                        '--file[Resource file name]:file:_files -g "*.resx"' \
+                                        '--all[List backups for all resource files]' \
+                                        '--limit[Maximum number of backups to display]:count:(10 20 50 100 0)' \
+                                        '--show-details[Show detailed information]' \
+                                        $global_opts
+                                    ;;
+                                create)
+                                    _arguments \
+                                        '--file[Resource file name]:file:_files -g "*.resx"' \
+                                        '--all[Create backups for all resource files]' \
+                                        '--operation[Operation description]:description' \
+                                        $global_opts
+                                    ;;
+                                restore)
+                                    _arguments \
+                                        '1:file:_files -g "*.resx"' \
+                                        '--version[Backup version to restore]:version' \
+                                        '--keys[Specific keys to restore (comma-separated)]:keys' \
+                                        '--preview[Preview changes without restoring]' \
+                                        '(-y --yes)'{-y,--yes}'[Skip confirmation]' \
+                                        '--no-backup[Skip backup creation before restore]' \
+                                        $global_opts
+                                    ;;
+                                diff)
+                                    _arguments \
+                                        '1:file:_files -g "*.resx"' \
+                                        '--from[Source backup version]:version' \
+                                        '--to[Target backup version]:version' \
+                                        '--output[Save diff to file]:file:_files' \
+                                        '--show-unchanged[Include unchanged keys]' \
+                                        '--format[Output format]:format:->formats' \
+                                        $global_opts
+                                    case $state in
+                                        formats)
+                                            _describe -t formats 'output formats' format_opts
+                                            ;;
+                                    esac
+                                    ;;
+                                info)
+                                    _arguments \
+                                        '1:file:_files -g "*.resx"' \
+                                        '2:version number' \
+                                        $global_opts
+                                    ;;
+                                prune)
+                                    _arguments \
+                                        '--file[Resource file name]:file:_files -g "*.resx"' \
+                                        '--all[Prune backups for all files]' \
+                                        '--version[Delete specific version]:version' \
+                                        '--older-than[Delete backups older than N days]:days' \
+                                        '--keep[Keep only N most recent backups]:count' \
+                                        '--dry-run[Preview without deleting]' \
+                                        '(-y --yes)'{-y,--yes}'[Skip confirmation]' \
+                                        $global_opts
                                     ;;
                             esac
                             ;;

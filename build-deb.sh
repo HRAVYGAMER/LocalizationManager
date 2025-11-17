@@ -98,14 +98,14 @@ build_package() {
     # Build .NET application
     echo -e "${YELLOW}Building .NET application...${NC}"
     if [ "$SELF_CONTAINED" = "true" ]; then
-        dotnet publish -c Release -r "$DOTNET_RID" \
+        dotnet publish LocalizationManager.csproj -c Release -r "$DOTNET_RID" \
             --self-contained true \
             -p:PublishSingleFile=true \
             -p:PublishTrimmed=false \
             -o "$PKG_DIR/usr/bin" \
             > /dev/null 2>&1
     else
-        dotnet publish -c Release -r "$DOTNET_RID" \
+        dotnet publish LocalizationManager.csproj -c Release -r "$DOTNET_RID" \
             --self-contained false \
             -p:PublishSingleFile=true \
             -o "$PKG_DIR/usr/bin" \
@@ -150,6 +150,7 @@ build_package() {
  No additional dependencies required."
     fi
 
+    # Create control file base content
     cat > "$PKG_DIR/DEBIAN/control" <<EOF
 Package: $PKG_NAME
 Version: $DEBIAN_VERSION
@@ -158,7 +159,15 @@ Priority: optional
 Architecture: $ARCH
 Maintainer: Nikolaos Protopapas <nikolaos.protopapas@gmail.com>
 Installed-Size: $INSTALLED_SIZE
-$([ -n "$DEPENDS" ] && echo "Depends: $DEPENDS")
+EOF
+
+    # Add Depends field only if needed
+    if [ -n "$DEPENDS" ]; then
+        echo "Depends: $DEPENDS" >> "$PKG_DIR/DEBIAN/control"
+    fi
+
+    # Add remaining fields
+    cat >> "$PKG_DIR/DEBIAN/control" <<EOF
 Homepage: https://github.com/nickprotop/LocalizationManager
 Description: $DESCRIPTION
 EOF

@@ -1,7 +1,7 @@
 # LocalizationManager v0.7.0 - Development Roadmap
 
 **Target Release:** v0.7.0
-**Estimated Timeline:** 11 weeks
+**Estimated Timeline:** 12 weeks
 **Start Date:** 2025-01-15
 **Architecture:** ASP.NET Core Web API + Blazor WebAssembly
 
@@ -132,6 +132,56 @@
 - `lrm chain validate --format json -- translate --only-missing -- export -o output.csv`
 - `lrm chain validate -- scan -- backup create`
 - `lrm chain import file.csv -- validate -- translate --provider google -- export`
+
+---
+
+### 6. Debian Package Distribution (.deb + PPA)
+**Status:** Not Started
+**Priority:** High
+**Description:** Native Debian/Ubuntu package distribution via apt and PPA
+
+**Package Variants:**
+- [ ] `lrm` - Framework-dependent package (~200KB, requires dotnet-runtime-9.0)
+- [ ] `lrm-standalone` - Self-contained package (~72MB, no dependencies)
+
+**Debian Packaging:**
+- [ ] Create debian/ directory structure
+- [ ] debian/control (package metadata for both variants)
+- [ ] debian/changelog (Debian-format changelog)
+- [ ] debian/rules (build script)
+- [ ] debian/install files (lrm.install, lrm-standalone.install)
+- [ ] debian/copyright (MIT license in machine-readable format)
+- [ ] Man page (docs/lrm.1)
+- [ ] Shell completion integration
+
+**Build Infrastructure:**
+- [ ] build-deb.sh script (build .deb packages)
+- [ ] build-source-package.sh (create source packages for PPA)
+- [ ] Update build.sh with --deb flag
+- [ ] GitHub Actions integration (.deb build on release)
+- [ ] Upload .deb files to GitHub Releases
+
+**PPA Distribution:**
+- [ ] Launchpad PPA setup (ppa:nikolaos-protopapas/lrm)
+- [ ] GPG key generation and configuration
+- [ ] Source package building
+- [ ] Automated PPA uploads (optional GitHub Actions workflow)
+
+**Documentation:**
+- [ ] Update docs/INSTALLATION.md (apt installation methods)
+- [ ] Create docs/PACKAGING.md (maintainer guide)
+- [ ] Update README.md (apt as primary installation method)
+
+**Testing:**
+- [ ] Test .deb installation (both variants)
+- [ ] Test PPA installation on Ubuntu
+- [ ] Test on Debian-based distros
+- [ ] Verify man page and completions
+
+**Installation Examples:**
+- `sudo apt install ./lrm_0.6.12_amd64.deb` (GitHub download)
+- `sudo add-apt-repository ppa:nikolaos-protopapas/lrm && sudo apt install lrm` (PPA)
+- `sudo apt install lrm-standalone` (self-contained variant)
 
 ---
 
@@ -268,7 +318,149 @@
 
 ---
 
-### Phase 3: Simple CLI Chaining (Week 3)
+### Phase 3: Debian Package Distribution (Week 3)
+**Status:** Not Started
+**Dates:** TBD
+
+- [ ] Create debian/ Directory Structure
+  - [ ] debian/control - Package metadata for both variants
+    - [ ] Package: lrm (framework-dependent)
+    - [ ] Package: lrm-standalone (self-contained)
+    - [ ] Dependencies: dotnet-runtime-9.0 (for lrm only)
+    - [ ] Architecture: amd64, arm64
+    - [ ] Maintainer, description, homepage
+  - [ ] debian/changelog - Debian-format changelog
+    - [ ] Convert git history to Debian changelog format
+    - [ ] Follow Debian versioning (0.6.12-1)
+  - [ ] debian/rules - Build script using dh
+    - [ ] Framework-dependent build target
+    - [ ] Self-contained build target
+    - [ ] Clean, build, install targets
+  - [ ] debian/install - File mappings
+    - [ ] lrm.install - Framework-dependent file list
+    - [ ] lrm-standalone.install - Self-contained file list
+  - [ ] debian/copyright - Machine-readable MIT license
+  - [ ] debian/compat - Debhelper compatibility level
+
+- [ ] Create Man Page
+  - [ ] docs/lrm.1 - Manual page in man format
+    - [ ] NAME, SYNOPSIS, DESCRIPTION sections
+    - [ ] COMMANDS section (all lrm commands)
+    - [ ] OPTIONS section (global options)
+    - [ ] EXAMPLES section (common workflows)
+    - [ ] FILES section (config locations)
+    - [ ] SEE ALSO, AUTHOR, COPYRIGHT sections
+  - [ ] Test man page rendering: `man ./docs/lrm.1`
+  - [ ] Include in debian/install for both packages
+
+- [ ] Shell Completion Integration
+  - [ ] Move completions to debian/bash-completion/lrm
+  - [ ] Move completions to debian/zsh-completion/_lrm
+  - [ ] Update debian/install to install to system locations
+    - [ ] /usr/share/bash-completion/completions/lrm
+    - [ ] /usr/share/zsh/site-functions/_lrm
+
+- [ ] Build Scripts
+  - [ ] Create build-deb.sh
+    - [ ] Parse version from .csproj
+    - [ ] Build framework-dependent variant (dotnet publish without --self-contained)
+    - [ ] Build self-contained variant (existing approach)
+    - [ ] Create debian packages with dpkg-deb
+    - [ ] Build for both amd64 and arm64
+    - [ ] Output to publish/lrm_VERSION_ARCH.deb
+  - [ ] Create build-source-package.sh
+    - [ ] Create .orig.tar.gz from source
+    - [ ] Create .debian.tar.xz from debian/ directory
+    - [ ] Generate .dsc and .changes files
+    - [ ] Sign with GPG key (debsign)
+    - [ ] Ready for dput upload to PPA
+  - [ ] Update build.sh
+    - [ ] Add --deb flag to build .deb packages
+    - [ ] Add --source flag to build source packages
+
+- [ ] GitHub Actions Integration
+  - [ ] Update .github/workflows/release.yml
+    - [ ] Install dpkg-dev, debhelper dependencies
+    - [ ] Run build-deb.sh for all architectures
+    - [ ] Upload 4 .deb files to GitHub Release:
+      - [ ] lrm_VERSION_amd64.deb
+      - [ ] lrm_VERSION_arm64.deb
+      - [ ] lrm-standalone_VERSION_amd64.deb
+      - [ ] lrm-standalone_VERSION_arm64.deb
+
+- [ ] PPA Setup (Manual Configuration)
+  - [ ] Create Launchpad account
+  - [ ] Generate GPG key for package signing
+    - [ ] gpg --full-generate-key
+    - [ ] Upload public key to Launchpad
+    - [ ] Upload to Ubuntu keyserver
+  - [ ] Create PPA: ppa:nikolaos-protopapas/lrm
+  - [ ] Configure dput for PPA uploads
+  - [ ] Document PPA setup process
+
+- [ ] PPA Workflow (Optional Automation)
+  - [ ] Create .github/workflows/ppa-release.yml
+    - [ ] Trigger on version tags
+    - [ ] Build source package
+    - [ ] Sign with GPG key (from GitHub secrets)
+    - [ ] Upload to Launchpad PPA with dput
+  - [ ] Add GPG_PRIVATE_KEY to GitHub secrets
+  - [ ] Test automated PPA upload
+
+- [ ] Documentation
+  - [ ] Update docs/INSTALLATION.md
+    - [ ] Add "Installation via APT" section at top
+    - [ ] GitHub .deb download method
+    - [ ] PPA installation method
+    - [ ] Explain package variants (lrm vs lrm-standalone)
+    - [ ] Update existing manual installation sections
+  - [ ] Create docs/PACKAGING.md
+    - [ ] Debian packaging overview
+    - [ ] Building .deb packages locally
+    - [ ] PPA upload process
+    - [ ] Maintainer release checklist
+    - [ ] Troubleshooting common issues
+  - [ ] Update README.md
+    - [ ] Add apt installation as primary method
+    - [ ] Add PPA instructions
+    - [ ] Update installation section
+    - [ ] Add .deb to distribution badges/shields
+  - [ ] Update COMMANDS.md
+    - [ ] Reference man page
+    - [ ] Link to `man lrm` for full documentation
+
+- [ ] Testing
+  - [ ] Test framework-dependent package
+    - [ ] Build on Ubuntu 24.04
+    - [ ] Install: `sudo apt install ./lrm_VERSION_amd64.deb`
+    - [ ] Verify dotnet-runtime-9.0 dependency check
+    - [ ] Test binary at /usr/bin/lrm
+    - [ ] Test man page: `man lrm`
+    - [ ] Test bash completion
+    - [ ] Test zsh completion
+    - [ ] Uninstall: `sudo apt remove lrm`
+  - [ ] Test self-contained package
+    - [ ] Build on Ubuntu 24.04
+    - [ ] Install: `sudo apt install ./lrm-standalone_VERSION_amd64.deb`
+    - [ ] Verify no dependencies required
+    - [ ] Test binary works without .NET runtime
+    - [ ] Test all commands work correctly
+  - [ ] Test PPA installation
+    - [ ] Upload to test PPA
+    - [ ] Install on clean Ubuntu VM
+    - [ ] Test: `sudo add-apt-repository ppa:user/lrm-test`
+    - [ ] Test: `sudo apt update && sudo apt install lrm`
+    - [ ] Test package updates work correctly
+  - [ ] Test on Debian
+    - [ ] Test .deb installation on Debian 12
+    - [ ] Verify compatibility
+  - [ ] Test ARM64 packages
+    - [ ] Build ARM64 .deb
+    - [ ] Test on ARM64 system (if available) or skip
+
+---
+
+### Phase 4: Simple CLI Chaining (Week 4)
 **Status:** Not Started
 **Dates:** TBD
 
@@ -329,7 +521,7 @@
 
 ---
 
-### Phase 4: Web API (Week 4-5)
+### Phase 5: Web API (Week 5-6)
 **Status:** Not Started
 **Dates:** TBD
 
@@ -388,7 +580,7 @@
 
 ---
 
-### Phase 5: Blazor WASM UI (Week 6-9)
+### Phase 6: Blazor WASM UI (Week 7-10)
 **Status:** Not Started
 **Dates:** TBD
 
@@ -471,7 +663,7 @@
 
 ---
 
-### Phase 6: Integration & Polish (Week 10)
+### Phase 7: Integration & Polish (Week 11)
 **Status:** Not Started
 **Dates:** TBD
 
@@ -512,7 +704,7 @@
 
 ---
 
-### Phase 7: Release (Week 11)
+### Phase 8: Release (Week 12)
 **Status:** Not Started
 **Dates:** TBD
 
@@ -587,11 +779,12 @@
 
 ## 📊 Progress Tracking
 
-**Overall Progress:** ~29% (2/7 phases completed)
+**Overall Progress:** ~25% (2/8 phases completed)
 
 ### Feature Completion
 - [x] Variable/Placeholder Validation (100% ✅ - Complete: Core + CLI + TUI + Tests + Docs)
 - [x] Enhanced Backup System + Diff View (100% ✅ - Complete: Core + CLI + TUI + Tests + Docs)
+- [ ] Debian Package Distribution (.deb + PPA) (0%)
 - [ ] Simple CLI Chaining (0%)
 - [ ] Web API (0%)
 - [ ] Blazor WASM UI (0%)
@@ -599,11 +792,12 @@
 ### Phase Completion
 - [x] Phase 1: Foundation & Backup System (100% ✅ - COMPLETED 2025-01-16)
 - [x] Phase 2: Variable Validation (100% ✅ - COMPLETED 2025-01-16)
-- [ ] Phase 3: Simple CLI Chaining (0%)
-- [ ] Phase 4: Web API (0%)
-- [ ] Phase 5: Blazor WASM UI (0%)
-- [ ] Phase 6: Integration & Polish (0%)
-- [ ] Phase 7: Release (0%)
+- [ ] Phase 3: Debian Package Distribution (0%)
+- [ ] Phase 4: Simple CLI Chaining (0%)
+- [ ] Phase 5: Web API (0%)
+- [ ] Phase 6: Blazor WASM UI (0%)
+- [ ] Phase 7: Integration & Polish (0%)
+- [ ] Phase 8: Release (0%)
 
 ---
 
@@ -618,6 +812,8 @@ None
 3. Simple CLI chaining for command automation (lightweight alternative to complex flow system)
 4. Plugin system deferred to future release (v0.8.0+)
 5. Full flow system deferred to future release (v0.8.0+ if user demand exists)
+6. Debian packaging with dual variants: framework-dependent (200KB) and self-contained (72MB)
+7. Distribution via both GitHub Releases (.deb downloads) and Launchpad PPA (apt repository)
 
 ### Questions to Resolve
 None
@@ -630,17 +826,18 @@ None
 |-------|----------|--------|------------|----------|
 | Phase 1: Foundation & Backup | 2 days | ✅ **Completed** | 2025-01-15 | 2025-01-16 |
 | Phase 2: Variable Validation | 1 day | ✅ **Completed** | 2025-01-16 | 2025-01-16 |
-| Phase 3: Simple CLI Chaining | 1 week | Not Started | TBD | TBD |
-| Phase 4: Web API | 2 weeks | Not Started | TBD | TBD |
-| Phase 5: Blazor WASM UI | 4 weeks | Not Started | TBD | TBD |
-| Phase 6: Integration & Polish | 1 week | Not Started | TBD | TBD |
-| Phase 7: Release | 1 week | Not Started | TBD | TBD |
-| **Total** | **11 weeks** | **29%** | **2025-01-15** | **TBD** |
+| Phase 3: Debian Package Distribution | 1 week | Not Started | TBD | TBD |
+| Phase 4: Simple CLI Chaining | 1 week | Not Started | TBD | TBD |
+| Phase 5: Web API | 2 weeks | Not Started | TBD | TBD |
+| Phase 6: Blazor WASM UI | 4 weeks | Not Started | TBD | TBD |
+| Phase 7: Integration & Polish | 1 week | Not Started | TBD | TBD |
+| Phase 8: Release | 1 week | Not Started | TBD | TBD |
+| **Total** | **12 weeks** | **25%** | **2025-01-15** | **TBD** |
 
 ---
 
 **Last Updated:** 2025-01-16
-**Current Phase:** Phase 3 - Web API (Not Started)
+**Current Phase:** Phase 3 - Debian Package Distribution (Not Started)
 
 **Phase 1 Completed (2025-01-16):**
 - ✅ LocalizationManager.Shared project
@@ -675,4 +872,4 @@ None
 - ✅ Build succeeds with 0 errors/warnings
 - ✅ Comprehensive documentation (PLACEHOLDERS.md, README.md updated)
 
-**Next Milestone:** Phase 3 - Web API
+**Next Milestone:** Phase 3 - Debian Package Distribution (.deb + PPA)

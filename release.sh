@@ -265,9 +265,41 @@ main() {
 
     print_success "Generated CHANGELOG from commits"
 
+    # Regenerate debian/changelog
+    print_step "Regenerating debian/changelog..."
+    DEBIAN_VERSION="${NEW_VERSION}-1"
+    DATE_RFC5322=$(date --rfc-email)
+
+    cat > debian/changelog <<EOF
+lrm ($DEBIAN_VERSION) unstable; urgency=medium
+
+EOF
+
+    # Add changes from categorized commits
+    if [ -n "$FIXED" ]; then
+        echo "$FIXED" | sed 's/^- /  * Fixed: /' >> debian/changelog
+    fi
+    if [ -n "$ADDED" ]; then
+        echo "$ADDED" | sed 's/^- /  * Added: /' >> debian/changelog
+    fi
+    if [ -n "$CHANGED" ]; then
+        echo "$CHANGED" | sed 's/^- /  * Changed: /' >> debian/changelog
+    fi
+
+    # If no changes, add generic entry
+    if [ -z "$FIXED" ] && [ -z "$ADDED" ] && [ -z "$CHANGED" ]; then
+        echo "  * Release version $NEW_VERSION" >> debian/changelog
+    fi
+
+    # Add signature line (note: two spaces before --)
+    echo "" >> debian/changelog
+    echo " -- Nikolaos Protopapas <nikolaos.protopapas@gmail.com>  $DATE_RFC5322" >> debian/changelog
+
+    print_success "Regenerated debian/changelog"
+
     # Create version bump commit
     print_step "Creating version bump commit..."
-    git add LocalizationManager.csproj LocalizationManager.Shared/LocalizationManager.Shared.csproj CHANGELOG.md
+    git add LocalizationManager.csproj LocalizationManager.Shared/LocalizationManager.Shared.csproj CHANGELOG.md debian/changelog
     git commit -m "Release v${NEW_VERSION}"
     print_success "Created version bump commit"
 

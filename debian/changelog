@@ -1,0 +1,15 @@
+lrm (0.6.12-1) unstable; urgency=medium
+
+  * Initial Debian package release
+  * Framework-dependent package (lrm) with dotnet-runtime-9.0 dependency
+  * Self-contained package (lrm-standalone) with bundled runtime
+  * Features:
+    - Interactive Terminal UI for .resx file editing
+    - Machine translation with 8 providers (Google/DeepL/OpenAI/Claude/Ollama)
+    - CI/CD automation workflows
+    - Validation and placeholder checking
+    - Code scanning for unused/missing keys
+    - Backup system with diff view
+    - Multi-platform support (amd64, arm64)
+
+ -- Nikolaos Protopapas <nikolaos.protopapas@gmail.com>  Sat, 18 Jan 2025 00:00:00 +0000

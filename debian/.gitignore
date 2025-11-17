@@ -1,0 +1,20 @@
+# Debian package build artifacts
+*.debhelper
+*.debhelper.log
+*.substvars
+.debhelper/
+build/
+files
+lrm/
+lrm-standalone/
+tmp/
+debhelper-build-stamp
+
+# Source package artifacts
+*.tar.gz
+*.tar.xz
+*.dsc
+*.changes
+*.build
+*.buildinfo
+*.upload

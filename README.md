@@ -135,7 +135,16 @@ LRM solves this by providing:
 
 ### Installation (Linux)
 
-**One-line install:**
+**PPA Installation (Ubuntu/Debian) - Recommended:**
+```bash
+sudo add-apt-repository ppa:nickprotop/lrm-tool
+sudo apt update
+sudo apt install lrm  # Framework-dependent (~200KB)
+# OR
+sudo apt install lrm-standalone  # Self-contained (~72MB)
+```
+
+**One-line install script:**
 ```bash
 curl -sSL https://raw.githubusercontent.com/nickprotop/LocalizationManager/main/install-lrm.sh | bash
 ```
@@ -147,7 +156,7 @@ tar -xzf lrm-linux-x64.tar.gz
 sudo cp linux-x64/lrm /usr/local/bin/
 ```
 
-See [INSTALLATION.md](docs/INSTALLATION.md) for Windows, ARM64, and detailed installation options.
+See [INSTALLATION.md](docs/INSTALLATION.md) for .deb packages, Windows, ARM64, and detailed installation options.
 
 ### Basic Usage
 

@@ -44,7 +44,72 @@ This script will:
 
 ## Linux Installation
 
-### Linux (x64)
+### Installation via APT (Ubuntu/Debian) - Recommended
+
+**Easiest method for Ubuntu and Debian-based distributions**
+
+#### Option 1: PPA (Personal Package Archive)
+
+Get automatic updates through the package manager:
+
+```bash
+# Add the LRM PPA
+sudo add-apt-repository ppa:nickprotop/lrm-tool
+sudo apt update
+
+# Install framework-dependent version (~200KB, requires dotnet-runtime-9.0)
+sudo apt install lrm
+
+# OR install self-contained version (~72MB, no dependencies)
+sudo apt install lrm-standalone
+```
+
+**Package Comparison:**
+
+| Package | Size | Dependencies | Best For |
+|---------|------|--------------|----------|
+| `lrm` | ~200KB | Requires `dotnet-runtime-9.0` | Systems with .NET already installed, minimal disk usage |
+| `lrm-standalone` | ~72MB | None | Servers without .NET, isolated environments |
+
+**To update:**
+```bash
+sudo apt update && sudo apt upgrade lrm
+```
+
+**To remove:**
+```bash
+sudo apt remove lrm
+# OR
+sudo apt remove lrm-standalone
+```
+
+#### Option 2: Download .deb Package from GitHub
+
+Install a specific version without adding the PPA:
+
+```bash
+# Download the .deb file (replace VERSION with desired version, e.g., 0.6.12)
+wget https://github.com/nickprotop/LocalizationManager/releases/download/vVERSION/lrm_VERSION-1_amd64.deb
+
+# Install the package
+sudo apt install ./lrm_VERSION-1_amd64.deb
+
+# OR for self-contained version
+wget https://github.com/nickprotop/LocalizationManager/releases/download/vVERSION/lrm-standalone_VERSION-1_amd64.deb
+sudo apt install ./lrm-standalone_VERSION-1_amd64.deb
+```
+
+**For ARM64 systems (Raspberry Pi, etc.):**
+```bash
+wget https://github.com/nickprotop/LocalizationManager/releases/download/vVERSION/lrm_VERSION-1_arm64.deb
+sudo apt install ./lrm_VERSION-1_arm64.deb
+```
+
+---
+
+### Manual Installation (tarball)
+
+#### Linux (x64)
 
 **For Intel/AMD 64-bit processors (most desktop/server systems)**
 

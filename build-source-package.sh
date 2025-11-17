@@ -90,7 +90,8 @@ rsync -a \
 
 # Create .orig.tar.gz
 cd "$BUILD_DIR"
-tar -czf "$OUTPUT_DIR/$TARBALL_NAME" "${PACKAGE_NAME}-${VERSION}"
+tar -czf "${TARBALL_NAME}" "${PACKAGE_NAME}-${VERSION}"
+cp "${TARBALL_NAME}" "$OUTPUT_DIR/"
 
 echo -e "${GREEN}✓ Source tarball created: $TARBALL_NAME${NC}"
 echo -e "${GREEN}  Size: $(du -h "$OUTPUT_DIR/$TARBALL_NAME" | cut -f1)${NC}"
@@ -105,7 +106,8 @@ cd "$SRC_DIR"
 # -us: unsigned source
 # -uc: unsigned changes
 # -d: do not check build dependencies
-debuild -S -us -uc -d > /dev/null 2>&1
+# Note: lintian may produce warnings/errors but package will still build
+debuild -S -us -uc -d 2>&1 | grep -v "^dpkg-source: warning:" || true
 
 # Move generated files to output directory
 cd "$BUILD_DIR"

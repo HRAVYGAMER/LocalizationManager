@@ -99,7 +99,9 @@ LRM solves this by providing:
   - Ensures dynamic content and format strings are correctly preserved across all languages
   - Full [placeholder validation docs →](docs/PLACEHOLDERS.md)
 - **🔄 Duplicate Handling** - Comprehensive duplicate key management
-  - View all occurrences with [N] suffix in TUI
+  - View all occurrences with [N] suffix (CLI and TUI)
+  - Case-insensitive lookup finds all case variants (archive, Archive, ARCHIVE)
+  - Target specific occurrences with [N] syntax: `lrm view "TestKey [2]"`
   - Edit specific occurrences independently
   - Delete with options (this occurrence, all, or merge)
   - Interactive merge with per-language selection

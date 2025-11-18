@@ -21,7 +21,7 @@ _lrm_completions() {
     # Command-specific options
     local validate_opts="--path -p --format --placeholder-types --no-placeholder-validation --no-scan-code --source-path --help -h"
     local stats_opts="--path -p --format --help -h"
-    local view_opts="--path -p --show-comments --format --regex --sort --no-limit --help -h"
+    local view_opts="--path -p --show-comments --format --regex --sort --no-limit --case-sensitive --search-in --count --status --not --cultures --keys-only --help -h"
     local add_opts="--path -p --lang -l --comment --no-backup --help -h"
     local update_opts="--path -p --lang -l --comment --interactive -i --yes -y --no-backup --help -h"
     local delete_opts="--path -p --yes -y --no-backup --all-duplicates --help -h"
@@ -121,9 +121,19 @@ _lrm_completions() {
             COMPREPLY=( $(compgen -W "Resources Strings AppResources GetString Translate L T" -- "${cur}") )
             return 0
             ;;
-        --culture|-c|--copy-from)
+        --culture|-c|--copy-from|--cultures)
             # Suggest language codes
             COMPREPLY=( $(compgen -W "en es fr de it pt ja zh ko ru ar el tr nl pl cs sv" -- "${cur}") )
+            return 0
+            ;;
+        --search-in)
+            # Suggest search scopes
+            COMPREPLY=( $(compgen -W "keys values comments both all" -- "${cur}") )
+            return 0
+            ;;
+        --status)
+            # Suggest translation statuses
+            COMPREPLY=( $(compgen -W "translated untranslated empty all" -- "${cur}") )
             return 0
             ;;
         --base-name)

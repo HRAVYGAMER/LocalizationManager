@@ -438,6 +438,41 @@ lrm view "*" --keys-only --format simple --limit 10
 # Output: Plain list of key names
 ```
 
+**Duplicate Key Handling:**
+
+The view command handles both case variants and true duplicates (same key appearing multiple times):
+
+```bash
+# When a key has duplicates, all occurrences are shown with [N] suffix
+lrm view TestKey
+# Output shows: TestKey [1], TestKey [2], etc.
+
+# View a specific occurrence
+lrm view "TestKey [2]"
+
+# Case-insensitive search (default) finds all case variants
+lrm view testkey
+# Finds: TestKey, testkey, TESTKEY (all shown)
+
+# Case-sensitive search matches exact casing only
+lrm view testkey --case-sensitive
+# Finds only: testkey
+
+# Wildcards also show all occurrences
+lrm view "Test*"
+# Shows: TestKey [1], TestKey [2], testkey, TESTKEY, TestOther
+
+# JSON output includes occurrence information
+lrm view TestKey --format json
+# Output includes: key, occurrence, totalOccurrences, displayKey fields
+```
+
+**Duplicate Handling in Output:**
+- **Table format:** Shows `Key [N]` in the Key column when duplicates exist
+- **JSON format:** Includes `occurrence`, `totalOccurrences`, and `displayKey` fields
+- **Simple format:** Shows `--- Key [N] ---` headers for each occurrence
+- **Match count:** Shows "N occurrence(s) of M key(s)" when duplicates are present
+
 **Search Scope:**
 
 Control where the pattern is searched using `--search-in` (or alias `--scope`):
@@ -1041,6 +1076,37 @@ lrm merge-duplicates DuplicateKey --auto-first
 # ✓ Merged 'DuplicateKey' (kept first occurrence from each language)
 ```
 
+**Case Variant Handling:**
+
+When duplicates include case variants (e.g., `TestKey` and `testkey`), the command detects them and allows you to choose which key name to standardize on:
+
+```
+Merging key: testkey
+⚠ Found 2 case variants: TestKey, testkey
+
+Which key name should be used after merge?
+> TestKey
+  testkey
+
+  English (default) has 2 occurrences:
+  Which occurrence to keep for English (default)?
+  > [1] "First value" (testkey)
+    [2] "Second value"
+
+Preview of merged entry: TestKey
+...
+Apply merge for key 'testkey' → 'TestKey'? [Y/n]:
+```
+
+In auto mode (`--auto-first`), the first occurrence's key name is used:
+
+```bash
+lrm merge-duplicates testkey --auto-first
+
+# Output:
+# ✓ Merged 'testkey' → 'TestKey' (kept first occurrence from each language)
+```
+
 **Batch Processing (`--all`):**
 
 Merge all duplicate keys at once:
@@ -1063,6 +1129,8 @@ lrm merge-duplicates --all --auto-first
 - Comment preservation: Comments are kept atomically with their values
 - Cross-file synchronization: If you select occurrence #2 for English, it removes occurrences #1 and #3
 - Handles partial occurrences: If a language has fewer occurrences than others, it uses what's available
+- Key name standardization: When case variants exist, all remaining entries are renamed to the selected key name
+- Case-insensitive matching: Finds all case variants (TestKey, testkey, TESTKEY) automatically
 - Error handling: If key doesn't exist or has no duplicates, shows appropriate error message
 
 **Error Cases:**

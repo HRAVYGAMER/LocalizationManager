@@ -31,6 +31,17 @@ using System.Text.RegularExpressions;
 namespace LocalizationManager.Commands;
 
 /// <summary>
+/// Represents a key occurrence for tracking duplicates
+/// </summary>
+public class KeyOccurrence
+{
+    public string Key { get; set; } = string.Empty;
+    public int Occurrence { get; set; } = 1;
+    public int TotalOccurrences { get; set; } = 1;
+    public string DisplayKey => TotalOccurrences > 1 ? $"{Key} [{Occurrence}]" : Key;
+}
+
+/// <summary>
 /// Command to view details of a specific localization key.
 /// </summary>
 public class ViewCommand : Command<ViewCommand.Settings>
@@ -200,6 +211,16 @@ public class ViewCommand : Command<ViewCommand.Settings>
             List<string> matchedKeys;
             bool usedWildcards = false;
             string originalPattern = settings.Key;
+            int? requestedOccurrence = null;
+
+            // Parse occurrence syntax like "Key [2]" before other processing
+            var (parsedKey, occurrence) = ParseKeyWithOccurrence(settings.Key);
+            if (occurrence.HasValue)
+            {
+                settings.Key = parsedKey;
+                originalPattern = parsedKey;
+                requestedOccurrence = occurrence;
+            }
 
             // Auto-detect and convert wildcard patterns to regex
             if (!settings.UseRegex && IsWildcardPattern(settings.Key))
@@ -333,18 +354,92 @@ public class ViewCommand : Command<ViewCommand.Settings>
                 return 1;
             }
 
+            // Convert matched keys to occurrences (handles both case variants and true duplicates)
+            var keyOccurrences = ConvertToOccurrences(matchedKeys, defaultFile, settings.CaseSensitive);
+
+            // Show warning if duplicates were found (case variants or true duplicates)
+            var uniqueKeys = keyOccurrences.Select(o => o.Key).Distinct().Count();
+            var totalOccurrences = keyOccurrences.Count;
+
+            if (format == OutputFormat.Table && !settings.Count)
+            {
+                // Check for case variants (multiple unique keys from same pattern)
+                if (uniqueKeys > 1 && !settings.UseRegex && !usedWildcards)
+                {
+                    var caseVariants = keyOccurrences.Select(o => o.Key).Distinct().ToList();
+                    AnsiConsole.MarkupLine($"[yellow]⚠ Found {uniqueKeys} case variant(s) matching '{Markup.Escape(originalPattern)}':[/]");
+                    foreach (var variant in caseVariants)
+                    {
+                        var count = keyOccurrences.Count(o => o.Key == variant);
+                        if (count > 1)
+                            AnsiConsole.MarkupLine($"  [dim]• {variant} ({count} occurrences)[/]");
+                        else
+                            AnsiConsole.MarkupLine($"  [dim]• {variant}[/]");
+                    }
+                    AnsiConsole.MarkupLine("[dim]Use --case-sensitive to match exact casing.[/]");
+                    AnsiConsole.WriteLine();
+                }
+                // Check for true duplicates (same key appearing multiple times)
+                else if (totalOccurrences > uniqueKeys)
+                {
+                    var duplicateKeys = keyOccurrences
+                        .GroupBy(o => o.Key)
+                        .Where(g => g.Count() > 1)
+                        .Select(g => new { Key = g.Key, Count = g.Count() })
+                        .ToList();
+
+                    AnsiConsole.MarkupLine($"[yellow]⚠ Found duplicate key(s):[/]");
+                    foreach (var dup in duplicateKeys)
+                    {
+                        AnsiConsole.MarkupLine($"  [dim]• {dup.Key} ({dup.Count} occurrences)[/]");
+                    }
+                    AnsiConsole.MarkupLine("[dim]Use \"Key [N]\" to view a specific occurrence.[/]");
+                    AnsiConsole.WriteLine();
+                }
+            }
+
+            // If a specific occurrence was requested, filter to just that one
+            if (requestedOccurrence.HasValue)
+            {
+                var filteredOccurrences = keyOccurrences
+                    .Where(ko => ko.Key.Equals(originalPattern, settings.CaseSensitive ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase)
+                                 && ko.Occurrence == requestedOccurrence.Value)
+                    .ToList();
+
+                if (filteredOccurrences.Count == 0)
+                {
+                    // Check if key exists but occurrence is out of range
+                    var maxOccurrence = keyOccurrences
+                        .Where(ko => ko.Key.Equals(originalPattern, settings.CaseSensitive ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase))
+                        .Select(ko => ko.TotalOccurrences)
+                        .FirstOrDefault();
+
+                    if (maxOccurrence > 0)
+                    {
+                        AnsiConsole.MarkupLine($"[red]✗ Key '{Markup.Escape(originalPattern)}' has only {maxOccurrence} occurrence(s), but [{requestedOccurrence}] was requested.[/]");
+                    }
+                    else
+                    {
+                        AnsiConsole.MarkupLine($"[red]✗ Key '{Markup.Escape(originalPattern)}' not found![/]");
+                    }
+                    return 1;
+                }
+
+                keyOccurrences = filteredOccurrences;
+            }
+
             // Display based on format
             switch (format)
             {
                 case OutputFormat.Json:
-                    DisplayJson(matchedKeys, resourceFiles, settings.ShowComments, settings, usedWildcards, originalPattern);
+                    DisplayJson(keyOccurrences, resourceFiles, settings.ShowComments, settings, usedWildcards, originalPattern);
                     break;
                 case OutputFormat.Simple:
-                    DisplaySimple(matchedKeys, resourceFiles, settings.ShowComments, settings, usedWildcards, originalPattern);
+                    DisplaySimple(keyOccurrences, resourceFiles, settings.ShowComments, settings, usedWildcards, originalPattern);
                     break;
                 case OutputFormat.Table:
                 default:
-                    DisplayTable(matchedKeys, resourceFiles, settings.ShowComments, settings, usedWildcards, originalPattern);
+                    DisplayTable(keyOccurrences, resourceFiles, settings.ShowComments, settings, usedWildcards, originalPattern);
                     break;
             }
 
@@ -399,16 +494,19 @@ public class ViewCommand : Command<ViewCommand.Settings>
         }
     }
 
-    private void DisplayTable(List<string> keys, List<Core.Models.ResourceFile> resourceFiles, bool showComments, Settings settings, bool usedWildcards, string originalPattern)
+    private void DisplayTable(List<KeyOccurrence> occurrences, List<Core.Models.ResourceFile> resourceFiles, bool showComments, Settings settings, bool usedWildcards, string originalPattern)
     {
         DisplayConfigNotice(settings);
 
         // Always use array format for consistency
-        DisplayMultipleKeysTable(keys, resourceFiles, showComments, settings, usedWildcards, originalPattern);
+        DisplayMultipleKeysTable(occurrences, resourceFiles, showComments, settings, usedWildcards, originalPattern);
     }
 
-    private void DisplayMultipleKeysTable(List<string> keys, List<Core.Models.ResourceFile> resourceFiles, bool showComments, Settings settings, bool usedWildcards, string originalPattern)
+    private void DisplayMultipleKeysTable(List<KeyOccurrence> occurrences, List<Core.Models.ResourceFile> resourceFiles, bool showComments, Settings settings, bool usedWildcards, string originalPattern)
     {
+        var uniqueKeys = occurrences.Select(o => o.Key).Distinct().Count();
+        var totalOccurrences = occurrences.Count;
+
         // Check if keys-only mode
         if (IsKeysOnlyMode(settings, resourceFiles))
         {
@@ -423,108 +521,136 @@ public class ViewCommand : Command<ViewCommand.Settings>
             }
             else
             {
-                patternDisplay = $"Keys: {keys.Count}";
+                patternDisplay = $"Keys: {uniqueKeys}";
             }
 
             AnsiConsole.MarkupLine($"[yellow]{patternDisplay}[/]");
-            AnsiConsole.MarkupLine($"[dim]Matched {keys.Count} key(s)[/]");
+            if (totalOccurrences != uniqueKeys)
+            {
+                AnsiConsole.MarkupLine($"[dim]Matched {totalOccurrences} occurrence(s) of {uniqueKeys} key(s)[/]");
+            }
+            else
+            {
+                AnsiConsole.MarkupLine($"[dim]Matched {uniqueKeys} key(s)[/]");
+            }
             AnsiConsole.WriteLine();
 
             var table = new Table();
             table.AddColumn("Key");
 
-            foreach (var key in keys)
+            foreach (var occ in occurrences)
             {
-                table.AddRow(key.EscapeMarkup());
+                table.AddRow(occ.DisplayKey.EscapeMarkup());
             }
 
             AnsiConsole.Write(table);
             AnsiConsole.WriteLine();
-            AnsiConsole.MarkupLine($"[dim]Showing {keys.Count} key(s)[/]");
+            AnsiConsole.MarkupLine($"[dim]Showing {totalOccurrences} occurrence(s)[/]");
         }
         else
         {
             // Normal mode with translations
             string patternDisplay;
-        if (usedWildcards)
-        {
-            // Escape pattern to prevent Spectre.Console markup interpretation
-            patternDisplay = $"Pattern: {Markup.Escape(originalPattern)} [dim](wildcard)[/]";
-        }
-        else if (settings.UseRegex)
-        {
-            // Escape pattern to prevent Spectre.Console markup interpretation
-            patternDisplay = $"Pattern: {Markup.Escape(originalPattern)} [dim](regex)[/]";
-        }
-        else
-        {
-            patternDisplay = $"Keys: {keys.Count}";
-        }
-
-        AnsiConsole.MarkupLine($"[yellow]{patternDisplay}[/]");
-        AnsiConsole.MarkupLine($"[dim]Matched {keys.Count} key(s)[/]");
-        AnsiConsole.WriteLine();
-
-        var table = new Table();
-        table.AddColumn("Key");
-        table.AddColumn("Language");
-        table.AddColumn("Value");
-        if (showComments)
-        {
-            table.AddColumn("Comment");
-        }
-
-        foreach (var key in keys)
-        {
-            bool firstRowForKey = true;
-            foreach (var rf in resourceFiles)
+            if (usedWildcards)
             {
-                var entry = rf.Entries.FirstOrDefault(e => e.Key.Equals(key, StringComparison.OrdinalIgnoreCase));
-                var defaultCode = settings.LoadedConfiguration?.DefaultLanguageCode ?? "default";
-                var langName = rf.Language.IsDefault
-                    ? $"{rf.Language.Name} [yellow]({defaultCode})[/]"
-                    : rf.Language.Name;
-
-                var keyDisplay = firstRowForKey ? key.EscapeMarkup() : "";
-                var value = entry?.IsEmpty == true ? "[dim](empty)[/]" : (entry?.Value?.EscapeMarkup() ?? "[red](missing)[/]");
-
-                if (showComments)
-                {
-                    var comment = entry == null || string.IsNullOrWhiteSpace(entry.Comment)
-                        ? "[dim](no comment)[/]"
-                        : entry.Comment.EscapeMarkup();
-                    table.AddRow(keyDisplay, langName, value, comment);
-                }
-                else
-                {
-                    table.AddRow(keyDisplay, langName, value);
-                }
-
-                firstRowForKey = false;
+                patternDisplay = $"Pattern: {Markup.Escape(originalPattern)} [dim](wildcard)[/]";
             }
-        }
+            else if (settings.UseRegex)
+            {
+                patternDisplay = $"Pattern: {Markup.Escape(originalPattern)} [dim](regex)[/]";
+            }
+            else
+            {
+                patternDisplay = $"Keys: {uniqueKeys}";
+            }
+
+            AnsiConsole.MarkupLine($"[yellow]{patternDisplay}[/]");
+            if (totalOccurrences != uniqueKeys)
+            {
+                AnsiConsole.MarkupLine($"[dim]Matched {totalOccurrences} occurrence(s) of {uniqueKeys} key(s)[/]");
+            }
+            else
+            {
+                AnsiConsole.MarkupLine($"[dim]Matched {uniqueKeys} key(s)[/]");
+            }
+            AnsiConsole.WriteLine();
+
+            var table = new Table();
+            table.AddColumn("Key");
+            table.AddColumn("Language");
+            table.AddColumn("Value");
+            if (showComments)
+            {
+                table.AddColumn("Comment");
+            }
+
+            foreach (var occ in occurrences)
+            {
+                bool firstRowForKey = true;
+                foreach (var rf in resourceFiles)
+                {
+                    // Use GetNthOccurrence for true duplicates, or find by key for non-duplicates
+                    ResourceEntry? entry;
+                    if (occ.TotalOccurrences > 1)
+                    {
+                        entry = GetNthOccurrence(rf, occ.Key, occ.Occurrence);
+                    }
+                    else
+                    {
+                        entry = rf.Entries.FirstOrDefault(e => e.Key == occ.Key);
+                    }
+
+                    var defaultCode = settings.LoadedConfiguration?.DefaultLanguageCode ?? "default";
+                    var langName = rf.Language.IsDefault
+                        ? $"{rf.Language.Name} [yellow]({defaultCode})[/]"
+                        : rf.Language.Name;
+
+                    var keyDisplay = firstRowForKey ? occ.DisplayKey.EscapeMarkup() : "";
+                    var value = entry?.IsEmpty == true ? "[dim](empty)[/]" : (entry?.Value?.EscapeMarkup() ?? "[red](missing)[/]");
+
+                    if (showComments)
+                    {
+                        var comment = entry == null || string.IsNullOrWhiteSpace(entry.Comment)
+                            ? "[dim](no comment)[/]"
+                            : entry.Comment.EscapeMarkup();
+                        table.AddRow(keyDisplay, langName, value, comment);
+                    }
+                    else
+                    {
+                        table.AddRow(keyDisplay, langName, value);
+                    }
+
+                    firstRowForKey = false;
+                }
+            }
 
             AnsiConsole.Write(table);
             AnsiConsole.WriteLine();
-            AnsiConsole.MarkupLine($"[dim]Showing {keys.Count} key(s) across {resourceFiles.Count} language(s)[/]");
+            AnsiConsole.MarkupLine($"[dim]Showing {totalOccurrences} occurrence(s) across {resourceFiles.Count} language(s)[/]");
         }
     }
 
-    private void DisplayJson(List<string> keys, List<Core.Models.ResourceFile> resourceFiles, bool showComments, Settings settings, bool usedWildcards, string originalPattern)
+    private void DisplayJson(List<KeyOccurrence> occurrences, List<Core.Models.ResourceFile> resourceFiles, bool showComments, Settings settings, bool usedWildcards, string originalPattern)
     {
         // Always use array format for consistency
-        DisplayMultipleKeysJson(keys, resourceFiles, showComments, settings, usedWildcards, originalPattern);
+        DisplayMultipleKeysJson(occurrences, resourceFiles, showComments, settings, usedWildcards, originalPattern);
     }
 
-    private void DisplayMultipleKeysJson(List<string> keys, List<Core.Models.ResourceFile> resourceFiles, bool showComments, Settings settings, bool usedWildcards, string originalPattern)
+    private void DisplayMultipleKeysJson(List<KeyOccurrence> occurrences, List<Core.Models.ResourceFile> resourceFiles, bool showComments, Settings settings, bool usedWildcards, string originalPattern)
     {
+        var uniqueKeys = occurrences.Select(o => o.Key).Distinct().Count();
+        var totalOccurrences = occurrences.Count;
+
         // Check if keys-only mode
         if (IsKeysOnlyMode(settings, resourceFiles))
         {
             // Use same structure but with empty translations for consistency
-            var keyObjects = keys.Select(k => new
+            var keyObjects = occurrences.Select(occ => new
             {
-                key = k,
+                key = occ.Key,
+                occurrence = occ.Occurrence,
+                totalOccurrences = occ.TotalOccurrences,
+                displayKey = occ.DisplayKey,
                 translations = new Dictionary<string, object?>()
             }).ToList();
 
@@ -532,7 +658,8 @@ public class ViewCommand : Command<ViewCommand.Settings>
             {
                 pattern = settings.UseRegex || usedWildcards ? originalPattern : (string?)null,
                 patternType = usedWildcards ? "wildcard" : (settings.UseRegex ? "regex" : (string?)null),
-                matchCount = keys.Count,
+                uniqueKeys = uniqueKeys,
+                totalOccurrences = totalOccurrences,
                 keys = keyObjects
             };
 
@@ -543,57 +670,74 @@ public class ViewCommand : Command<ViewCommand.Settings>
             // Normal mode with translations
             var keyObjects = new List<object>();
 
-        foreach (var key in keys)
-        {
-            var translations = new Dictionary<string, object?>();
-            foreach (var rf in resourceFiles)
+            foreach (var occ in occurrences)
             {
-                var entry = rf.Entries.FirstOrDefault(e => e.Key.Equals(key, StringComparison.OrdinalIgnoreCase));
-                var langCode = rf.Language.GetDisplayCode();
-
-                if (showComments && entry != null && !string.IsNullOrWhiteSpace(entry.Comment))
+                var translations = new Dictionary<string, object?>();
+                foreach (var rf in resourceFiles)
                 {
-                    translations[langCode] = new
+                    // Use GetNthOccurrence for true duplicates, or find by key for non-duplicates
+                    ResourceEntry? entry;
+                    if (occ.TotalOccurrences > 1)
                     {
-                        value = entry.Value,
-                        comment = entry.Comment
-                    };
+                        entry = GetNthOccurrence(rf, occ.Key, occ.Occurrence);
+                    }
+                    else
+                    {
+                        entry = rf.Entries.FirstOrDefault(e => e.Key == occ.Key);
+                    }
+
+                    var langCode = rf.Language.GetDisplayCode();
+
+                    if (showComments && entry != null && !string.IsNullOrWhiteSpace(entry.Comment))
+                    {
+                        translations[langCode] = new
+                        {
+                            value = entry.Value,
+                            comment = entry.Comment
+                        };
+                    }
+                    else
+                    {
+                        translations[langCode] = entry?.Value;
+                    }
                 }
-                else
+
+                keyObjects.Add(new
                 {
-                    translations[langCode] = entry?.Value;
-                }
+                    key = occ.Key,
+                    occurrence = occ.Occurrence,
+                    totalOccurrences = occ.TotalOccurrences,
+                    displayKey = occ.DisplayKey,
+                    translations = translations
+                });
             }
 
-            keyObjects.Add(new
+            var output = new
             {
-                key = key,
-                translations = translations
-            });
-        }
-
-        var output = new
-        {
-            pattern = settings.UseRegex || usedWildcards ? originalPattern : (string?)null,
-            patternType = usedWildcards ? "wildcard" : (settings.UseRegex ? "regex" : (string?)null),
-            matchCount = keys.Count,
-            keys = keyObjects
-        };
+                pattern = settings.UseRegex || usedWildcards ? originalPattern : (string?)null,
+                patternType = usedWildcards ? "wildcard" : (settings.UseRegex ? "regex" : (string?)null),
+                uniqueKeys = uniqueKeys,
+                totalOccurrences = totalOccurrences,
+                keys = keyObjects
+            };
 
             Console.WriteLine(OutputFormatter.FormatJson(output));
         }
     }
 
-    private void DisplaySimple(List<string> keys, List<Core.Models.ResourceFile> resourceFiles, bool showComments, Settings settings, bool usedWildcards, string originalPattern)
+    private void DisplaySimple(List<KeyOccurrence> occurrences, List<Core.Models.ResourceFile> resourceFiles, bool showComments, Settings settings, bool usedWildcards, string originalPattern)
     {
         DisplayConfigNotice(settings);
 
         // Always use array format for consistency
-        DisplayMultipleKeysSimple(keys, resourceFiles, showComments, settings, usedWildcards, originalPattern);
+        DisplayMultipleKeysSimple(occurrences, resourceFiles, showComments, settings, usedWildcards, originalPattern);
     }
 
-    private void DisplayMultipleKeysSimple(List<string> keys, List<Core.Models.ResourceFile> resourceFiles, bool showComments, Settings settings, bool usedWildcards, string originalPattern)
+    private void DisplayMultipleKeysSimple(List<KeyOccurrence> occurrences, List<Core.Models.ResourceFile> resourceFiles, bool showComments, Settings settings, bool usedWildcards, string originalPattern)
     {
+        var uniqueKeys = occurrences.Select(o => o.Key).Distinct().Count();
+        var totalOccurrences = occurrences.Count;
+
         // Check if keys-only mode
         if (IsKeysOnlyMode(settings, resourceFiles))
         {
@@ -608,67 +752,91 @@ public class ViewCommand : Command<ViewCommand.Settings>
             }
             else
             {
-                patternDisplay = $"Keys: {keys.Count}";
+                patternDisplay = $"Keys: {uniqueKeys}";
             }
 
             Console.WriteLine(patternDisplay);
-            Console.WriteLine($"Matched {keys.Count} key(s)");
+            if (totalOccurrences != uniqueKeys)
+            {
+                Console.WriteLine($"Matched {totalOccurrences} occurrence(s) of {uniqueKeys} key(s)");
+            }
+            else
+            {
+                Console.WriteLine($"Matched {uniqueKeys} key(s)");
+            }
             Console.WriteLine();
 
-            foreach (var key in keys)
+            foreach (var occ in occurrences)
             {
-                Console.WriteLine(key);
+                Console.WriteLine(occ.DisplayKey);
             }
         }
         else
         {
             // Normal mode with translations
             string patternDisplay;
-        if (usedWildcards)
-        {
-            patternDisplay = $"Pattern: {originalPattern} (wildcard)";
-        }
-        else if (settings.UseRegex)
-        {
-            patternDisplay = $"Pattern: {originalPattern} (regex)";
-        }
-        else
-        {
-            patternDisplay = $"Keys: {keys.Count}";
-        }
-
-        Console.WriteLine(patternDisplay);
-        Console.WriteLine($"Matched {keys.Count} key(s)");
-        Console.WriteLine();
-
-        for (int i = 0; i < keys.Count; i++)
-        {
-            var key = keys[i];
-            Console.WriteLine($"--- {key} ---");
-
-            foreach (var rf in resourceFiles)
+            if (usedWildcards)
             {
-                var entry = rf.Entries.FirstOrDefault(e => e.Key.Equals(key, StringComparison.OrdinalIgnoreCase));
-                var defaultCode = settings.LoadedConfiguration?.DefaultLanguageCode ?? "default";
-                var langLabel = rf.Language.IsDefault
-                    ? $"{rf.Language.Name} ({defaultCode})"
-                    : rf.Language.Name;
-                var value = entry?.Value ?? "(missing)";
+                patternDisplay = $"Pattern: {originalPattern} (wildcard)";
+            }
+            else if (settings.UseRegex)
+            {
+                patternDisplay = $"Pattern: {originalPattern} (regex)";
+            }
+            else
+            {
+                patternDisplay = $"Keys: {uniqueKeys}";
+            }
 
-                Console.WriteLine($"{langLabel}: {value}");
+            Console.WriteLine(patternDisplay);
+            if (totalOccurrences != uniqueKeys)
+            {
+                Console.WriteLine($"Matched {totalOccurrences} occurrence(s) of {uniqueKeys} key(s)");
+            }
+            else
+            {
+                Console.WriteLine($"Matched {uniqueKeys} key(s)");
+            }
+            Console.WriteLine();
 
-                if (showComments && entry != null && !string.IsNullOrWhiteSpace(entry.Comment))
+            for (int i = 0; i < occurrences.Count; i++)
+            {
+                var occ = occurrences[i];
+                Console.WriteLine($"--- {occ.DisplayKey} ---");
+
+                foreach (var rf in resourceFiles)
                 {
-                    Console.WriteLine($"  Comment: {entry.Comment}");
+                    // Use GetNthOccurrence for true duplicates, or find by key for non-duplicates
+                    ResourceEntry? entry;
+                    if (occ.TotalOccurrences > 1)
+                    {
+                        entry = GetNthOccurrence(rf, occ.Key, occ.Occurrence);
+                    }
+                    else
+                    {
+                        entry = rf.Entries.FirstOrDefault(e => e.Key == occ.Key);
+                    }
+
+                    var defaultCode = settings.LoadedConfiguration?.DefaultLanguageCode ?? "default";
+                    var langLabel = rf.Language.IsDefault
+                        ? $"{rf.Language.Name} ({defaultCode})"
+                        : rf.Language.Name;
+                    var value = entry?.Value ?? "(missing)";
+
+                    Console.WriteLine($"{langLabel}: {value}");
+
+                    if (showComments && entry != null && !string.IsNullOrWhiteSpace(entry.Comment))
+                    {
+                        Console.WriteLine($"  Comment: {entry.Comment}");
+                    }
+                }
+
+                // Add blank line between keys except after last one
+                if (i < occurrences.Count - 1)
+                {
+                    Console.WriteLine();
                 }
             }
-
-            // Add blank line between keys except after last one
-            if (i < keys.Count - 1)
-            {
-                Console.WriteLine();
-            }
-        }
         }
     }
 
@@ -908,11 +1076,11 @@ public class ViewCommand : Command<ViewCommand.Settings>
         var matchedKeys = new HashSet<string>();
         var comparison = caseSensitive ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
 
-        // Search in keys
+        // Search in keys - find ALL matching entries (case variants and duplicates)
         if (scope == SearchScope.Keys || scope == SearchScope.Both || scope == SearchScope.All)
         {
-            var entry = defaultFile.Entries.FirstOrDefault(e => e.Key.Equals(pattern, comparison));
-            if (entry != null)
+            var entries = defaultFile.Entries.Where(e => e.Key.Equals(pattern, comparison));
+            foreach (var entry in entries)
             {
                 matchedKeys.Add(entry.Key);
             }
@@ -1223,5 +1391,99 @@ public class ViewCommand : Command<ViewCommand.Settings>
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// Parse a key that may include occurrence syntax like "Key [2]"
+    /// </summary>
+    public static (string key, int? occurrence) ParseKeyWithOccurrence(string input)
+    {
+        if (string.IsNullOrEmpty(input))
+            return (input, null);
+
+        // Match pattern like "KeyName [2]" at the end
+        var match = Regex.Match(input, @"^(.+?)\s*\[(\d+)\]$");
+        if (match.Success)
+        {
+            var key = match.Groups[1].Value.Trim();
+            var occurrence = int.Parse(match.Groups[2].Value);
+            return (key, occurrence);
+        }
+
+        return (input, null);
+    }
+
+    /// <summary>
+    /// Convert matched keys to KeyOccurrences, handling both case variants and true duplicates
+    /// </summary>
+    public static List<KeyOccurrence> ConvertToOccurrences(
+        List<string> matchedKeys,
+        ResourceFile defaultFile,
+        bool caseSensitive)
+    {
+        var occurrences = new List<KeyOccurrence>();
+
+        // Group keys that match case-insensitively (to find case variants)
+        var keyGroups = caseSensitive
+            ? matchedKeys.GroupBy(k => k).ToDictionary(g => g.Key, g => g.ToList())
+            : matchedKeys.GroupBy(k => k, StringComparer.OrdinalIgnoreCase)
+                         .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
+
+        foreach (var matchedKey in matchedKeys)
+        {
+            // Count true duplicates (exact same key appearing multiple times in file)
+            var exactDuplicateCount = defaultFile.Entries.Count(e => e.Key == matchedKey);
+
+            if (exactDuplicateCount > 1)
+            {
+                // Add each occurrence with [N] suffix
+                for (int i = 1; i <= exactDuplicateCount; i++)
+                {
+                    occurrences.Add(new KeyOccurrence
+                    {
+                        Key = matchedKey,
+                        Occurrence = i,
+                        TotalOccurrences = exactDuplicateCount
+                    });
+                }
+            }
+            else
+            {
+                // Single occurrence
+                occurrences.Add(new KeyOccurrence
+                {
+                    Key = matchedKey,
+                    Occurrence = 1,
+                    TotalOccurrences = 1
+                });
+            }
+        }
+
+        return occurrences;
+    }
+
+    /// <summary>
+    /// Get the Nth occurrence of a key from a resource file (1-based index)
+    /// </summary>
+    public static ResourceEntry? GetNthOccurrence(ResourceFile resourceFile, string key, int occurrence)
+    {
+        var entries = resourceFile.Entries
+            .Where(e => e.Key == key)
+            .ToList();
+
+        if (occurrence < 1 || occurrence > entries.Count)
+            return null;
+
+        return entries[occurrence - 1];
+    }
+
+    /// <summary>
+    /// Get all entries for a key (case-insensitive), handling case variants
+    /// </summary>
+    public static List<ResourceEntry> GetAllCaseVariants(ResourceFile resourceFile, string key)
+    {
+        return resourceFile.Entries
+            .Where(e => e.Key.Equals(key, StringComparison.OrdinalIgnoreCase))
+            .ToList();
     }
 }

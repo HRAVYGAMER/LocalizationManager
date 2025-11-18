@@ -116,10 +116,41 @@ _lrm() {
                         '--regex[Treat key as regex pattern]' \
                         '--sort[Sort results alphabetically]' \
                         '--no-limit[Show all matches without limit]' \
+                        '--case-sensitive[Match exact key casing]' \
+                        '--search-in[Search scope]:scope:->search_scopes' \
+                        '--count[Show only count of matching keys]' \
+                        '--status[Filter by translation status]:status:->statuses' \
+                        '*--not[Exclude keys matching pattern]:pattern' \
+                        '--cultures[Specific cultures to show (comma-separated)]:cultures' \
+                        '--keys-only[Output only key names]' \
                         $global_opts
+
+                    local -a search_scope_opts
+                    search_scope_opts=(
+                        'keys:Search in key names only'
+                        'values:Search in translation values'
+                        'comments:Search in comments'
+                        'both:Search in keys and values'
+                        'all:Search in keys, values, and comments'
+                    )
+
+                    local -a status_opts
+                    status_opts=(
+                        'translated:Show only translated keys'
+                        'untranslated:Show only untranslated keys'
+                        'empty:Show only empty keys'
+                        'all:Show all keys regardless of status'
+                    )
+
                     case $state in
                         formats)
                             _describe -t formats 'output formats' format_opts
+                            ;;
+                        search_scopes)
+                            _describe -t search_scopes 'search scopes' search_scope_opts
+                            ;;
+                        statuses)
+                            _describe -t statuses 'translation statuses' status_opts
                             ;;
                     esac
                     ;;

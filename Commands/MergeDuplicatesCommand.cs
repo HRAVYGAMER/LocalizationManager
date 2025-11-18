@@ -245,13 +245,37 @@ public class MergeDuplicatesCommand : Command<MergeDuplicatesCommand.Settings>
 
     private bool MergeKeyAutomatic(List<Core.Models.ResourceFile> resourceFiles, string key)
     {
+        // Determine the standard key name (from first occurrence in first file that has it)
+        string? standardKeyName = null;
+        foreach (var rf in resourceFiles)
+        {
+            var firstOccurrence = rf.Entries.FirstOrDefault(e => e.Key.Equals(key, StringComparison.OrdinalIgnoreCase));
+            if (firstOccurrence != null)
+            {
+                standardKeyName = firstOccurrence.Key;
+                break;
+            }
+        }
+
+        if (standardKeyName == null)
+        {
+            AnsiConsole.MarkupLine($"[red]✗ Key '{key.EscapeMarkup()}' not found[/]");
+            return false;
+        }
+
         // For each language, keep the first occurrence and remove the rest
         foreach (var rf in resourceFiles)
         {
             var occurrences = rf.Entries
                 .Select((e, i) => (Entry: e, Index: i))
-                .Where(x => x.Entry.Key == key)
+                .Where(x => x.Entry.Key.Equals(key, StringComparison.OrdinalIgnoreCase))
                 .ToList();
+
+            if (occurrences.Count == 0)
+                continue;
+
+            // Standardize the key name of the first occurrence
+            occurrences[0].Entry.Key = standardKeyName;
 
             if (occurrences.Count <= 1)
                 continue;
@@ -263,7 +287,15 @@ public class MergeDuplicatesCommand : Command<MergeDuplicatesCommand.Settings>
             }
         }
 
-        AnsiConsole.MarkupLine($"[green]✓ Merged '{key.EscapeMarkup()}' (kept first occurrence from each language)[/]");
+        // Show which key name was used
+        if (!key.Equals(standardKeyName, StringComparison.Ordinal))
+        {
+            AnsiConsole.MarkupLine($"[green]✓ Merged '{key.EscapeMarkup()}' → '{standardKeyName.EscapeMarkup()}' (kept first occurrence from each language)[/]");
+        }
+        else
+        {
+            AnsiConsole.MarkupLine($"[green]✓ Merged '{key.EscapeMarkup()}' (kept first occurrence from each language)[/]");
+        }
         return true;
     }
 
@@ -272,8 +304,34 @@ public class MergeDuplicatesCommand : Command<MergeDuplicatesCommand.Settings>
         userConfirmed = false;
         var selections = new Dictionary<string, int>(); // language name -> selected occurrence index (1-based)
 
+        // Get the default file to check for case variants
+        var defaultFile = resourceFiles.FirstOrDefault(rf => rf.Language.IsDefault);
+        var caseVariants = defaultFile != null ? GetCaseVariants(defaultFile, key) : new List<string>();
+        var hasCaseVariants = caseVariants.Count > 1;
+
         AnsiConsole.MarkupLine($"[cyan]Merging key:[/] [bold]{key.EscapeMarkup()}[/]");
+        if (hasCaseVariants)
+        {
+            AnsiConsole.MarkupLine($"[yellow]⚠ Found {caseVariants.Count} case variants: {string.Join(", ", caseVariants.Select(v => v.EscapeMarkup()))}[/]");
+        }
         AnsiConsole.WriteLine();
+
+        // If there are case variants, ask which key name to use
+        string selectedKeyName;
+        if (hasCaseVariants)
+        {
+            var keyNameChoices = caseVariants.Select(v => $"{v}").ToList();
+            selectedKeyName = AnsiConsole.Prompt(
+                new SelectionPrompt<string>()
+                    .Title("[cyan]Which key name should be used after merge?[/]")
+                    .AddChoices(keyNameChoices));
+            AnsiConsole.WriteLine();
+        }
+        else
+        {
+            // Use the first occurrence's key name
+            selectedKeyName = caseVariants.Count > 0 ? caseVariants[0] : key;
+        }
 
         // For each language, ask which occurrence to keep
         foreach (var rf in resourceFiles)
@@ -293,7 +351,8 @@ public class MergeDuplicatesCommand : Command<MergeDuplicatesCommand.Settings>
                 selections[rf.Language.Name] = 1;
                 var value = occurrences[0].Value ?? "";
                 var preview = value.Length > 50 ? value.Substring(0, 47) + "..." : value;
-                AnsiConsole.MarkupLine($"  [dim]{rf.Language.Name}: \"{preview.EscapeMarkup()}\" (only 1 occurrence)[/]");
+                var keyDisplay = occurrences[0].Key != selectedKeyName ? $" [dim]({occurrences[0].Key})[/]" : "";
+                AnsiConsole.MarkupLine($"  [dim]{rf.Language.Name}: \"{preview.EscapeMarkup()}\"{keyDisplay} (only 1 occurrence)[/]");
                 continue;
             }
 
@@ -307,8 +366,10 @@ public class MergeDuplicatesCommand : Command<MergeDuplicatesCommand.Settings>
                 var value = entry.Value ?? "";
                 var commentText = entry.Comment ?? "";
                 var comment = !string.IsNullOrWhiteSpace(commentText) ? $" [dim]// {commentText.EscapeMarkup()}[/]" : "";
-                var preview = value.Length > 60 ? value.Substring(0, 57) + "..." : value;
-                var choiceLabel = $"[[{i + 1}]] \"{preview.EscapeMarkup()}\"{comment}";
+                var preview = value.Length > 50 ? value.Substring(0, 47) + "..." : value;
+                // Show key name if it differs from the selected standard
+                var keyDisplay = entry.Key != selectedKeyName ? $" [dim]({entry.Key})[/]" : "";
+                var choiceLabel = $"[[{i + 1}]] \"{preview.EscapeMarkup()}\"{keyDisplay}{comment}";
                 choices.Add(choiceLabel);
             }
 
@@ -324,10 +385,13 @@ public class MergeDuplicatesCommand : Command<MergeDuplicatesCommand.Settings>
             AnsiConsole.WriteLine();
         }
 
+        // Store the selected key name for ApplyMerge
+        _pendingKeyName = selectedKeyName;
+
         // Show preview
         if (!skipFinalConfirmation)
         {
-            AnsiConsole.MarkupLine("[cyan]Preview of merged entry:[/]");
+            AnsiConsole.MarkupLine($"[cyan]Preview of merged entry:[/] [bold]{selectedKeyName.EscapeMarkup()}[/]");
             AnsiConsole.WriteLine();
 
             var previewTable = new Table();
@@ -355,7 +419,10 @@ public class MergeDuplicatesCommand : Command<MergeDuplicatesCommand.Settings>
             AnsiConsole.Write(previewTable);
             AnsiConsole.WriteLine();
 
-            if (!AnsiConsole.Confirm($"Apply merge for key '{key.EscapeMarkup()}'?", true))
+            var confirmMessage = hasCaseVariants
+                ? $"Apply merge for key '{key.EscapeMarkup()}' → '{selectedKeyName.EscapeMarkup()}'?"
+                : $"Apply merge for key '{key.EscapeMarkup()}'?";
+            if (!AnsiConsole.Confirm(confirmMessage, true))
             {
                 // User cancelled
                 userConfirmed = false;
@@ -380,6 +447,19 @@ public class MergeDuplicatesCommand : Command<MergeDuplicatesCommand.Settings>
 
     private Dictionary<string, int>? _pendingSelections;
     private string? _pendingKey;
+    private string? _pendingKeyName; // The standardized key name to use after merge
+
+    /// <summary>
+    /// Gets all distinct case variants of a key from the default file.
+    /// </summary>
+    private List<string> GetCaseVariants(Core.Models.ResourceFile defaultFile, string key)
+    {
+        return defaultFile.Entries
+            .Where(e => e.Key.Equals(key, StringComparison.OrdinalIgnoreCase))
+            .Select(e => e.Key)
+            .Distinct()
+            .ToList();
+    }
 
     private void ApplyMerge(List<Core.Models.ResourceFile> resourceFiles, string key)
     {
@@ -389,37 +469,56 @@ public class MergeDuplicatesCommand : Command<MergeDuplicatesCommand.Settings>
         }
 
         var selections = _pendingSelections;
+        var standardKeyName = _pendingKeyName ?? key;
 
-        // Apply merge: keep selected occurrence, remove others
+        // Apply merge: keep selected occurrence, remove others, standardize key name
         foreach (var rf in resourceFiles)
         {
             if (!selections.ContainsKey(rf.Language.Name))
                 continue;
 
             var selectedOccurrence = selections[rf.Language.Name];
-            var indices = rf.Entries
+            var occurrences = rf.Entries
                 .Select((e, i) => (Entry: e, Index: i))
-                .Where(x => x.Entry.Key == key)
-                .Select(x => x.Index)
+                .Where(x => x.Entry.Key.Equals(key, StringComparison.OrdinalIgnoreCase))
                 .ToList();
 
-            if (indices.Count <= 1)
+            if (occurrences.Count == 0)
+                continue;
+
+            // Standardize the key name of the selected occurrence
+            var selectedIndex = selectedOccurrence - 1;
+            if (selectedIndex >= 0 && selectedIndex < occurrences.Count)
+            {
+                occurrences[selectedIndex].Entry.Key = standardKeyName;
+            }
+
+            if (occurrences.Count <= 1)
                 continue;
 
             // Remove all except the selected one (in reverse to maintain indices)
-            for (int i = indices.Count - 1; i >= 0; i--)
+            for (int i = occurrences.Count - 1; i >= 0; i--)
             {
                 if (i + 1 != selectedOccurrence)
                 {
-                    rf.Entries.RemoveAt(indices[i]);
+                    rf.Entries.RemoveAt(occurrences[i].Index);
                 }
             }
         }
 
-        AnsiConsole.MarkupLine($"[green]✓ Merged '{key.EscapeMarkup()}'[/]");
+        // Show which key name was used
+        if (!key.Equals(standardKeyName, StringComparison.Ordinal))
+        {
+            AnsiConsole.MarkupLine($"[green]✓ Merged '{key.EscapeMarkup()}' → '{standardKeyName.EscapeMarkup()}'[/]");
+        }
+        else
+        {
+            AnsiConsole.MarkupLine($"[green]✓ Merged '{key.EscapeMarkup()}'[/]");
+        }
 
         // Clear pending state
         _pendingSelections = null;
         _pendingKey = null;
+        _pendingKeyName = null;
     }
 }

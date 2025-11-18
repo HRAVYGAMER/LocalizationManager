@@ -1636,6 +1636,24 @@ public class ResourceEditorWindow : Window
             return;
         }
 
+        // Check for case variants
+        var caseVariants = occurrences.Select(e => e.Key).Distinct().ToList();
+        string selectedKeyName;
+
+        if (caseVariants.Count > 1)
+        {
+            // Ask user which key name to use
+            selectedKeyName = ShowKeyNameSelectionDialog(caseVariants);
+            if (selectedKeyName == null!)
+            {
+                return; // User cancelled
+            }
+        }
+        else
+        {
+            selectedKeyName = caseVariants[0];
+        }
+
         // Collect selections for each language
         var selections = new Dictionary<string, int>(); // language code -> selected occurrence index (1-based)
 
@@ -1655,7 +1673,7 @@ public class ResourceEditorWindow : Window
             }
 
             // Multiple occurrences: ask user
-            var selectedIndex = ShowOccurrenceSelectionDialog(rf.Language.Name, key, langOccurrences);
+            var selectedIndex = ShowOccurrenceSelectionDialog(rf.Language.Name, key, langOccurrences, selectedKeyName);
             if (selectedIndex == -1)
             {
                 // User cancelled
@@ -1672,21 +1690,30 @@ public class ResourceEditorWindow : Window
                 continue;
 
             var selectedOccurrence = selections[rf.Language.Code];
-            var indices = rf.Entries
+            var occurrenceList = rf.Entries
                 .Select((e, i) => (Entry: e, Index: i))
-                .Where(x => x.Entry.Key == key)
-                .Select(x => x.Index)
+                .Where(x => x.Entry.Key.Equals(key, StringComparison.OrdinalIgnoreCase))
                 .ToList();
 
-            if (indices.Count <= 1)
+            if (occurrenceList.Count == 0)
+                continue;
+
+            // Standardize the key name of the selected occurrence
+            var selectedIndex = selectedOccurrence - 1;
+            if (selectedIndex >= 0 && selectedIndex < occurrenceList.Count)
+            {
+                occurrenceList[selectedIndex].Entry.Key = selectedKeyName;
+            }
+
+            if (occurrenceList.Count <= 1)
                 continue;
 
             // Remove all except the selected one (in reverse to maintain indices)
-            for (int i = indices.Count - 1; i >= 0; i--)
+            for (int i = occurrenceList.Count - 1; i >= 0; i--)
             {
                 if (i + 1 != selectedOccurrence)
                 {
-                    rf.Entries.RemoveAt(indices[i]);
+                    rf.Entries.RemoveAt(occurrenceList[i].Index);
                 }
             }
         }
@@ -1696,10 +1723,79 @@ public class ResourceEditorWindow : Window
         RebuildTable();
         _hasUnsavedChanges = true;
 
-        MessageBox.Query("Success", $"Successfully merged '{key}'", "OK");
+        var message = caseVariants.Count > 1
+            ? $"Successfully merged '{key}' → '{selectedKeyName}'"
+            : $"Successfully merged '{key}'";
+        MessageBox.Query("Success", message, "OK");
     }
 
-    private int ShowOccurrenceSelectionDialog(string languageName, string key, List<ResourceEntry> occurrences)
+    private string ShowKeyNameSelectionDialog(List<string> caseVariants)
+    {
+        var dialog = new Dialog
+        {
+            Title = "Select Key Name",
+            Width = 60,
+            Height = 12 + caseVariants.Count
+        };
+
+        var message = new Label
+        {
+            Text = $"Found {caseVariants.Count} case variants.\n" +
+                   "Which key name should be used after merge?",
+            X = 1,
+            Y = 1,
+            Width = Dim.Fill() - 1,
+            Height = 3
+        };
+
+        var listView = new ListView
+        {
+            X = 1,
+            Y = 4,
+            Width = Dim.Fill() - 1,
+            Height = caseVariants.Count + 1
+        };
+
+        listView.SetSource(caseVariants);
+        listView.SelectedItem = 0;
+
+        var btnSelect = new Button
+        {
+            Text = "Select",
+            X = 1,
+            Y = Pos.AnchorEnd(2),
+            IsDefault = true
+        };
+
+        var btnCancel = new Button
+        {
+            Text = "Cancel",
+            X = Pos.Right(btnSelect) + 2,
+            Y = Pos.AnchorEnd(2)
+        };
+
+        string? selectedKeyName = null;
+
+        btnSelect.Clicked += () =>
+        {
+            selectedKeyName = caseVariants[listView.SelectedItem];
+            Application.RequestStop();
+        };
+
+        btnCancel.Clicked += () =>
+        {
+            selectedKeyName = null;
+            Application.RequestStop();
+        };
+
+        dialog.Add(message, listView, btnSelect, btnCancel);
+        Application.Run(dialog);
+        dialog.Dispose();
+
+        return selectedKeyName!;
+    }
+
+    private int ShowOccurrenceSelectionDialog(string languageName, string key, List<ResourceEntry> occurrences, string selectedKeyName)
     {
         var dialog = new Dialog
         {
@@ -1732,8 +1828,10 @@ public class ResourceEditorWindow : Window
             var entry = occurrences[i];
             var value = entry.Value ?? "";
             var comment = !string.IsNullOrWhiteSpace(entry.Comment) ? $" // {entry.Comment}" : "";
-            var preview = value.Length > 80 ? value.Substring(0, 77) + "..." : value;
-            items.Add($"[{i + 1}] \"{preview}\"{comment}");
+            var preview = value.Length > 60 ? value.Substring(0, 57) + "..." : value;
+            // Show key name if it differs from the selected standard
+            var keyDisplay = entry.Key != selectedKeyName ? $" ({entry.Key})" : "";
+            items.Add($"[{i + 1}] \"{preview}\"{keyDisplay}{comment}");
         }
 
         listView.SetSource(items);

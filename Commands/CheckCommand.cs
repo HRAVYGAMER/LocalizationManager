@@ -58,17 +58,7 @@ public class CheckCommand : Command<CheckCommand.Settings>
 
         var validateResult = validateCommand.Execute(context, validateSettings, cancellationToken);
 
-        if (validateResult != 0)
-        {
-            if (isTableFormat)
-            {
-                AnsiConsole.WriteLine();
-                AnsiConsole.MarkupLine("[red]✗ Validation failed - stopping check[/]");
-            }
-            return validateResult;
-        }
-
-        // Step 2: Run scan
+        // Step 2: Run scan (always run, even if validation failed)
         if (isTableFormat)
         {
             AnsiConsole.WriteLine();

@@ -176,10 +176,10 @@ public class BackupManagerWindow : Dialog
             return;
 
         var selectedIdx = _fileListView.SelectedItem;
-        if (selectedIdx < 0)
+        if (selectedIdx < 0 || _fileListView.Source == null)
             return;
 
-        var fileName = _fileListView.Source.ToList()[selectedIdx].ToString();
+        var fileName = _fileListView.Source.ToList()[selectedIdx]?.ToString();
         if (string.IsNullOrEmpty(fileName) || fileName == null || !_backupsByFile.ContainsKey(fileName))
             return;
 

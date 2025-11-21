@@ -455,7 +455,122 @@
 
 ---
 
-### Phase 4: Simple CLI Chaining (Week 4)
+### Phase 4: TUI Visual & Workflow Enhancements (Week 4-5)
+**Status:** Not Started
+**Priority:** High
+**Description:** Enhance the Terminal UI with visual polish and workflow efficiency improvements
+
+**Phase 4a: Visual & UX Polish (Week 4)**
+
+- [ ] Color Scheme System
+  - [ ] Implement row color-coding system
+  - [ ] Missing values: red text
+  - [ ] Extra keys: yellow text
+  - [ ] Modified/unsaved changes: green text
+  - [ ] Duplicates: orange text
+  - [ ] Apply ColorScheme to TableView rows
+
+- [ ] StatusBar Widget Upgrade
+  - [ ] Replace bottom Label with Terminal.Gui StatusBar
+  - [ ] Add StatusItems for key counts, warnings, mode indicators
+  - [ ] Improve layout and readability
+
+- [ ] Progress Indicators
+  - [ ] Add ProgressBar widget for translation operations
+  - [ ] Add ProgressBar for code scanning
+  - [ ] Replace text-only progress with visual bars
+  - [ ] Show percentage and estimated time remaining
+
+- [ ] Search Enhancements
+  - [ ] Add "Clear" button (X) next to search field
+  - [ ] Display match counter ("15/247 matches")
+  - [ ] Highlight current match in grid
+  - [ ] Add Next/Previous match navigation (F3/Shift+F3)
+
+- [ ] Context Menus
+  - [ ] Implement right-click context menu on table rows
+  - [ ] Add quick actions: Edit, Translate, Delete, Copy Value
+  - [ ] Add "Go to Key" action
+  - [ ] Context-aware menu items
+
+- [ ] Clipboard Support
+  - [ ] Implement copy value to clipboard (Ctrl+C)
+  - [ ] Implement paste value from clipboard (Ctrl+V)
+  - [ ] Copy key name
+  - [ ] Copy all values for key
+
+**Phase 4b: Workflow Efficiency (Week 5)**
+
+- [ ] Inline Quick Edit
+  - [ ] Implement F2 for inline cell editing
+  - [ ] Support for simple value edits without dialog
+  - [ ] Tab to move to next cell
+  - [ ] ESC to cancel, Enter to save
+
+- [ ] Undo/Redo System
+  - [ ] Implement operation history stack
+  - [ ] Ctrl+Z for undo
+  - [ ] Ctrl+Y for redo
+  - [ ] Track edit, delete, add, translate operations
+  - [ ] Show undo/redo availability in status bar
+
+- [ ] Batch Operations
+  - [ ] Multi-select rows (Shift+Up/Down, Ctrl+Click)
+  - [ ] Bulk translate selected keys
+  - [ ] Bulk delete selected keys
+  - [ ] Visual indication of selected rows
+  - [ ] "Select All" (Ctrl+A) and "Deselect All"
+
+- [ ] Column Sorting
+  - [ ] Click column headers to sort
+  - [ ] Sort by key name (A-Z, Z-A)
+  - [ ] Sort by status (missing first, translated first)
+  - [ ] Sort indicators in headers (▲▼)
+
+- [ ] Export Filtered View
+  - [ ] Add "Export Current View" option (Ctrl+E)
+  - [ ] Export filtered results to CSV
+  - [ ] Export filtered results to JSON
+  - [ ] Include only visible columns and rows
+
+**Phase 4c: Architecture Improvements (Optional - Performance)**
+
+- [ ] Incremental Table Updates
+  - [ ] Replace full table rebuilds with row updates
+  - [ ] Update only changed rows
+  - [ ] Optimize filter operations
+  - [ ] Performance testing with 1000+ keys
+
+- [ ] Background Task Framework
+  - [ ] Move code scanning to background thread
+  - [ ] Add task queue system
+  - [ ] Non-blocking UI during scans
+  - [ ] Cancellable operations
+
+- [ ] Code Refactoring
+  - [ ] Split ResourceEditorWindow.cs into partial classes
+  - [ ] Separate concerns: UI, Data, Operations
+  - [ ] Extract dialog creation to helper methods
+  - [ ] Reduce nesting and complexity
+
+- [ ] Testing
+  - [ ] Unit tests for new UI components
+  - [ ] Integration tests for undo/redo
+  - [ ] Test keyboard shortcuts
+  - [ ] Test color schemes
+  - [ ] Test multi-select operations
+  - [ ] Performance tests with large datasets (1000+ keys)
+
+- [ ] Documentation
+  - [ ] Create or update docs/TUI.md
+  - [ ] Document all new keyboard shortcuts
+  - [ ] Add examples and screenshots
+  - [ ] Update README.md features section
+  - [ ] Update keyboard shortcut reference
+
+---
+
+### Phase 5: Simple CLI Chaining (Week 6)
 **Status:** Not Started
 **Dates:** TBD
 
@@ -516,7 +631,7 @@
 
 ---
 
-### Phase 5: Web API (Week 5-6)
+### Phase 6: Web API (Week 7-8)
 **Status:** Not Started
 **Dates:** TBD
 
@@ -575,7 +690,7 @@
 
 ---
 
-### Phase 6: Blazor WASM UI (Week 7-10)
+### Phase 7: Blazor WASM UI (Week 9-12)
 **Status:** Not Started
 **Dates:** TBD
 
@@ -658,7 +773,7 @@
 
 ---
 
-### Phase 7: Integration & Polish (Week 11)
+### Phase 8: Integration & Polish (Week 13)
 **Status:** Not Started
 **Dates:** TBD
 
@@ -699,7 +814,7 @@
 
 ---
 
-### Phase 8: Release (Week 12)
+### Phase 9: Release (Week 14)
 **Status:** Not Started
 **Dates:** TBD
 
@@ -774,12 +889,13 @@
 
 ## 📊 Progress Tracking
 
-**Overall Progress:** ~38% (3/8 phases completed)
+**Overall Progress:** ~33% (3/9 phases completed)
 
 ### Feature Completion
 - [x] Variable/Placeholder Validation (100% ✅ - Complete: Core + CLI + TUI + Tests + Docs)
 - [x] Enhanced Backup System + Diff View (100% ✅ - Complete: Core + CLI + TUI + Tests + Docs)
 - [x] Debian Package Distribution (.deb + PPA) (100% ✅ - Complete: Packaging + Scripts + CI/CD + Docs)
+- [ ] TUI Visual & Workflow Enhancements (0%)
 - [ ] Simple CLI Chaining (0%)
 - [ ] Web API (0%)
 - [ ] Blazor WASM UI (0%)
@@ -788,11 +904,12 @@
 - [x] Phase 1: Foundation & Backup System (100% ✅ - COMPLETED 2025-01-16)
 - [x] Phase 2: Variable Validation (100% ✅ - COMPLETED 2025-01-16)
 - [x] Phase 3: Debian Package Distribution (100% ✅ - COMPLETED 2025-01-18)
-- [ ] Phase 4: Simple CLI Chaining (0%)
-- [ ] Phase 5: Web API (0%)
-- [ ] Phase 6: Blazor WASM UI (0%)
-- [ ] Phase 7: Integration & Polish (0%)
-- [ ] Phase 8: Release (0%)
+- [ ] Phase 4: TUI Visual & Workflow Enhancements (0%)
+- [ ] Phase 5: Simple CLI Chaining (0%)
+- [ ] Phase 6: Web API (0%)
+- [ ] Phase 7: Blazor WASM UI (0%)
+- [ ] Phase 8: Integration & Polish (0%)
+- [ ] Phase 9: Release (0%)
 
 ---
 
@@ -822,17 +939,18 @@ None
 | Phase 1: Foundation & Backup | 2 days | ✅ **Completed** | 2025-01-15 | 2025-01-16 |
 | Phase 2: Variable Validation | 1 day | ✅ **Completed** | 2025-01-16 | 2025-01-16 |
 | Phase 3: Debian Package Distribution | 1 day | ✅ **Completed** | 2025-01-18 | 2025-01-18 |
-| Phase 4: Simple CLI Chaining | 1 week | Not Started | TBD | TBD |
-| Phase 5: Web API | 2 weeks | Not Started | TBD | TBD |
-| Phase 6: Blazor WASM UI | 4 weeks | Not Started | TBD | TBD |
-| Phase 7: Integration & Polish | 1 week | Not Started | TBD | TBD |
-| Phase 8: Release | 1 week | Not Started | TBD | TBD |
-| **Total** | **12 weeks** | **38%** | **2025-01-15** | **TBD** |
+| Phase 4: TUI Visual & Workflow Enhancements | 2 weeks | Not Started | TBD | TBD |
+| Phase 5: Simple CLI Chaining | 1 week | Not Started | TBD | TBD |
+| Phase 6: Web API | 2 weeks | Not Started | TBD | TBD |
+| Phase 7: Blazor WASM UI | 4 weeks | Not Started | TBD | TBD |
+| Phase 8: Integration & Polish | 1 week | Not Started | TBD | TBD |
+| Phase 9: Release | 1 week | Not Started | TBD | TBD |
+| **Total** | **14 weeks** | **33%** | **2025-01-15** | **TBD** |
 
 ---
 
-**Last Updated:** 2025-01-18
-**Current Phase:** Phase 4 - Simple CLI Chaining (Not Started)
+**Last Updated:** 2025-01-22
+**Current Phase:** Phase 4 - TUI Visual & Workflow Enhancements (Not Started)
 
 **Phase 1 Completed (2025-01-16):**
 - ✅ LocalizationManager.Shared project
@@ -879,4 +997,4 @@ None
 - ✅ Complete documentation (INSTALLATION.md, PACKAGING.md, README.md)
 - ✅ Ready for testing on next release (v0.6.13+)
 
-**Next Milestone:** Phase 4 - Simple CLI Chaining
+**Next Milestone:** Phase 4 - TUI Visual & Workflow Enhancements

@@ -208,7 +208,10 @@ _lrm() {
                         $global_opts
                     ;;
                 edit)
-                    _arguments $global_opts
+                    _arguments \
+                        '--source-path[Path to source code directory for code scanning]:directory:_directories' \
+                        '--no-backup[Skip backup creation]' \
+                        $global_opts
                     ;;
                 translate)
                     _arguments \

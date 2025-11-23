@@ -153,7 +153,11 @@ Run validation after import
 Launch interactive Terminal UI editor.
 .PP
 .B lrm edit
+[\fB\-\-source\-path\fR \fIPATH\fR]
 [\fB\-\-no\-backup\fR]
+.TP
+.BR \-\-source\-path " " \fIPATH\fR
+Path to source code directory for code scanning (default: parent directory of resource path)
 .PP
 Keyboard shortcuts:
 .IP \(bu 2
@@ -171,7 +175,21 @@ F4 - Translate all missing
 .IP \(bu 2
 F5 - Configure providers
 .IP \(bu 2
-F7 - Backup manager
+F6 - Validation
+.IP \(bu 2
+F7 - Code scan / Backup manager
+.IP \(bu 2
+Space - Toggle row selection
+.IP \(bu 2
+Ctrl+A - Select all visible keys
+.IP \(bu 2
+Shift+↑/↓ - Extend selection
+.IP \(bu 2
+Esc - Clear selection
+.IP \(bu 2
+Ctrl+Z/Y - Undo/Redo
+.IP \(bu 2
+Ctrl+C/V - Copy/Paste value
 .IP \(bu 2
 Ctrl+S - Save changes
 .IP \(bu 2

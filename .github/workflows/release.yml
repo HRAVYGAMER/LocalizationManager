@@ -95,8 +95,20 @@ jobs:
           GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
         run: |
+          # Import GPG key
           echo "$GPG_PRIVATE_KEY" | base64 -d | gpg --batch --import
-          echo "✓ GPG key imported"
+
+          # Configure GPG for non-interactive use
+          mkdir -p ~/.gnupg
+          chmod 700 ~/.gnupg
+          echo "use-agent" >> ~/.gnupg/gpg.conf
+          echo "pinentry-mode loopback" >> ~/.gnupg/gpg.conf
+          echo "allow-loopback-pinentry" >> ~/.gnupg/gpg-agent.conf
+
+          # Restart GPG agent
+          gpg-connect-agent reloadagent /bye || true
+
+          echo "✓ GPG key imported and configured"
 
       - name: Sign source package
         env:
@@ -104,12 +116,11 @@ jobs:
           LAUNCHPAD_EMAIL: ${{ secrets.LAUNCHPAD_EMAIL }}
         run: |
           cd publish/source
-          # Configure debsign to use GPG agent with passphrase
-          echo "allow-preset-passphrase" >> ~/.gnupg/gpg-agent.conf
-          gpg-connect-agent reloadagent /bye
 
-          # Sign the changes file
-          debsign -k "$LAUNCHPAD_EMAIL" --no-re-sign lrm_*_source.changes
+          # Sign using debsign with passphrase from environment
+          # Use --no-conf to avoid user config interference
+          echo "$GPG_PASSPHRASE" | debsign --no-conf -k "$LAUNCHPAD_EMAIL" --no-re-sign -p"gpg --batch --pinentry-mode loopback --passphrase-fd 0" lrm_*_source.changes
+
           echo "✓ Source package signed"
 
       - name: Upload to Launchpad PPA

@@ -93,7 +93,12 @@ LRM solves this by providing:
   - Side-by-side multi-language editing
   - In-app translation with Ctrl+T
   - Real-time validation and search
+  - Code scanning integration (F7) with usage filters
+  - Undo/Redo support (Ctrl+Z/Ctrl+Y)
+  - Context menus and clipboard operations
+  - Visual status indicators and progress bars
   - Full duplicate key support (view, edit, delete, merge)
+  - Comprehensive keyboard shortcuts (see [docs/TUI.md](docs/TUI.md))
 - **🔍 Validation** - Detect missing translations, duplicates, empty values, and placeholder mismatches
   - Automatic placeholder validation for .NET format strings (`{0}`, `{name}`), printf-style (`%s`, `%d`), ICU MessageFormat, and template literals (`${var}`)
   - Ensures dynamic content and format strings are correctly preserved across all languages
@@ -411,14 +416,19 @@ Launch with `lrm edit` to get a visual interface:
 - `Enter` - Edit selected key
 - `Ctrl+N` - Add new key
 - `Del` - Delete key (with duplicate handling options)
+- `Ctrl+T` - Translate selected key
+- `Ctrl+Z` / `Ctrl+Y` - Undo/Redo
+- `Ctrl+C` / `Ctrl+V` - Copy/Paste value
+- `F7` - Scan source code for key usage
 - `F8` - Merge duplicate keys
-- `Ctrl+T` - Translate selected key or auto-translate in edit dialog
 - `F4` - Translate all missing values
 - `F5` - Configure translation providers
 - `Ctrl+S` - Save changes
 - `Ctrl+Q` - Quit
 - `F1` - Help
 - `/` - Search
+- `F3` / `Shift+F3` - Next/Previous search match
+- `Right-Click` - Show context menu
 
 **Search & Filter:**
 - Toggle search scope: Keys+Values → Keys Only → Comments → All
@@ -454,6 +464,7 @@ LocalizationManager/
 |----------|-------------|
 | [docs/INSTALLATION.md](docs/INSTALLATION.md) | Complete installation guide for all platforms |
 | [docs/COMMANDS.md](docs/COMMANDS.md) | Detailed command reference with all options |
+| [**docs/TUI.md**](docs/TUI.md) 🆕 | **Terminal UI guide (keyboard shortcuts, features, workflows)** ⭐ |
 | [**docs/CONFIGURATION.md**](docs/CONFIGURATION.md) 🆕 | **Configuration file guide (lrm.json schema and examples)** |
 | [**docs/BACKUP.md**](docs/BACKUP.md) 🆕 | **Backup & versioning system guide (automatic backups, diff, restore)** |
 | [**docs/PLACEHOLDERS.md**](docs/PLACEHOLDERS.md) 🆕 | **Placeholder validation guide (.NET/printf/ICU/template literal formats)** |
@@ -495,10 +506,10 @@ dotnet run -- --help
 - **In-app Translation** - TUI integration with Ctrl+T, F4, F5 shortcuts
 - **Code Scanning** - Find unused keys and missing references in source code (C#, Razor, XAML)
 - **Configuration File** - Complete lrm.json support for project-wide defaults
+- **TUI Visual & Workflow Enhancements** - Code scanning integration, undo/redo, context menus, clipboard, progress bars, enhanced search
 
 ### 🚧 In Progress
-- **Translation Memory** - Suggest translations based on similar keys
-- **Fuzzy Matching** - Find similar keys across files
+- **Simple CLI Chaining** - Run multiple LRM commands sequentially in one invocation
 
 ### 📋 Planned Features
 - **Diff View** - Compare translations between versions

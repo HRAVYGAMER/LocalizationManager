@@ -660,12 +660,19 @@ public class ValidateCommand : Command<ValidateCommandSettings>
         if (!allDuplicateKeys.Any())
             return;
 
-        // Determine source path
-        var sourcePath = settings.SourcePath;
-        if (string.IsNullOrEmpty(sourcePath))
+        // Determine source path - convert to absolute path first to handle relative paths correctly
+        // Trim trailing slashes to ensure Directory.GetParent works correctly
+        var absoluteResourcePath = Path.GetFullPath(resourcePath).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        string sourcePath;
+        if (!string.IsNullOrEmpty(settings.SourcePath))
+        {
+            sourcePath = Path.GetFullPath(settings.SourcePath).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        }
+        else
         {
             // Default to parent directory of resource path
-            sourcePath = Directory.GetParent(resourcePath)?.FullName ?? resourcePath;
+            var parent = Directory.GetParent(absoluteResourcePath);
+            sourcePath = parent?.FullName ?? absoluteResourcePath;
         }
 
         if (!Directory.Exists(sourcePath))

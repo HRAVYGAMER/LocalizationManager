@@ -62,8 +62,19 @@ public class ScanCommand : Command<ScanCommand.Settings>
         var format = settings.GetOutputFormat();
         var isTableFormat = format == OutputFormat.Table;
 
-        // Determine source path
-        var sourcePath = settings.SourcePath ?? Directory.GetParent(resourcePath)?.FullName ?? resourcePath;
+        // Determine source path - convert to absolute path first to handle relative paths correctly
+        // Trim trailing slashes to ensure Directory.GetParent works correctly
+        var absoluteResourcePath = Path.GetFullPath(resourcePath).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        string sourcePath;
+        if (settings.SourcePath != null)
+        {
+            sourcePath = Path.GetFullPath(settings.SourcePath).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        }
+        else
+        {
+            var parent = Directory.GetParent(absoluteResourcePath);
+            sourcePath = parent?.FullName ?? absoluteResourcePath;
+        }
 
         if (!Directory.Exists(sourcePath))
         {

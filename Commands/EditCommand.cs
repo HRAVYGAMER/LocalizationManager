@@ -19,6 +19,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+using System.ComponentModel;
 using LocalizationManager.Core;
 using LocalizationManager.Core.Models;
 using LocalizationManager.UI;
@@ -31,15 +32,36 @@ namespace LocalizationManager.Commands;
 /// <summary>
 /// Command to launch the interactive TUI editor.
 /// </summary>
-public class EditCommand : Command<BaseCommandSettings>
+public class EditCommand : Command<EditCommand.Settings>
 {
-    public override int Execute(CommandContext context, BaseCommandSettings settings, CancellationToken cancellationToken = default)
+    public class Settings : BaseCommandSettings
+    {
+        [CommandOption("--source-path <PATH>")]
+        [Description("Path to source code directory for code scanning. Defaults to parent directory of resource path.")]
+        public string? SourcePath { get; set; }
+    }
+
+    public override int Execute(CommandContext context, Settings settings, CancellationToken cancellationToken = default)
     {
         // Load configuration if available
         settings.LoadConfiguration();
 
         var resourcePath = settings.GetResourcePath();
         var defaultCode = settings.LoadedConfiguration?.DefaultLanguageCode ?? "default";
+
+        // Determine source path for code scanning (same logic as ScanCommand)
+        // Convert to absolute path first to handle relative paths correctly
+        var absoluteResourcePath = Path.GetFullPath(resourcePath).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        string sourcePath;
+        if (settings.SourcePath != null)
+        {
+            sourcePath = Path.GetFullPath(settings.SourcePath).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        }
+        else
+        {
+            var parent = Directory.GetParent(absoluteResourcePath);
+            sourcePath = parent?.FullName ?? absoluteResourcePath;
+        }
 
         try
         {
@@ -73,7 +95,7 @@ public class EditCommand : Command<BaseCommandSettings>
 
             // Launch TUI
             Application.Init();
-            Application.Run(new ResourceEditorWindow(resourceFiles, parser, defaultCode, settings.LoadedConfiguration));
+            Application.Run(new ResourceEditorWindow(resourceFiles, parser, defaultCode, sourcePath, settings.LoadedConfiguration));
             Application.Shutdown();
 
             return 0;

@@ -271,7 +271,7 @@ main() {
     DATE_RFC5322=$(date --rfc-email)
 
     cat > debian/changelog <<EOF
-lrm ($DEBIAN_VERSION) unstable; urgency=medium
+lrm ($DEBIAN_VERSION) noble; urgency=medium
 
 EOF
 

@@ -3,7 +3,7 @@
 **Target Release:** v0.7.0
 **Estimated Timeline:** 12 weeks
 **Start Date:** 2025-01-15
-**Architecture:** ASP.NET Core Web API + Blazor WebAssembly
+**Architecture:** ASP.NET Core Web API + Blazor Server (via API)
 
 ---
 
@@ -71,18 +71,23 @@
 
 ---
 
-### 4. Blazor WASM UI
+### 4. Blazor Server Web UI
 **Status:** Not Started
 **Priority:** High
-**Description:** Browser-based editor with full feature parity
+**Description:** Browser-based editor with full feature parity using Blazor Server + API
 
-**Blazor WASM (LocalizationManager.Web):**
-- [ ] Create project structure
+**Architecture Decision:**
+- **Blazor Server** (server-side rendering with SignalR)
+- **API Integration** - UI calls existing API endpoints via HttpClient
+- **Custom CSS** - Terminal-inspired theme (~500 lines), no npm dependencies
+- **Monolithic** - No CORS needed (same origin), simple deployment
+
+**Core Pages:**
 - [ ] Index.razor (Dashboard)
 - [ ] Editor.razor (Main editor)
 - [ ] Validation.razor
 - [ ] Translation.razor
-- [ ] BackupHistory.razor
+- [ ] Backup.razor
 - [ ] Settings.razor
 
 **Shared Components:**
@@ -92,19 +97,17 @@
 - [ ] LanguagePicker.razor
 - [ ] ProgressIndicator.razor
 - [ ] DiffViewer.razor
-- [ ] Timeline.razor
 
-**API Clients:**
-- [ ] ResourceApiClient
-- [ ] ValidationApiClient
-- [ ] TranslationApiClient
-- [ ] BackupApiClient
-- [ ] SignalR integration
+**API Client:**
+- [ ] LrmApiClient service (wrapper for all 10 controller endpoints)
+
+**Styling:**
+- [ ] Custom CSS with terminal theme
+- [ ] Responsive design
+- [ ] Dark color scheme
 
 **Other:**
-- [ ] Responsive design
 - [ ] Component tests (bUnit)
-- [ ] E2E tests
 - [ ] Documentation
 
 ---
@@ -779,191 +782,134 @@ Before implementing the full Web API, the `lrm web` command will be created as t
 
 ---
 
-### Phase 7: Blazor WASM UI (Week 9-12)
-**Status:** Not Started
-**Dates:** TBD
+### Phase 7: Blazor Server Web UI (Week 9-12)
+**Status:** In Progress
+**Dates:** Started 2025-01-24
 
-**UI Framework:** Vanilla Blazor + TailwindCSS
-- **No UI component library** (MudBlazor, Radzen, etc.) - keeping it lightweight
-- **TailwindCSS** for utility-first styling (small bundle size after purge: ~10-50KB)
-- **Custom components** built from scratch for full control
-- **Terminal-inspired aesthetic** matching the developer tool nature of LRM
-- **Zero JavaScript dependencies** - all interactivity handled by Blazor
+**Architecture Decision:**
+- **Blazor Server** (server-side rendering with SignalR for real-time updates)
+- **API Integration** - UI calls existing API endpoints via HttpClient (localhost:5000)
+- **Custom CSS** - Terminal-inspired theme (~500 lines, no npm/Node.js dependencies)
+- **Monolithic** - Single port serves both API and UI, no CORS configuration needed
+- **No JavaScript frameworks** - Pure .NET/C# solution for simple housekeeping
 
-- [ ] Create LocalizationManager.Web Project
-  - [ ] Blazor WebAssembly project
-  - [ ] Project structure
-  - [ ] Program.cs setup
-  - [ ] wwwroot/index.html
-  - [ ] Setup TailwindCSS
-    - [ ] Install Tailwind CLI via npm
-    - [ ] Create tailwind.config.js with LRM theme (terminal colors, monospace fonts)
-    - [ ] Configure PurgeCSS for production builds
-    - [ ] Create custom color palette (terminal-bg, terminal-fg, status colors)
-    - [ ] Add build script to compile Tailwind CSS
+**Key Benefits:**
+- ✅ Uses all 10 existing API controllers (work not wasted)
+- ✅ Consistent architecture (UI and external tools use same API)
+- ✅ Simple build process (`dotnet build && dotnet run -- web`)
+- ✅ No npm/Node.js toolchain required
+- ✅ API tested by UI usage (integration testing)
+- ✅ Easy debugging (step through Blazor → API in same process)
 
-- [ ] Implement API Clients (Full Feature Parity)
-  - [ ] Create Services/ directory
-  - [ ] ResourceApiClient.cs (list, get, add, update, delete, merge-duplicates)
-  - [ ] ValidationApiClient.cs (validate, get issues, placeholder validation)
-  - [ ] TranslationApiClient.cs (translate, list providers, batch translate, check status)
-  - [ ] ScanApiClient.cs (scan, get results, unused, missing, references)
-  - [ ] BackupApiClient.cs (list, create, info, diff, restore, delete, prune)
-  - [ ] LanguageApiClient.cs (list, add, remove)
-  - [ ] StatsApiClient.cs (get translation coverage stats)
-  - [ ] ExportApiClient.cs (export to CSV/JSON)
-  - [ ] ImportApiClient.cs (import from CSV)
-  - [ ] ConfigurationApiClient.cs (get, update, create, schema)
-  - [ ] HttpClient configuration with base address
+- [ ] Add Blazor Server Services to WebCommand.cs
+  - [ ] builder.Services.AddRazorPages()
+  - [ ] builder.Services.AddServerSideBlazor()
+  - [ ] app.MapBlazorHub()
+  - [ ] app.MapFallbackToPage("/_Host")
+  - [ ] HttpClient registration with base address (localhost:5000)
+
+- [ ] Create LrmApiClient Service (Full Feature Parity)
+  - [ ] Services/LrmApiClient.cs - Wrapper for all 10 controllers
+  - [ ] Resource operations (list, get, add, update, delete)
+  - [ ] Validation operations (validate, get issues)
+  - [ ] Translation operations (translate, list providers)
+  - [ ] Scan operations (scan, unused, missing, references)
+  - [ ] Backup operations (list, create, info, diff, restore, delete)
+  - [ ] Language operations (list, add, remove)
+  - [ ] Stats operations (get coverage)
+  - [ ] Export operations (JSON, CSV)
+  - [ ] Import operations (CSV)
+  - [ ] Configuration operations (get, update, validate)
+
+- [ ] Create UI Structure
+  - [ ] Pages/_Host.cshtml - Entry point for Blazor Server
+  - [ ] Pages/_Layout.cshtml - HTML document wrapper
+  - [ ] Shared/MainLayout.razor - App layout with navigation
+  - [ ] _Imports.razor - Global using statements
+  - [ ] App.razor - Root component with routing
+
+- [ ] Create Custom Terminal Theme CSS
+  - [ ] wwwroot/css/terminal-theme.css
+  - [ ] CSS variables for theming (--terminal-bg, --terminal-fg, etc.)
+  - [ ] Dark color scheme (#1e1e1e background, #d4d4d4 text)
+  - [ ] Status colors (red, yellow, cyan, gray matching TUI)
+  - [ ] Monospace fonts (Consolas, Monaco, Courier New)
+  - [ ] Responsive grid layouts (flex/grid)
+  - [ ] Button and input styles
+  - [ ] Table styles for multi-language grid
+  - [ ] Modal and toast notification styles
+  - [ ] ~500 lines total, zero external dependencies
 
 - [ ] Implement Core Pages
-  - [ ] Index.razor (Dashboard)
-    - [ ] Resource file list with quick stats
-    - [ ] Translation coverage overview (charts/graphs)
+  - [ ] Pages/Index.razor - Dashboard
+    - [ ] Resource file summary with stats
+    - [ ] Translation coverage overview
+    - [ ] Quick actions (validate, scan, translate all)
     - [ ] Recent validation issues
-    - [ ] Quick actions (validate, scan, translate)
-    - [ ] System status (scan results, backup count)
-  - [ ] Editor.razor (Main editor - TUI feature parity)
-    - [ ] Multi-language side-by-side grid (similar to TUI)
-    - [ ] Inline editing with auto-save
-    - [ ] Real-time search with regex support
-    - [ ] Filter by status (missing, duplicates, unused, etc.)
-    - [ ] Bulk operations (select multiple keys, bulk translate, bulk delete)
-    - [ ] Context menu (right-click actions)
-    - [ ] Keyboard shortcuts (Ctrl+S, Ctrl+F, Delete, etc.)
-    - [ ] Color-coded rows (missing=red, extra=yellow, duplicates=cyan, unused=gray)
-    - [ ] Status indicators (⚠ ⭐ ◆ ∅ ✗)
+  - [ ] Pages/Editor.razor - Main editor (TUI feature parity)
+    - [ ] Multi-language grid using LrmApiClient
+    - [ ] Inline editing with API calls
+    - [ ] Search with regex support
+    - [ ] Filter by status (missing, duplicates, unused)
+    - [ ] Color-coded rows (status indicators: ⚠ ⭐ ◆ ∅ ✗)
     - [ ] Comment display and editing
-    - [ ] Undo/Redo support
-
-- [ ] Implement Feature Pages
-  - [ ] Validation.razor
-    - [ ] Real-time validation results display
-    - [ ] Filter by issue type (missing, duplicates, placeholders, etc.)
+    - [ ] Bulk operations (select, translate, delete)
+  - [ ] Pages/Validation.razor - Validation results
+    - [ ] Call /api/validation/validate
+    - [ ] Display issues by type
     - [ ] Quick fix actions
-    - [ ] Export validation report
-  - [ ] Translation.razor
-    - [ ] Provider selection dropdown
-    - [ ] Language picker (source → target)
-    - [ ] Translate all missing / selected keys
-    - [ ] Real-time progress tracking (SignalR)
-    - [ ] Translation preview before applying
-    - [ ] Cost estimation (for paid providers)
-  - [ ] Scan.razor (Code Scanning)
-    - [ ] Trigger code scan
-    - [ ] Display scan results (unused keys, missing keys)
-    - [ ] Show code references for each key (file, line, pattern)
-    - [ ] Filter by usage status
-    - [ ] Export scan report
-  - [ ] BackupHistory.razor
-    - [ ] Backup timeline visualization
-    - [ ] Visual diff viewer (side-by-side comparison)
-    - [ ] Restore wizard with preview
-    - [ ] Create backup on demand
-    - [ ] Delete/prune old backups
-  - [ ] Languages.razor
-    - [ ] List all languages in project
-    - [ ] Add new language
-    - [ ] Remove language
-    - [ ] Language statistics
-  - [ ] Import.razor
-    - [ ] Upload CSV file
-    - [ ] Preview import changes
-    - [ ] Import with validation
-  - [ ] Export.razor
-    - [ ] Export to CSV/JSON
-    - [ ] Select languages to export
-    - [ ] Filter keys to export
-  - [ ] Settings.razor (Configuration Management)
-    - [ ] View/edit lrm.json configuration
-    - [ ] API keys management (with secure input)
-    - [ ] Translation provider defaults
-    - [ ] Validation settings (placeholder types)
-    - [ ] Scanning settings (resource class names, localization methods)
-    - [ ] Create lrm.json if doesn't exist
-    - [ ] Real-time configuration validation
-    - [ ] Save configuration (triggers dynamic reload on server)
+  - [ ] Pages/Translation.razor - Translation interface
+    - [ ] Provider selection
+    - [ ] Language picker
+    - [ ] Translate missing keys
+    - [ ] Progress indicator
+  - [ ] Pages/Backup.razor - Backup management
+    - [ ] List backups via API
+    - [ ] Create backup
+    - [ ] View diff
+    - [ ] Restore with preview
+  - [ ] Pages/Settings.razor - Configuration editor
+    - [ ] View/edit lrm.json via /api/configuration
+    - [ ] Validation before save
+    - [ ] API key management
 
 - [ ] Implement Shared Components
-  - [ ] Components/ResourceGrid.razor (multi-language grid with inline editing)
-  - [ ] Components/KeyEditor.razor (modal dialog for editing key/value/comment)
-  - [ ] Components/SearchBar.razor (search with regex, wildcard, scope filters)
-  - [ ] Components/LanguagePicker.razor (dropdown for language selection)
-  - [ ] Components/ProgressIndicator.razor (progress bar for long operations)
-  - [ ] Components/DiffViewer.razor (side-by-side diff visualization)
-  - [ ] Components/Timeline.razor (backup timeline visualization)
-  - [ ] Components/ValidationPanel.razor (validation results display)
-  - [ ] Components/StatusIndicator.razor (⚠ ⭐ ◆ ∅ ✗ icons)
-  - [ ] Components/ContextMenu.razor (right-click context menu)
-  - [ ] Components/ConfirmDialog.razor (confirmation dialogs)
-  - [ ] Components/NotificationToast.razor (toast notifications for user feedback)
+  - [ ] Shared/Components/ResourceGrid.razor
+  - [ ] Shared/Components/KeyEditor.razor (modal dialog)
+  - [ ] Shared/Components/SearchBar.razor
+  - [ ] Shared/Components/ProgressBar.razor
+  - [ ] Shared/Components/StatusBadge.razor (⚠ ⭐ ◆ ∅ ✗)
+  - [ ] Shared/Components/ConfirmDialog.razor
+  - [ ] Shared/Components/Toast.razor (notifications)
 
-- [ ] SignalR Integration (Real-time Multi-user Collaboration)
-  - [ ] HubConnection setup in Program.cs
-  - [ ] TranslationProgressHub client
-    - [ ] Subscribe to translation progress updates
-    - [ ] Update UI in real-time as translations complete
-    - [ ] Show which user is translating what
-  - [ ] ValidationHub client
-    - [ ] Receive validation results as they're computed
-    - [ ] Update validation panel in real-time
-  - [ ] ScanProgressHub client
-    - [ ] Real-time scan progress updates
-    - [ ] Update UI as scan results arrive
-  - [ ] FileChangeHub client
-    - [ ] Notify when .resx files change on server
-    - [ ] Prompt user to reload data
-    - [ ] Show which user made changes (multi-user awareness)
-  - [ ] Auto-reconnect logic
-  - [ ] Connection status indicator in UI
-
-- [ ] Styling & UX (TailwindCSS)
-  - [ ] Terminal-inspired color scheme
-    - [ ] Dark theme by default (terminal-bg: #1e1e1e, terminal-fg: #d4d4d4)
-    - [ ] Status colors matching TUI (red, yellow, cyan, gray for validation states)
-    - [ ] Monospace fonts for code/key display
+- [ ] Styling & UX (Custom CSS)
+  - [ ] Terminal-inspired dark theme
   - [ ] Responsive design (mobile, tablet, desktop)
-    - [ ] Mobile: single column, collapsible sections
-    - [ ] Tablet: 2-column layout
-    - [ ] Desktop: full multi-column grid
-  - [ ] Loading states
-    - [ ] Skeleton loaders with Tailwind animations
-    - [ ] Spinners for long operations
-    - [ ] Progress bars for batch operations
-  - [ ] Error handling
-    - [ ] Toast notifications with auto-dismiss
-    - [ ] Inline validation errors
-    - [ ] Error boundaries for component failures
-  - [ ] Accessibility (WCAG 2.1 AA)
-    - [ ] Keyboard navigation (Tab, Enter, Escape)
-    - [ ] ARIA labels and roles
-    - [ ] Focus indicators
-    - [ ] Screen reader support
-  - [ ] Animations (Tailwind transitions)
-    - [ ] Smooth transitions for modals, toasts
-    - [ ] Hover effects on buttons and rows
-    - [ ] Fade-in for dynamic content
+  - [ ] Loading states (spinners, skeleton loaders)
+  - [ ] Error handling (toast notifications)
+  - [ ] Keyboard navigation (Tab, Enter, Escape)
+  - [ ] Focus indicators for accessibility
 
 - [ ] Testing
   - [ ] Component tests (bUnit)
   - [ ] Integration tests
 
 - [ ] Documentation
-  - [ ] Create docs/WEB-UI.md
-  - [ ] Create docs/WEB-API.md (API reference)
-  - [ ] User guide for Web UI
-  - [ ] Multi-user collaboration guide
-  - [ ] Screenshots and screencasts
+  - [ ] Create docs/WEB-UI.md (user guide)
+  - [ ] Update docs/WEB-API.md (API reference with examples)
+  - [ ] Screenshots and usage examples
   - [ ] Configuration management guide
 
 **Feature Parity Summary:**
-The Web UI will have **full feature parity** with CLI and TUI:
-- ✅ All CLI commands available via API endpoints
-- ✅ All TUI features available in Blazor UI (editing, validation, translation, scanning, backups, etc.)
-- ✅ Real-time updates via SignalR for multi-user collaboration
+The Blazor Server Web UI will have **full feature parity** with CLI and TUI:
+- ✅ All CLI commands available via API endpoints (10 controllers)
+- ✅ All TUI features in Blazor UI (editing, validation, translation, scanning, backups)
+- ✅ Uses existing API (work not wasted, consistent architecture)
+- ✅ No CORS needed (same origin, server-side rendering)
+- ✅ Simple build process (no npm, pure .NET)
 - ✅ Dynamic configuration management (create/edit lrm.json via UI)
-- ✅ Server has direct filesystem access to resource and source paths
-- ✅ Multiple users can connect from different machines to collaborate
+- ✅ Server has direct filesystem access (local tool, not cloud service)
+- ✅ Multiple users can connect to collaborate (SignalR for real-time updates)
 
 ---
 
@@ -1058,24 +1004,26 @@ The Web UI will have **full feature parity** with CLI and TUI:
 ## 🔧 Technical Decisions
 
 ### Architecture
-- **API Backend:** ASP.NET Core Web API (RESTful + SignalR)
-- **Frontend:** Blazor WebAssembly (C# full-stack) + TailwindCSS
-- **UI Framework:** Vanilla Blazor (no component library) with TailwindCSS for styling
-- **Hosting:** Single Kestrel server serving both API and WASM on same port
+- **API Backend:** ASP.NET Core Web API (RESTful, 10 controllers with Swagger)
+- **Frontend:** Blazor Server (server-side rendering with SignalR)
+- **Styling:** Custom CSS (~500 lines, terminal-inspired theme)
+- **API Integration:** UI calls API via HttpClient (localhost, same origin)
+- **Hosting:** Single Kestrel server (monolithic, one port for API + UI)
 - **Backup Storage:** File-based with JSON manifests
-- **Flow Execution:** In-memory pipeline
+- **No npm/Node.js:** Pure .NET solution for simple housekeeping
 
 ### Dependencies
-- ✅ Microsoft.AspNetCore.SignalR.Client (real-time)
-- ✅ Swashbuckle.AspNetCore (Swagger)
-- ✅ bUnit (Blazor testing)
-- ✅ TailwindCSS (utility-first CSS framework, ~10-50KB after purge)
+- ✅ Swashbuckle.AspNetCore (Swagger/OpenAPI documentation)
+- ✅ bUnit (Blazor component testing)
+- ⏭️ Microsoft.AspNetCore.SignalR (future: real-time updates)
 
 ### UI/UX Decisions
-- **No component library** (MudBlazor, Radzen, Blazorise) - custom components for full control
-- **TailwindCSS over Bootstrap** - smaller bundle, no JS dependencies, better customization
-- **Terminal-inspired design** - dark theme, monospace fonts, status colors matching TUI
+- **Blazor Server over WASM** - simpler build, server-side rendering, no CORS
+- **API Integration over Direct Services** - uses existing API work, consistent architecture
+- **Custom CSS over frameworks** - no npm, terminal theme, full control (~500 lines)
+- **Terminal-inspired design** - dark theme (#1e1e1e), monospace fonts, status colors matching TUI
 - **Zero JavaScript** - all interactivity handled by Blazor C# code
+- **Zero npm dependencies** - pure .NET platform, easy housekeeping
 
 ### Future Considerations
 - 🔮 Plugin system (multi-format support) - deferred to v0.8.0+
@@ -1117,10 +1065,14 @@ None
 
 ### Important Decisions Made
 1. Diff view integrated with backup system (not git-based)
-2. Web UI will be Blazor WASM + ASP.NET Core API with full feature parity
-3. Vanilla Blazor + TailwindCSS (no component library like MudBlazor/Radzen) for lightweight, custom UI
-4. Single Kestrel server hosting both API and WASM on same port (no CORS issues)
-5. Web UI is another UI option (like TUI) - server has filesystem access, supports multi-user collaboration
+2. **Web UI: Blazor Server + API** (changed from Blazor WASM)
+   - Server-side rendering with SignalR for real-time updates
+   - UI calls existing API via HttpClient (uses all 10 controllers)
+   - No CORS needed (same origin, monolithic)
+   - No npm/Node.js dependencies (custom CSS, pure .NET)
+3. Custom CSS (~500 lines) over frameworks (no TailwindCSS, no npm)
+4. Single Kestrel server hosting both API and Blazor Server on same port
+5. Web UI is another UI option (like TUI) - server has filesystem access, supports multi-user
 6. Dynamic configuration management - API can create/edit lrm.json with runtime reload
 7. Simple CLI chaining for command automation (lightweight alternative to complex flow system)
 8. Plugin system deferred to future release (v0.8.0+)
@@ -1143,7 +1095,7 @@ None
 | Phase 4: TUI Visual & Workflow Enhancements | 4 days | ✅ **Completed** | 2025-01-19 | 2025-01-23 |
 | Phase 5: Simple CLI Chaining | 1 day | ✅ **Completed** | 2025-01-24 | 2025-01-24 |
 | Phase 6: Web API | 1 day | ✅ **Completed** | 2025-01-24 | 2025-01-24 |
-| Phase 7: Blazor WASM UI | 4 weeks | Not Started | TBD | TBD |
+| Phase 7: Blazor Server Web UI | 4 weeks | In Progress | 2025-01-24 | TBD |
 | Phase 8: Integration & Polish | 1 week | Not Started | TBD | TBD |
 | Phase 9: Release | 1 week | Not Started | TBD | TBD |
 | **Total** | **14 weeks** | **67%** | **2025-01-15** | **TBD** |
@@ -1151,7 +1103,7 @@ None
 ---
 
 **Last Updated:** 2025-01-24
-**Current Phase:** Phase 7 - Blazor WASM UI (Next Up)
+**Current Phase:** Phase 7 - Blazor Server Web UI (In Progress)
 
 **Phase 1 Completed (2025-01-16):**
 - ✅ LocalizationManager.Shared project

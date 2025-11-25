@@ -8,9 +8,15 @@
 [![GitHub Stars](https://img.shields.io/github/stars/nickprotop/LocalizationManager?style=social)](https://github.com/nickprotop/LocalizationManager)
 [![GitHub Discussions](https://img.shields.io/github/discussions/nickprotop/LocalizationManager)](https://github.com/nickprotop/LocalizationManager/discussions)
 
-**A powerful, Linux-native command-line tool for managing .NET `.resx` localization files with an interactive Terminal UI.**
+**A powerful, Linux-native command-line tool for managing .NET `.resx` localization files with an interactive Terminal UI and Web UI.**
 
 ![LRM Demo](assets/lrm-demo.gif)
+
+### Web UI
+
+![Web Dashboard](assets/web-dashboard.png)
+
+**👉 [See Web UI Documentation →](docs/WEBUI.md)**
 
 ---
 
@@ -36,6 +42,8 @@ LRM solves this by providing:
 | **Linux Support** | ✅ Native | ❌ Windows only | ❌ Windows only | ❌ Windows only | ✅ Any editor |
 | **Command Line** | ✅ Full CLI | ⚠️ PowerShell scripting | ❌ GUI only | ❌ GUI only | ⚠️ Manual XML |
 | **Terminal UI** | ✅ Interactive TUI | ❌ | ❌ | ❌ | ❌ |
+| **Web UI** | ✅ Browser-based | ❌ | ❌ | ❌ | ❌ |
+| **REST API** | ✅ Full API | ❌ | ❌ | ❌ | ❌ |
 | **Machine Translation** | ✅ 8 providers (Google/DeepL/Azure/OpenAI/Claude/Ollama) | ⚠️ External services | ❌ | ❌ | ❌ |
 | **CI/CD Integration** | ✅ Built-in | ⚠️ Complex | ❌ | ❌ | ⚠️ Custom scripts |
 | **Automation** | ✅ Full API | ⚠️ Limited | ❌ | ❌ | ❌ |
@@ -46,7 +54,7 @@ LRM solves this by providing:
 | **Self-contained** | ✅ Single binary | ❌ Needs .NET Runtime | ❌ Installer | ❌ Large install | ✅ |
 | **ARM64 Support** | ✅ Native | ❌ | ❌ | ❌ | ✅ Any editor |
 
-**LRM is the only Linux-native, CLI-first tool with an interactive TUI for .resx management.**
+**LRM is the only Linux-native, CLI-first tool with an interactive TUI, Web UI, and REST API for .resx management.**
 
 ---
 
@@ -99,6 +107,15 @@ LRM solves this by providing:
   - Visual status indicators and progress bars
   - Full duplicate key support (view, edit, delete, merge)
   - Comprehensive keyboard shortcuts (see [docs/TUI.md](docs/TUI.md))
+- **🌐 Web UI & REST API** - Browser-based management with full API
+  - Modern Blazor Server UI with terminal-themed design
+  - Dashboard with translation statistics
+  - Key editor with inline translation and code reference lookup
+  - Full search with wildcards, regex, and case sensitivity
+  - Validation, code scanning, backup management
+  - REST API for all operations (see [docs/API.md](docs/API.md))
+  - Swagger UI for API exploration
+  - Configurable port, bind address, and HTTPS
 - **🔍 Validation** - Detect missing translations, duplicates, empty values, and placeholder mismatches
   - Automatic placeholder validation for .NET format strings (`{0}`, `{name}`), printf-style (`%s`, `%d`), ICU MessageFormat, and template literals (`${var}`)
   - Ensures dynamic content and format strings are correctly preserved across all languages
@@ -302,6 +319,12 @@ lrm chain "validate -- translate --only-missing" --dry-run
 # Continue on error for diagnostic workflows
 lrm chain "validate -- scan -- stats" --continue-on-error
 
+# Start web server (browser-based UI)
+lrm web
+
+# Web server on custom port
+lrm web --port 8080 --bind-address 0.0.0.0
+
 # Get help
 lrm --help
 ```
@@ -317,18 +340,19 @@ See [EXAMPLES.md](docs/EXAMPLES.md) for detailed usage scenarios and workflows.
 | `validate` | Validate resource files for missing translations, duplicates, empty values | Table, JSON, Simple |
 | `stats` | Display translation statistics and coverage | Table, JSON, Simple |
 | `view` | View details of a specific key or regex pattern across all languages | Table, JSON, Simple |
-| `scan` 🆕 | Scan source code for key usage and find unused/missing keys | Table, JSON, Simple |
+| `scan` | Scan source code for key usage and find unused/missing keys | Table, JSON, Simple |
 | `add` | Add a new key to all language files | N/A |
 | `update` | Update values for an existing key | N/A |
 | `delete` | Delete a key from all language files (with duplicate handling) | N/A |
-| `merge-duplicates` 🆕 | Merge duplicate key occurrences into a single entry | N/A |
+| `merge-duplicates` | Merge duplicate key occurrences into a single entry | N/A |
 | `export` | Export translations to CSV, JSON, or text format | CSV, JSON, Text |
 | `import` | Import translations from CSV | Table, JSON, Simple |
 | `edit` | Launch interactive Terminal UI editor | N/A |
+| `web` 🆕 | Start web server with REST API and browser-based UI | N/A |
 | `list-languages` | List all detected language files | Table, JSON, Simple |
-| `translate` 🆕 | Automatically translate keys using Google/DeepL/LibreTranslate | Table, JSON, Simple |
-| `config` 🆕 | Manage translation provider API keys and configuration | N/A |
-| `chain` 🆕 | Execute multiple commands sequentially in a single invocation | N/A |
+| `translate` | Automatically translate keys using Google/DeepL/LibreTranslate | Table, JSON, Simple |
+| `config` | Manage translation provider API keys and configuration | N/A |
+| `chain` | Execute multiple commands sequentially in a single invocation | N/A |
 
 See [COMMANDS.md](docs/COMMANDS.md) for complete command reference with all options and examples.
 

@@ -1,4 +1,4 @@
-.TH LRM 1 "January 2025" "lrm 0.6.12" "User Commands"
+.TH LRM 1 "November 2025" "lrm 0.7.0" "User Commands"
 .SH NAME
 lrm \- Linux-native CLI tool for managing .NET .resx localization files
 .SH SYNOPSIS
@@ -25,6 +25,8 @@ Code scanning for unused/missing keys
 Backup system with diff view
 .IP \(bu 2
 Multi-platform support (Linux x64/ARM64)
+.IP \(bu 2
+Web UI with REST API for browser-based management
 .SH GLOBAL OPTIONS
 .TP
 .BR \-p ", " \-\-path " " \fIPATH\fR
@@ -343,6 +345,48 @@ Backup before update:
 .TP
 Dry run to preview:
 .B lrm chain validate -- translate --only-missing --dry-run
+.SS web
+Start web server with REST API and Blazor UI for browser-based management.
+.PP
+.B lrm web
+[\fB\-\-port\fR \fIPORT\fR]
+[\fB\-\-bind\-address\fR \fIADDRESS\fR]
+[\fB\-\-source\-path\fR \fIPATH\fR]
+[\fB\-\-no\-open\-browser\fR]
+[\fB\-\-enable\-https\fR]
+[\fB\-\-cert\-path\fR \fIPATH\fR]
+[\fB\-\-cert\-password\fR \fIPASSWORD\fR]
+.TP
+.BR \-\-port " " \fIPORT\fR
+Port to bind the web server to (default: 5000)
+.TP
+.BR \-\-bind\-address " " \fIADDRESS\fR
+Address to bind to: localhost, 0.0.0.0, * (default: localhost)
+.TP
+.BR \-\-source\-path " " \fIPATH\fR
+Path to source code directory for code scanning
+.TP
+.BR \-\-no\-open\-browser
+Do not automatically open browser on startup
+.TP
+.BR \-\-enable\-https
+Enable HTTPS
+.TP
+.BR \-\-cert\-path " " \fIPATH\fR
+Path to HTTPS certificate file (.pfx)
+.TP
+.BR \-\-cert\-password " " \fIPASSWORD\fR
+Password for HTTPS certificate
+.PP
+The web server provides:
+.IP \(bu 2
+REST API at /api/* endpoints
+.IP \(bu 2
+Swagger UI at /swagger
+.IP \(bu 2
+Blazor Server UI at root URL
+.IP \(bu 2
+All CLI features accessible via browser
 .SH FILES
 .TP
 .I lrm.json
@@ -375,6 +419,15 @@ Azure OpenAI API key
 .TP
 .B DOTNET_CLI_TELEMETRY_OPTOUT
 Set to 1 to disable .NET telemetry
+.TP
+.B LRM_WEB_PORT
+Override default web server port
+.TP
+.B LRM_WEB_BIND_ADDRESS
+Override default web server bind address
+.TP
+.B LRM_WEB_AUTO_OPEN_BROWSER
+Enable/disable auto browser open (true/false)
 .SH EXAMPLES
 .TP
 Validate all resource files:
@@ -412,6 +465,12 @@ List backups:
 .TP
 Restore from backup:
 .B lrm backup restore \-\-version 5 \-\-preview
+.TP
+Start web server:
+.B lrm web
+.TP
+Start web server on custom port:
+.B lrm web \-\-port 8080 \-\-bind\-address 0.0.0.0
 .SH EXIT STATUS
 .TP
 .B 0

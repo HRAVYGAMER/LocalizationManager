@@ -13,7 +13,7 @@ _lrm_completions() {
     prev="${COMP_WORDS[COMP_CWORD-1]}"
 
     # Main commands
-    local commands="validate stats view add update delete merge-duplicates export import edit translate config scan check chain list-languages add-language remove-language backup"
+    local commands="validate stats view add update delete merge-duplicates export import edit translate config scan check chain list-languages add-language remove-language backup web"
 
     # Global options
     local global_opts="--path -p --help -h --version -v"
@@ -52,6 +52,9 @@ _lrm_completions() {
     local backup_diff_opts="--path -p --from --to --output --show-unchanged --format --help -h"
     local backup_info_opts="--path -p --help -h"
     local backup_prune_opts="--path -p --file --all --version --older-than --keep --dry-run --yes -y --help -h"
+
+    # Web command options
+    local web_opts="--path -p --source-path --port --bind-address --no-open-browser --enable-https --cert-path --cert-password --help -h"
 
     # Format options
     local format_opts="table json simple csv tui"
@@ -267,6 +270,9 @@ _lrm_completions() {
             ;;
         remove-language)
             COMPREPLY=( $(compgen -W "${remove_language_opts}" -- "${cur}") )
+            ;;
+        web)
+            COMPREPLY=( $(compgen -W "${web_opts}" -- "${cur}") )
             ;;
         config)
             # Handle config subcommands

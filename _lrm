@@ -30,6 +30,7 @@ _lrm() {
         'remove-language:Remove a language resource file'
         'config:Manage LRM configuration and API keys'
         'backup:Backup management commands for resource files'
+        'web:Start web server with REST API and Blazor UI'
     )
 
     local -a global_opts
@@ -302,6 +303,17 @@ _lrm() {
                         '--base-name[Base resource file name]:basename' \
                         '(-y --yes)'{-y,--yes}'[Skip confirmation prompt]' \
                         '--no-backup[Skip creating backups]' \
+                        $global_opts
+                    ;;
+                web)
+                    _arguments \
+                        '--source-path[Path to source code directory for code scanning]:directory:_directories' \
+                        '--port[Port to bind the web server to]:port:(5000 8080 3000)' \
+                        '--bind-address[Address to bind to]:address:(localhost 0.0.0.0)' \
+                        '--no-open-browser[Do not automatically open browser on startup]' \
+                        '--enable-https[Enable HTTPS]' \
+                        '--cert-path[Path to HTTPS certificate file (.pfx)]:file:_files -g "*.pfx"' \
+                        '--cert-password[Password for HTTPS certificate]:password' \
                         $global_opts
                     ;;
                 config)

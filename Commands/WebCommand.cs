@@ -83,10 +83,23 @@ public class WebCommand : Command<WebCommand.Settings>
         }
 
         // Determine web server configuration with precedence: CLI args → env vars → config file → defaults
-        var port = settings.Port
-            ?? (int.TryParse(Environment.GetEnvironmentVariable("LRM_WEB_PORT"), out var envPort) ? envPort : (int?)null)
-            ?? settings.LoadedConfiguration?.Web?.Port
-            ?? 5000;
+        int port;
+        if (settings.Port.HasValue)
+        {
+            port = settings.Port.Value;
+        }
+        else if (int.TryParse(Environment.GetEnvironmentVariable("LRM_WEB_PORT"), out var envPort))
+        {
+            port = envPort;
+        }
+        else if (settings.LoadedConfiguration?.Web?.Port != null)
+        {
+            port = settings.LoadedConfiguration.Web.Port.Value;
+        }
+        else
+        {
+            port = 5000;
+        }
 
         var bindAddress = settings.BindAddress
             ?? Environment.GetEnvironmentVariable("LRM_WEB_BIND_ADDRESS")
@@ -127,6 +140,36 @@ public class WebCommand : Command<WebCommand.Settings>
         builder.Services.AddEndpointsApiExplorer();
         builder.Services.AddSwaggerGen();
         builder.Services.AddSignalR();
+
+        // Blazor Server services
+        builder.Services.AddRazorPages();
+        builder.Services.AddServerSideBlazor();
+
+        // HttpClient for API communication (Blazor components will call localhost API)
+        builder.Services.AddHttpClient("LrmApi", client =>
+        {
+            client.BaseAddress = new Uri(url);
+        });
+
+        // Register API client services
+        builder.Services.AddScoped<LocalizationManager.Services.StatsApiClient>();
+        builder.Services.AddScoped<LocalizationManager.Services.ResourceApiClient>();
+        builder.Services.AddScoped<LocalizationManager.Services.ValidationApiClient>();
+        builder.Services.AddScoped<LocalizationManager.Services.TranslationApiClient>();
+        builder.Services.AddScoped<LocalizationManager.Services.ScanApiClient>();
+        builder.Services.AddScoped<LocalizationManager.Services.BackupApiClient>();
+        builder.Services.AddScoped<LocalizationManager.Services.LanguageApiClient>();
+        builder.Services.AddScoped<LocalizationManager.Services.ExportApiClient>();
+        builder.Services.AddScoped<LocalizationManager.Services.ImportApiClient>();
+        builder.Services.AddScoped<LocalizationManager.Services.ConfigurationApiClient>();
+        builder.Services.AddScoped<LocalizationManager.Services.MergeDuplicatesApiClient>();
+        builder.Services.AddScoped<LocalizationManager.Services.SearchApiClient>();
+
+        // Register scan cache service (persists across page navigation within circuit)
+        builder.Services.AddScoped<LocalizationManager.Services.ScanCacheService>();
+
+        // Register ResourceFilterService for search (singleton - has regex cache)
+        builder.Services.AddSingleton<LocalizationManager.UI.Filters.ResourceFilterService>();
 
         // Register ConfigurationService for dynamic config reload
         builder.Services.AddSingleton(sp => new LocalizationManager.Core.Configuration.ConfigurationService(absoluteResourcePath));
@@ -175,12 +218,13 @@ public class WebCommand : Command<WebCommand.Settings>
 
         app.MapControllers();
 
-        // Serve static files from wwwroot if it exists
-        if (Directory.Exists(Path.Combine(AppContext.BaseDirectory, "wwwroot")))
-        {
-            app.UseStaticFiles();
-            app.MapFallbackToFile("index.html");
-        }
+        // Serve static files (CSS, JS, images)
+        app.UseStaticFiles();
+
+        // Blazor Server routing
+        app.UseRouting();
+        app.MapBlazorHub();
+        app.MapFallbackToPage("/_Host");
 
         AnsiConsole.MarkupLine("[green]✓ Server started successfully![/]");
         AnsiConsole.MarkupLine($"[grey]Swagger UI:[/] {url}/swagger");
@@ -192,9 +236,8 @@ public class WebCommand : Command<WebCommand.Settings>
         {
             try
             {
-                var browserUrl = Directory.Exists(Path.Combine(AppContext.BaseDirectory, "wwwroot"))
-                    ? url
-                    : $"{url}/swagger";
+                // Open to the Blazor UI root (will be created in next steps)
+                var browserUrl = url;
 
                 System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
                 {

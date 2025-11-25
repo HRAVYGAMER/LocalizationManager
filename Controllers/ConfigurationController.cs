@@ -3,6 +3,7 @@
 
 using Microsoft.AspNetCore.Mvc;
 using LocalizationManager.Core.Configuration;
+using LocalizationManager.Models.Api;
 
 namespace LocalizationManager.Controllers;
 
@@ -21,21 +22,21 @@ public class ConfigurationController : ControllerBase
     /// Get current configuration (auto-reloads if file changed)
     /// </summary>
     [HttpGet]
-    public ActionResult<object> GetConfiguration()
+    public ActionResult<ConfigurationResponse> GetConfiguration()
     {
         try
         {
             var config = _configService.GetConfiguration();
 
-            return Ok(new
+            return Ok(new ConfigurationResponse
             {
-                configuration = config,
-                message = "Configuration loaded successfully"
+                Configuration = config,
+                Message = "Configuration loaded successfully"
             });
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { error = ex.Message });
+            return StatusCode(500, new ErrorResponse { Error = ex.Message });
         }
     }
 
@@ -43,7 +44,7 @@ public class ConfigurationController : ControllerBase
     /// Update configuration with validation (saves to lrm.json and triggers reload)
     /// </summary>
     [HttpPut]
-    public ActionResult<object> UpdateConfiguration([FromBody] ConfigurationModel config)
+    public ActionResult<OperationResponse> UpdateConfiguration([FromBody] ConfigurationModel config)
     {
         try
         {
@@ -51,25 +52,25 @@ public class ConfigurationController : ControllerBase
             var (isValid, errors) = _configService.ValidateConfiguration(config);
             if (!isValid)
             {
-                return BadRequest(new
+                return BadRequest(new ConfigValidationResponse
                 {
-                    error = "Configuration validation failed",
-                    validationErrors = errors
+                    IsValid = false,
+                    Errors = errors
                 });
             }
 
             // Save and reload
             _configService.SaveConfiguration(config);
 
-            return Ok(new
+            return Ok(new OperationResponse
             {
-                success = true,
-                message = "Configuration updated and reloaded successfully"
+                Success = true,
+                Message = "Configuration updated and reloaded successfully"
             });
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { error = ex.Message });
+            return StatusCode(500, new ErrorResponse { Error = ex.Message });
         }
     }
 
@@ -77,7 +78,7 @@ public class ConfigurationController : ControllerBase
     /// Create new configuration file with validation
     /// </summary>
     [HttpPost]
-    public ActionResult<object> CreateConfiguration([FromBody] ConfigurationModel config)
+    public ActionResult<OperationResponse> CreateConfiguration([FromBody] ConfigurationModel config)
     {
         try
         {
@@ -85,29 +86,29 @@ public class ConfigurationController : ControllerBase
             var (isValid, errors) = _configService.ValidateConfiguration(config);
             if (!isValid)
             {
-                return BadRequest(new
+                return BadRequest(new ConfigValidationResponse
                 {
-                    error = "Configuration validation failed",
-                    validationErrors = errors
+                    IsValid = false,
+                    Errors = errors
                 });
             }
 
             // Create configuration
             _configService.CreateConfiguration(config);
 
-            return Ok(new
+            return Ok(new OperationResponse
             {
-                success = true,
-                message = "Configuration file created successfully"
+                Success = true,
+                Message = "Configuration file created successfully"
             });
         }
         catch (InvalidOperationException ex)
         {
-            return Conflict(new { error = ex.Message });
+            return Conflict(new ErrorResponse { Error = ex.Message });
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { error = ex.Message });
+            return StatusCode(500, new ErrorResponse { Error = ex.Message });
         }
     }
 
@@ -115,21 +116,21 @@ public class ConfigurationController : ControllerBase
     /// Validate configuration without saving
     /// </summary>
     [HttpPost("validate")]
-    public ActionResult<object> ValidateConfiguration([FromBody] ConfigurationModel config)
+    public ActionResult<ConfigValidationResponse> ValidateConfiguration([FromBody] ConfigurationModel config)
     {
         try
         {
             var (isValid, errors) = _configService.ValidateConfiguration(config);
 
-            return Ok(new
+            return Ok(new ConfigValidationResponse
             {
-                isValid,
-                errors = errors.Any() ? errors : null
+                IsValid = isValid,
+                Errors = errors.Any() ? errors : null
             });
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { error = ex.Message });
+            return StatusCode(500, new ErrorResponse { Error = ex.Message });
         }
     }
 
@@ -137,7 +138,7 @@ public class ConfigurationController : ControllerBase
     /// Get configuration schema (for validation/UI generation)
     /// </summary>
     [HttpGet("schema")]
-    public ActionResult<object> GetSchema()
+    public ActionResult<ConfigSchemaResponse> GetSchema()
     {
         return Ok(new
         {

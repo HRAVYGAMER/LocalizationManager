@@ -4,6 +4,7 @@
 using Microsoft.AspNetCore.Mvc;
 using LocalizationManager.Core;
 using LocalizationManager.Core.Backup;
+using LocalizationManager.Models.Api;
 
 namespace LocalizationManager.Controllers;
 
@@ -26,26 +27,27 @@ public class BackupController : ControllerBase
     /// List all backups
     /// </summary>
     [HttpGet]
-    public async Task<ActionResult<object>> ListBackups([FromQuery] string? fileName)
+    public async Task<ActionResult<BackupListResponse>> ListBackups([FromQuery] string? fileName)
     {
         try
         {
             if (!string.IsNullOrEmpty(fileName))
             {
                 var backups = await _backupManager.ListBackupsAsync(fileName, _resourcePath);
-                return Ok(new
+                return Ok(new BackupListResponse
                 {
-                    fileName,
-                    backupCount = backups.Count,
-                    backups = backups.Select(b => new
+                    FileName = fileName,
+                    BackupCount = backups.Count,
+                    Backups = backups.Select(b => new BackupInfo
                     {
-                        version = b.Version,
-                        timestamp = b.Timestamp,
-                        operation = b.Operation,
-                        keyCount = b.KeyCount,
-                        changedKeys = b.ChangedKeys,
-                        changedKeyNames = b.ChangedKeyNames
-                    })
+                        FileName = fileName,
+                        Version = b.Version,
+                        Timestamp = b.Timestamp,
+                        Operation = b.Operation,
+                        KeyCount = b.KeyCount,
+                        ChangedKeys = b.ChangedKeys,
+                        ChangedKeyNames = b.ChangedKeyNames
+                    }).ToList()
                 });
             }
             else
@@ -54,27 +56,29 @@ public class BackupController : ControllerBase
                 var allBackupsTasks = languages.Select(async lang =>
                 {
                     var backups = await _backupManager.ListBackupsAsync(lang.Name, _resourcePath);
-                    return backups.Select(b => new
+                    return backups.Select(b => new BackupInfo
                     {
-                        fileName = lang.Name,
-                        version = b.Version,
-                        timestamp = b.Timestamp,
-                        operation = b.Operation,
-                        keyCount = b.KeyCount,
-                        changedKeys = b.ChangedKeys
+                        FileName = lang.Name,
+                        Version = b.Version,
+                        Timestamp = b.Timestamp,
+                        Operation = b.Operation,
+                        KeyCount = b.KeyCount,
+                        ChangedKeys = b.ChangedKeys,
+                        ChangedKeyNames = b.ChangedKeyNames
                     });
                 });
 
                 var allBackups = (await Task.WhenAll(allBackupsTasks))
                     .SelectMany(x => x)
-                    .OrderByDescending(b => b.timestamp);
+                    .OrderByDescending(b => b.Timestamp)
+                    .ToList();
 
-                return Ok(new { backups = allBackups });
+                return Ok(new BackupListResponse { Backups = allBackups });
             }
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { error = ex.Message });
+            return StatusCode(500, new ErrorResponse { Error = ex.Message });
         }
     }
 
@@ -82,7 +86,7 @@ public class BackupController : ControllerBase
     /// Create a backup
     /// </summary>
     [HttpPost]
-    public async Task<ActionResult<object>> CreateBackup([FromBody] CreateBackupRequest request)
+    public async Task<ActionResult<CreateBackupResponse>> CreateBackup([FromBody] CreateBackupRequest request)
     {
         try
         {
@@ -94,7 +98,7 @@ public class BackupController : ControllerBase
                 var language = languages.FirstOrDefault(l => l.Name == request.FileName);
                 if (language == null)
                 {
-                    return NotFound(new { error = $"File '{request.FileName}' not found" });
+                    return NotFound(new ErrorResponse { Error = $"File '{request.FileName}' not found" });
                 }
 
                 var resourceFile = parser.Parse(language);
@@ -103,19 +107,19 @@ public class BackupController : ControllerBase
                     request.Operation ?? "manual",
                     _resourcePath);
 
-                return Ok(new
+                return Ok(new CreateBackupResponse
                 {
-                    success = true,
-                    fileName = request.FileName,
-                    version = metadata.Version,
-                    operation = request.Operation ?? "manual"
+                    Success = true,
+                    FileName = request.FileName,
+                    Version = metadata.Version,
+                    Operation = request.Operation ?? "manual"
                 });
             }
             else
             {
                 // Backup all files
                 var languages = _discovery.DiscoverLanguages(_resourcePath);
-                var results = new List<object>();
+                var results = new List<BackupCreatedInfo>();
 
                 foreach (var lang in languages)
                 {
@@ -124,24 +128,24 @@ public class BackupController : ControllerBase
                         lang.FilePath,
                         request.Operation ?? "manual",
                         _resourcePath);
-                    results.Add(new
+                    results.Add(new BackupCreatedInfo
                     {
-                        fileName = lang.Name,
-                        version = metadata.Version
+                        FileName = lang.Name,
+                        Version = metadata.Version
                     });
                 }
 
-                return Ok(new
+                return Ok(new CreateBackupResponse
                 {
-                    success = true,
-                    operation = request.Operation ?? "manual",
-                    backups = results
+                    Success = true,
+                    Operation = request.Operation ?? "manual",
+                    Backups = results
                 });
             }
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { error = ex.Message });
+            return StatusCode(500, new ErrorResponse { Error = ex.Message });
         }
     }
 
@@ -149,7 +153,7 @@ public class BackupController : ControllerBase
     /// Get backup info
     /// </summary>
     [HttpGet("{fileName}/{version}")]
-    public async Task<ActionResult<object>> GetBackupInfo(string fileName, int version)
+    public async Task<ActionResult<BackupInfo>> GetBackupInfo(string fileName, int version)
     {
         try
         {
@@ -157,23 +161,23 @@ public class BackupController : ControllerBase
 
             if (backup == null)
             {
-                return NotFound(new { error = $"Backup version {version} not found for '{fileName}'" });
+                return NotFound(new ErrorResponse { Error = $"Backup version {version} not found for '{fileName}'" });
             }
 
-            return Ok(new
+            return Ok(new BackupInfo
             {
-                fileName,
-                version = backup.Version,
-                timestamp = backup.Timestamp,
-                operation = backup.Operation,
-                keyCount = backup.KeyCount,
-                changedKeys = backup.ChangedKeys,
-                changedKeyNames = backup.ChangedKeyNames
+                FileName = fileName,
+                Version = backup.Version,
+                Timestamp = backup.Timestamp,
+                Operation = backup.Operation,
+                KeyCount = backup.KeyCount,
+                ChangedKeys = backup.ChangedKeys,
+                ChangedKeyNames = backup.ChangedKeyNames
             });
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { error = ex.Message });
+            return StatusCode(500, new ErrorResponse { Error = ex.Message });
         }
     }
 
@@ -181,7 +185,7 @@ public class BackupController : ControllerBase
     /// Restore from backup
     /// </summary>
     [HttpPost("{fileName}/{version}/restore")]
-    public async Task<ActionResult<object>> RestoreBackup(string fileName, int version, [FromBody] RestoreBackupRequest? request)
+    public async Task<ActionResult<RestoreBackupResponse>> RestoreBackup(string fileName, int version, [FromBody] RestoreBackupRequest? request)
     {
         try
         {
@@ -192,7 +196,7 @@ public class BackupController : ControllerBase
 
             if (language == null)
             {
-                return NotFound(new { error = $"File '{fileName}' not found" });
+                return NotFound(new ErrorResponse { Error = $"File '{fileName}' not found" });
             }
 
             var currentFile = parser.Parse(language);
@@ -209,22 +213,22 @@ public class BackupController : ControllerBase
                 var modified = diff.Changes.Where(c => c.Type == LocalizationManager.Shared.Enums.ChangeType.Modified).ToList();
                 var removed = diff.Changes.Where(c => c.Type == LocalizationManager.Shared.Enums.ChangeType.Deleted).ToList();
 
-                return Ok(new
+                return Ok(new RestoreBackupResponse
                 {
-                    preview = true,
-                    added = added.Count,
-                    modified = modified.Count,
-                    removed = removed.Count,
-                    changes = new
+                    Preview = true,
+                    AddedCount = added.Count,
+                    ModifiedCount = modified.Count,
+                    RemovedCount = removed.Count,
+                    Changes = new RestoreChanges
                     {
-                        added = added.Select(c => c.Key),
-                        modified = modified.Select(m => new
+                        Added = added.Select(c => c.Key).ToList(),
+                        Modified = modified.Select(m => new ModifiedKeyInfo
                         {
-                            key = m.Key,
-                            currentValue = m.OldValue,
-                            backupValue = m.NewValue
-                        }),
-                        removed = removed.Select(c => c.Key)
+                            Key = m.Key,
+                            CurrentValue = m.OldValue,
+                            BackupValue = m.NewValue
+                        }).ToList(),
+                        Removed = removed.Select(c => c.Key).ToList()
                     }
                 });
             }
@@ -239,12 +243,12 @@ public class BackupController : ControllerBase
                     language.FilePath,
                     _resourcePath);
 
-                return Ok(new
+                return Ok(new RestoreBackupResponse
                 {
-                    success = restoredCount > 0,
-                    fileName,
-                    version,
-                    restoredKeys = restoredCount
+                    Success = restoredCount > 0,
+                    FileName = fileName,
+                    Version = version,
+                    RestoredKeys = restoredCount
                 });
             }
             else
@@ -255,18 +259,18 @@ public class BackupController : ControllerBase
                     language.FilePath,
                     _resourcePath);
 
-                return Ok(new
+                return Ok(new RestoreBackupResponse
                 {
-                    success,
-                    fileName,
-                    version,
-                    message = success ? "Restore completed successfully" : "Restore failed"
+                    Success = success,
+                    FileName = fileName,
+                    Version = version,
+                    Message = success ? "Restore completed successfully" : "Restore failed"
                 });
             }
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { error = ex.Message });
+            return StatusCode(500, new ErrorResponse { Error = ex.Message });
         }
     }
 
@@ -274,7 +278,7 @@ public class BackupController : ControllerBase
     /// Delete a backup
     /// </summary>
     [HttpDelete("{fileName}/{version}")]
-    public async Task<ActionResult<object>> DeleteBackup(string fileName, int version)
+    public async Task<ActionResult<DeleteBackupResponse>> DeleteBackup(string fileName, int version)
     {
         try
         {
@@ -282,20 +286,20 @@ public class BackupController : ControllerBase
 
             if (!deleted)
             {
-                return NotFound(new { error = $"Backup version {version} not found for '{fileName}'" });
+                return NotFound(new ErrorResponse { Error = $"Backup version {version} not found for '{fileName}'" });
             }
 
-            return Ok(new
+            return Ok(new DeleteBackupResponse
             {
-                success = true,
-                fileName,
-                version,
-                message = "Backup deleted successfully"
+                Success = true,
+                FileName = fileName,
+                Version = version,
+                Message = "Backup deleted successfully"
             });
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { error = ex.Message });
+            return StatusCode(500, new ErrorResponse { Error = ex.Message });
         }
     }
 
@@ -303,34 +307,21 @@ public class BackupController : ControllerBase
     /// Delete all backups for a file
     /// </summary>
     [HttpDelete("{fileName}")]
-    public async Task<ActionResult<object>> DeleteAllBackups(string fileName)
+    public async Task<ActionResult<OperationResponse>> DeleteAllBackups(string fileName)
     {
         try
         {
             await _backupManager.DeleteAllBackupsAsync(fileName, _resourcePath);
 
-            return Ok(new
+            return Ok(new OperationResponse
             {
-                success = true,
-                fileName,
-                message = "All backups deleted successfully"
+                Success = true,
+                Message = "All backups deleted successfully"
             });
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { error = ex.Message });
+            return StatusCode(500, new ErrorResponse { Error = ex.Message });
         }
     }
-}
-
-public class CreateBackupRequest
-{
-    public string? FileName { get; set; }
-    public string? Operation { get; set; }
-}
-
-public class RestoreBackupRequest
-{
-    public bool Preview { get; set; }
-    public List<string>? Keys { get; set; }
 }

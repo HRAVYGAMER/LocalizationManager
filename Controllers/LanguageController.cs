@@ -4,6 +4,7 @@
 using Microsoft.AspNetCore.Mvc;
 using LocalizationManager.Core;
 using LocalizationManager.Core.Models;
+using LocalizationManager.Models.Api;
 
 namespace LocalizationManager.Controllers;
 
@@ -28,7 +29,7 @@ public class LanguageController : ControllerBase
     /// List all languages
     /// </summary>
     [HttpGet]
-    public ActionResult<object> GetLanguages()
+    public ActionResult<LanguagesResponse> GetLanguages()
     {
         try
         {
@@ -49,24 +50,24 @@ public class LanguageController : ControllerBase
 
                 var coverage = totalKeys > 0 ? (double)translatedCount / totalKeys * 100 : 0;
 
-                return new
+                return new Models.Api.LanguageInfo
                 {
-                    code = lang.Code,
-                    isDefault = lang.IsDefault,
-                    name = lang.Name,
-                    filePath = lang.FilePath,
-                    displayName = _languageManager.GetCultureDisplayName(lang.Code ?? "default"),
-                    totalKeys = file.Entries.Select(e => e.Key).Distinct().Count(),
-                    translatedKeys = translatedCount,
-                    coverage = Math.Round(coverage, 2)
+                    Code = lang.Code,
+                    IsDefault = lang.IsDefault,
+                    Name = lang.Name,
+                    FilePath = lang.FilePath,
+                    DisplayName = _languageManager.GetCultureDisplayName(lang.Code ?? "default"),
+                    TotalKeys = file.Entries.Select(e => e.Key).Distinct().Count(),
+                    TranslatedKeys = translatedCount,
+                    Coverage = Math.Round(coverage, 2)
                 };
-            });
+            }).ToList();
 
-            return Ok(new { languages = result });
+            return Ok(new LanguagesResponse { Languages = result });
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { error = ex.Message });
+            return StatusCode(500, new ErrorResponse { Error = ex.Message });
         }
     }
 
@@ -74,13 +75,13 @@ public class LanguageController : ControllerBase
     /// Add a new language
     /// </summary>
     [HttpPost]
-    public ActionResult<object> AddLanguage([FromBody] AddLanguageRequest request)
+    public ActionResult<AddLanguageResponse> AddLanguage([FromBody] AddLanguageRequest request)
     {
         try
         {
             if (!_languageManager.IsValidCultureCode(request.CultureCode, out var culture))
             {
-                return BadRequest(new { error = $"Invalid culture code: {request.CultureCode}" });
+                return BadRequest(new ErrorResponse { Error = $"Invalid culture code: {request.CultureCode}" });
             }
 
             var languages = _discovery.DiscoverLanguages(_resourcePath);
@@ -88,7 +89,7 @@ public class LanguageController : ControllerBase
 
             if (_languageManager.LanguageFileExists(baseName, request.CultureCode, _resourcePath))
             {
-                return Conflict(new { error = $"Language file for '{request.CultureCode}' already exists" });
+                return Conflict(new ErrorResponse { Error = $"Language file for '{request.CultureCode}' already exists" });
             }
 
             ResourceFile? sourceFile = null;
@@ -113,18 +114,18 @@ public class LanguageController : ControllerBase
                 _parser.Write(newFile);
             }
 
-            return Ok(new
+            return Ok(new AddLanguageResponse
             {
-                success = true,
-                cultureCode = request.CultureCode,
-                fileName = newFile.Language.Name,
-                filePath = newFile.Language.FilePath,
-                displayName = _languageManager.GetCultureDisplayName(request.CultureCode)
+                Success = true,
+                CultureCode = request.CultureCode,
+                FileName = newFile.Language.Name,
+                FilePath = newFile.Language.FilePath,
+                DisplayName = _languageManager.GetCultureDisplayName(request.CultureCode)
             });
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { error = ex.Message });
+            return StatusCode(500, new ErrorResponse { Error = ex.Message });
         }
     }
 
@@ -132,7 +133,7 @@ public class LanguageController : ControllerBase
     /// Remove a language
     /// </summary>
     [HttpDelete("{cultureCode}")]
-    public ActionResult<object> RemoveLanguage(string cultureCode)
+    public ActionResult<RemoveLanguageResponse> RemoveLanguage(string cultureCode)
     {
         try
         {
@@ -141,34 +142,27 @@ public class LanguageController : ControllerBase
 
             if (language == null)
             {
-                return NotFound(new { error = $"Language '{cultureCode}' not found" });
+                return NotFound(new ErrorResponse { Error = $"Language '{cultureCode}' not found" });
             }
 
             if (language.IsDefault)
             {
-                return BadRequest(new { error = "Cannot delete the default language file" });
+                return BadRequest(new ErrorResponse { Error = "Cannot delete the default language file" });
             }
 
             _languageManager.DeleteLanguageFile(language);
 
-            return Ok(new
+            return Ok(new RemoveLanguageResponse
             {
-                success = true,
-                cultureCode,
-                fileName = language.Name,
-                message = "Language file deleted successfully"
+                Success = true,
+                CultureCode = cultureCode,
+                FileName = language.Name,
+                Message = "Language file deleted successfully"
             });
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { error = ex.Message });
+            return StatusCode(500, new ErrorResponse { Error = ex.Message });
         }
     }
-}
-
-public class AddLanguageRequest
-{
-    public string CultureCode { get; set; } = string.Empty;
-    public string? CopyFrom { get; set; }
-    public bool Empty { get; set; }
 }

@@ -4,6 +4,7 @@
 using Microsoft.AspNetCore.Mvc;
 using LocalizationManager.Core;
 using LocalizationManager.Core.Models;
+using LocalizationManager.Models.Api;
 using System.Globalization;
 
 namespace LocalizationManager.Controllers;
@@ -27,13 +28,13 @@ public class ImportController : ControllerBase
     /// Import keys from CSV format
     /// </summary>
     [HttpPost("csv")]
-    public ActionResult<object> ImportFromCsv([FromBody] ImportCsvRequest request)
+    public ActionResult<ImportResult> ImportFromCsv([FromBody] ImportCsvRequest request)
     {
         try
         {
             if (string.IsNullOrWhiteSpace(request.CsvData))
             {
-                return BadRequest(new { error = "CSV data is required" });
+                return BadRequest(new ErrorResponse { Error = "CSV data is required" });
             }
 
             var languages = _discovery.DiscoverLanguages(_resourcePath);
@@ -43,14 +44,14 @@ public class ImportController : ControllerBase
             var lines = request.CsvData.Split('\n', StringSplitOptions.RemoveEmptyEntries);
             if (lines.Length < 2)
             {
-                return BadRequest(new { error = "CSV must have at least a header row and one data row" });
+                return BadRequest(new ErrorResponse { Error = "CSV must have at least a header row and one data row" });
             }
 
             // Parse header
             var headers = ParseCsvLine(lines[0]);
             if (headers.Length < 2 || headers[0].ToLower() != "key")
             {
-                return BadRequest(new { error = "First column must be 'Key'" });
+                return BadRequest(new ErrorResponse { Error = "First column must be 'Key'" });
             }
 
             var addedCount = 0;
@@ -115,18 +116,18 @@ public class ImportController : ControllerBase
                 _parser.Write(resourceFile);
             }
 
-            return Ok(new
+            return Ok(new ImportResult
             {
-                success = true,
-                addedCount,
-                updatedCount,
-                totalProcessed = addedCount + updatedCount,
-                errors = errors.Any() ? errors : null
+                Success = true,
+                AddedCount = addedCount,
+                UpdatedCount = updatedCount,
+                TotalProcessed = addedCount + updatedCount,
+                Errors = errors.Any() ? errors : null
             });
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { error = ex.Message });
+            return StatusCode(500, new ErrorResponse { Error = ex.Message });
         }
     }
 
@@ -167,9 +168,4 @@ public class ImportController : ControllerBase
         result.Add(currentValue.ToString());
         return result.ToArray();
     }
-}
-
-public class ImportCsvRequest
-{
-    public string CsvData { get; set; } = string.Empty;
 }

@@ -4,6 +4,7 @@
 using Microsoft.AspNetCore.Mvc;
 using LocalizationManager.Core;
 using LocalizationManager.Core.Scanning;
+using LocalizationManager.Models.Api;
 
 namespace LocalizationManager.Controllers;
 
@@ -30,7 +31,7 @@ public class ScanController : ControllerBase
     /// Scan source code for localization key references
     /// </summary>
     [HttpPost("scan")]
-    public ActionResult<object> Scan([FromBody] ScanRequest? request)
+    public ActionResult<ScanResponse> Scan([FromBody] ScanRequest? request)
     {
         try
         {
@@ -40,7 +41,7 @@ public class ScanController : ControllerBase
             var defaultFile = resourceFiles.FirstOrDefault(f => f.Language.IsDefault);
             if (defaultFile == null)
             {
-                return StatusCode(500, new { error = "No default language file found" });
+                return StatusCode(500, new ErrorResponse { Error = "No default language file found" });
             }
 
             // Get all keys from resource files
@@ -57,32 +58,32 @@ public class ScanController : ControllerBase
 
             var result = _scanner.Scan(_sourcePath, resourceFiles, false, excludePatterns, null, null);
 
-            return Ok(new
+            return Ok(new ScanResponse
             {
-                scannedFiles = result.FilesScanned,
-                totalReferences = result.TotalReferences,
-                uniqueKeysFound = result.UniqueKeysFound,
-                unusedKeys = result.UnusedKeys.Count,
-                missingKeys = result.MissingKeys.Count,
-                unused = result.UnusedKeys,
-                missing = result.MissingKeys.Select(k => k.Key),
-                references = result.AllKeyUsages.Select(k => new
+                ScannedFiles = result.FilesScanned,
+                TotalReferences = result.TotalReferences,
+                UniqueKeysFound = result.UniqueKeysFound,
+                UnusedKeysCount = result.UnusedKeys.Count,
+                MissingKeysCount = result.MissingKeys.Count,
+                Unused = result.UnusedKeys,
+                Missing = result.MissingKeys.Select(k => k.Key).ToList(),
+                References = result.AllKeyUsages.Select(k => new KeyReferenceInfo
                 {
-                    key = k.Key,
-                    referenceCount = k.References.Count,
-                    references = k.References.Select(r => new
+                    Key = k.Key,
+                    ReferenceCount = k.References.Count,
+                    References = k.References.Select(r => new CodeReference
                     {
-                        file = r.FilePath,
-                        line = r.Line,
-                        pattern = r.Pattern,
-                        confidence = r.Confidence.ToString()
-                    })
-                })
+                        File = r.FilePath,
+                        Line = r.Line,
+                        Pattern = r.Pattern,
+                        Confidence = r.Confidence.ToString()
+                    }).ToList()
+                }).ToList()
             });
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { error = ex.Message });
+            return StatusCode(500, new ErrorResponse { Error = ex.Message });
         }
     }
 
@@ -90,7 +91,7 @@ public class ScanController : ControllerBase
     /// Get unused keys
     /// </summary>
     [HttpGet("unused")]
-    public ActionResult<object> GetUnused()
+    public ActionResult<UnusedKeysResponse> GetUnused()
     {
         try
         {
@@ -100,7 +101,7 @@ public class ScanController : ControllerBase
             var defaultFile = resourceFiles.FirstOrDefault(f => f.Language.IsDefault);
             if (defaultFile == null)
             {
-                return StatusCode(500, new { error = "No default language file found" });
+                return StatusCode(500, new ErrorResponse { Error = "No default language file found" });
             }
 
             var excludePatterns = new List<string>
@@ -110,11 +111,11 @@ public class ScanController : ControllerBase
 
             var result = _scanner.Scan(_sourcePath, resourceFiles, false, excludePatterns, null, null);
 
-            return Ok(new { unusedKeys = result.UnusedKeys });
+            return Ok(new UnusedKeysResponse { UnusedKeys = result.UnusedKeys });
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { error = ex.Message });
+            return StatusCode(500, new ErrorResponse { Error = ex.Message });
         }
     }
 
@@ -122,7 +123,7 @@ public class ScanController : ControllerBase
     /// Get missing keys (in code but not in resources)
     /// </summary>
     [HttpGet("missing")]
-    public ActionResult<object> GetMissing()
+    public ActionResult<MissingKeysResponse> GetMissing()
     {
         try
         {
@@ -132,7 +133,7 @@ public class ScanController : ControllerBase
             var defaultFile = resourceFiles.FirstOrDefault(f => f.Language.IsDefault);
             if (defaultFile == null)
             {
-                return StatusCode(500, new { error = "No default language file found" });
+                return StatusCode(500, new ErrorResponse { Error = "No default language file found" });
             }
 
             var excludePatterns = new List<string>
@@ -142,11 +143,11 @@ public class ScanController : ControllerBase
 
             var result = _scanner.Scan(_sourcePath, resourceFiles, false, excludePatterns, null, null);
 
-            return Ok(new { missingKeys = result.MissingKeys.Select(k => k.Key).ToList() });
+            return Ok(new MissingKeysResponse { MissingKeys = result.MissingKeys.Select(k => k.Key).ToList() });
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { error = ex.Message });
+            return StatusCode(500, new ErrorResponse { Error = ex.Message });
         }
     }
 
@@ -154,7 +155,7 @@ public class ScanController : ControllerBase
     /// Get code references for a specific key
     /// </summary>
     [HttpGet("references/{keyName}")]
-    public ActionResult<object> GetReferences(string keyName)
+    public ActionResult<KeyReferencesResponse> GetReferences(string keyName)
     {
         try
         {
@@ -171,30 +172,25 @@ public class ScanController : ControllerBase
 
             if (keyUsage == null)
             {
-                return NotFound(new { error = $"No references found for key '{keyName}'" });
+                return NotFound(new ErrorResponse { Error = $"No references found for key '{keyName}'" });
             }
 
-            return Ok(new
+            return Ok(new KeyReferencesResponse
             {
-                key = keyName,
-                referenceCount = keyUsage.References.Count,
-                references = keyUsage.References.Select(r => new
+                Key = keyName,
+                ReferenceCount = keyUsage.References.Count,
+                References = keyUsage.References.Select(r => new CodeReference
                 {
-                    file = r.FilePath,
-                    line = r.Line,
-                    pattern = r.Pattern,
-                    confidence = r.Confidence.ToString()
-                })
+                    File = r.FilePath,
+                    Line = r.Line,
+                    Pattern = r.Pattern,
+                    Confidence = r.Confidence.ToString()
+                }).ToList()
             });
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { error = ex.Message });
+            return StatusCode(500, new ErrorResponse { Error = ex.Message });
         }
     }
-}
-
-public class ScanRequest
-{
-    public List<string>? ExcludePatterns { get; set; }
 }

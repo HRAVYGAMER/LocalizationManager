@@ -4,6 +4,7 @@
 using Microsoft.AspNetCore.Mvc;
 using LocalizationManager.Core;
 using LocalizationManager.Core.Translation;
+using LocalizationManager.Models.Api;
 
 namespace LocalizationManager.Controllers;
 
@@ -26,28 +27,28 @@ public class TranslationController : ControllerBase
     /// Get list of available translation providers
     /// </summary>
     [HttpGet("providers")]
-    public ActionResult<object> GetProviders()
+    public ActionResult<TranslationProvidersResponse> GetProviders()
     {
-        var providers = new[]
+        var providers = new List<TranslationProviderInfo>
         {
-            new { name = "google", displayName = "Google Cloud Translation", requiresApiKey = true },
-            new { name = "deepl", displayName = "DeepL", requiresApiKey = true },
-            new { name = "libretranslate", displayName = "LibreTranslate", requiresApiKey = false },
-            new { name = "ollama", displayName = "Ollama (Local LLM)", requiresApiKey = false },
-            new { name = "openai", displayName = "OpenAI", requiresApiKey = true },
-            new { name = "claude", displayName = "Anthropic Claude", requiresApiKey = true },
-            new { name = "azureopenai", displayName = "Azure OpenAI", requiresApiKey = true },
-            new { name = "azuretranslator", displayName = "Azure Translator", requiresApiKey = true }
+            new() { Name = "google", DisplayName = "Google Cloud Translation", RequiresApiKey = true },
+            new() { Name = "deepl", DisplayName = "DeepL", RequiresApiKey = true },
+            new() { Name = "libretranslate", DisplayName = "LibreTranslate", RequiresApiKey = false },
+            new() { Name = "ollama", DisplayName = "Ollama (Local LLM)", RequiresApiKey = false },
+            new() { Name = "openai", DisplayName = "OpenAI", RequiresApiKey = true },
+            new() { Name = "claude", DisplayName = "Anthropic Claude", RequiresApiKey = true },
+            new() { Name = "azureopenai", DisplayName = "Azure OpenAI", RequiresApiKey = true },
+            new() { Name = "azuretranslator", DisplayName = "Azure Translator", RequiresApiKey = true }
         };
 
-        return Ok(new { providers });
+        return Ok(new TranslationProvidersResponse { Providers = providers });
     }
 
     /// <summary>
     /// Translate keys using specified provider
     /// </summary>
     [HttpPost("translate")]
-    public async Task<ActionResult<object>> Translate([FromBody] TranslateRequest request)
+    public async Task<ActionResult<Models.Api.TranslationResponse>> Translate([FromBody] TranslateRequest request)
     {
         try
         {
@@ -57,7 +58,7 @@ public class TranslationController : ControllerBase
             var defaultFile = resourceFiles.FirstOrDefault(f => f.Language.IsDefault);
             if (defaultFile == null)
             {
-                return StatusCode(500, new { error = "No default language file found" });
+                return StatusCode(500, new ErrorResponse { Error = "No default language file found" });
             }
 
             // Load configuration
@@ -69,8 +70,8 @@ public class TranslationController : ControllerBase
                 config
             );
 
-            var results = new List<object>();
-            var errors = new List<object>();
+            var results = new List<TranslationResult>();
+            var errors = new List<TranslationError>();
 
             // Get keys to translate
             var keysToTranslate = new List<string>();
@@ -135,21 +136,21 @@ public class TranslationController : ControllerBase
                             });
                         }
 
-                        results.Add(new
+                        results.Add(new TranslationResult
                         {
-                            key,
-                            language = targetLang,
-                            translatedValue = translatedText,
-                            success = true
+                            Key = key,
+                            Language = targetLang,
+                            TranslatedValue = translatedText,
+                            Success = true
                         });
                     }
                     catch (Exception ex)
                     {
-                        errors.Add(new
+                        errors.Add(new TranslationError
                         {
-                            key,
-                            language = targetLang,
-                            error = ex.Message
+                            Key = key,
+                            Language = targetLang,
+                            Error = ex.Message
                         });
                     }
                 }
@@ -161,29 +162,19 @@ public class TranslationController : ControllerBase
                 }
             }
 
-            return Ok(new
+            return Ok(new Models.Api.TranslationResponse
             {
-                success = true,
-                translatedCount = results.Count,
-                errorCount = errors.Count,
-                results,
-                errors,
-                dryRun = request.DryRun
+                Success = true,
+                TranslatedCount = results.Count,
+                ErrorCount = errors.Count,
+                Results = results,
+                Errors = errors,
+                DryRun = request.DryRun
             });
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { error = ex.Message });
+            return StatusCode(500, new ErrorResponse { Error = ex.Message });
         }
     }
-}
-
-public class TranslateRequest
-{
-    public string? Provider { get; set; }
-    public string? SourceLanguage { get; set; }
-    public List<string>? TargetLanguages { get; set; }
-    public List<string>? Keys { get; set; }
-    public bool OnlyMissing { get; set; }
-    public bool DryRun { get; set; }
 }

@@ -4,6 +4,7 @@
 using Microsoft.AspNetCore.Mvc;
 using LocalizationManager.Core;
 using LocalizationManager.Core.Models;
+using LocalizationManager.Models.Api;
 
 namespace LocalizationManager.Controllers;
 
@@ -26,31 +27,31 @@ public class ResourcesController : ControllerBase
     /// List all resource files
     /// </summary>
     [HttpGet]
-    public ActionResult<IEnumerable<object>> GetResources()
+    public ActionResult<IEnumerable<ResourceFileInfo>> GetResources()
     {
         try
         {
             var languages = _discovery.DiscoverLanguages(_resourcePath);
-            var result = languages.Select(l => new
+            var result = languages.Select(l => new ResourceFileInfo
             {
-                fileName = l.Name,
-                filePath = l.FilePath,
-                code = l.Code,
-                isDefault = l.IsDefault
+                FileName = l.Name,
+                FilePath = l.FilePath,
+                Code = l.Code,
+                IsDefault = l.IsDefault
             });
             return Ok(result);
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { error = ex.Message });
+            return StatusCode(500, new ErrorResponse { Error = ex.Message });
         }
     }
 
     /// <summary>
-    /// Get all keys from all resource files
+    /// Get all keys from all resource files (includes duplicate information)
     /// </summary>
     [HttpGet("keys")]
-    public ActionResult<object> GetAllKeys()
+    public ActionResult<IEnumerable<ResourceKeyInfo>> GetAllKeys()
     {
         try
         {
@@ -63,6 +64,9 @@ public class ResourcesController : ControllerBase
                 .OrderBy(k => k)
                 .ToList();
 
+            // Get default file to check for duplicates
+            var defaultFile = resourceFiles.FirstOrDefault(f => f.Language.IsDefault);
+
             var keysWithValues = allKeys.Select(key => {
                 var values = new Dictionary<string, string?>();
                 foreach (var file in resourceFiles)
@@ -70,52 +74,132 @@ public class ResourcesController : ControllerBase
                     var entry = file.Entries.FirstOrDefault(e => e.Key == key);
                     values[file.Language.Code ?? "default"] = entry?.Value;
                 }
-                return new { key, values };
+
+                // Check for duplicates in default file
+                var occurrenceCount = defaultFile?.Entries.Count(e => e.Key == key) ?? 1;
+                var hasDuplicates = occurrenceCount > 1;
+
+                return new ResourceKeyInfo
+                {
+                    Key = key,
+                    Values = values,
+                    OccurrenceCount = occurrenceCount,
+                    HasDuplicates = hasDuplicates
+                };
             });
 
             return Ok(keysWithValues);
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { error = ex.Message });
+            return StatusCode(500, new ErrorResponse { Error = ex.Message });
         }
     }
 
     /// <summary>
-    /// Get details of a specific key
+    /// Get details of a specific key (supports duplicates)
     /// </summary>
     [HttpGet("keys/{keyName}")]
-    public ActionResult<object> GetKey(string keyName)
+    public ActionResult<ResourceKeyDetails> GetKey(string keyName)
     {
         try
         {
             var languages = _discovery.DiscoverLanguages(_resourcePath);
             var resourceFiles = languages.Select(l => _parser.Parse(l)).ToList();
 
-            var values = new Dictionary<string, object>();
+            // Check for key existence and duplicates
+            var defaultFile = resourceFiles.FirstOrDefault(f => f.Language.IsDefault);
+            if (defaultFile == null)
+            {
+                return StatusCode(500, new ErrorResponse { Error = "No default language file found" });
+            }
+
+            var occurrences = defaultFile.Entries.Where(e => e.Key == keyName).ToList();
+            if (occurrences.Count == 0)
+            {
+                return NotFound(new ErrorResponse { Error = $"Key '{keyName}' not found" });
+            }
+
+            var hasDuplicates = occurrences.Count > 1;
+
+            // If no duplicates, return simple response
+            if (!hasDuplicates)
+            {
+                var values = new Dictionary<string, ResourceValue>();
+                foreach (var file in resourceFiles)
+                {
+                    var entry = file.Entries.FirstOrDefault(e => e.Key == keyName);
+                    if (entry != null)
+                    {
+                        values[file.Language.Code ?? "default"] = new ResourceValue
+                        {
+                            Value = entry.Value,
+                            Comment = entry.Comment
+                        };
+                    }
+                }
+
+                return Ok(new ResourceKeyDetails
+                {
+                    Key = keyName,
+                    Values = values,
+                    OccurrenceCount = 1,
+                    HasDuplicates = false
+                });
+            }
+
+            // Handle duplicates - return all occurrences
+            var duplicateOccurrences = new List<DuplicateOccurrence>();
+            for (int i = 0; i < occurrences.Count; i++)
+            {
+                var occurrenceValues = new Dictionary<string, ResourceValue>();
+                foreach (var file in resourceFiles)
+                {
+                    var entries = file.Entries.Where(e => e.Key == keyName).ToList();
+                    if (i < entries.Count)
+                    {
+                        occurrenceValues[file.Language.Code ?? "default"] = new ResourceValue
+                        {
+                            Value = entries[i].Value,
+                            Comment = entries[i].Comment
+                        };
+                    }
+                }
+
+                duplicateOccurrences.Add(new DuplicateOccurrence
+                {
+                    OccurrenceNumber = i + 1,
+                    Values = occurrenceValues
+                });
+            }
+
+            // Return first occurrence in Values for backward compatibility
+            var firstValues = new Dictionary<string, ResourceValue>();
             foreach (var file in resourceFiles)
             {
                 var entry = file.Entries.FirstOrDefault(e => e.Key == keyName);
                 if (entry != null)
                 {
-                    values[file.Language.Code ?? "default"] = new
+                    firstValues[file.Language.Code ?? "default"] = new ResourceValue
                     {
-                        value = entry.Value,
-                        comment = entry.Comment
+                        Value = entry.Value,
+                        Comment = entry.Comment
                     };
                 }
             }
 
-            if (values.Count == 0)
+            return Ok(new ResourceKeyDetails
             {
-                return NotFound(new { error = $"Key '{keyName}' not found" });
-            }
-
-            return Ok(new { key = keyName, values });
+                Key = keyName,
+                Values = firstValues,
+                OccurrenceCount = occurrences.Count,
+                HasDuplicates = true,
+                Occurrences = duplicateOccurrences
+            });
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { error = ex.Message });
+            return StatusCode(500, new ErrorResponse { Error = ex.Message });
         }
     }
 
@@ -123,7 +207,7 @@ public class ResourcesController : ControllerBase
     /// Add a new key to all resource files
     /// </summary>
     [HttpPost("keys")]
-    public ActionResult<object> AddKey([FromBody] AddKeyRequest request)
+    public ActionResult<OperationResponse> AddKey([FromBody] AddKeyRequest request)
     {
         try
         {
@@ -134,7 +218,7 @@ public class ResourcesController : ControllerBase
             var defaultFile = resourceFiles.FirstOrDefault(rf => rf.Language.IsDefault);
             if (defaultFile != null && defaultFile.Entries.Any(e => e.Key.Equals(request.Key, StringComparison.OrdinalIgnoreCase)))
             {
-                return Conflict(new { error = $"Key '{request.Key}' already exists" });
+                return Conflict(new ErrorResponse { Error = $"Key '{request.Key}' already exists" });
             }
 
             // Add the key to all resource files
@@ -154,24 +238,23 @@ public class ResourcesController : ControllerBase
                 _parser.Write(resourceFile);
             }
 
-            return Ok(new
+            return Ok(new OperationResponse
             {
-                success = true,
-                key = request.Key,
-                message = "Key added successfully to all resource files"
+                Success = true,
+                Message = "Key added successfully to all resource files"
             });
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { error = ex.Message });
+            return StatusCode(500, new ErrorResponse { Error = ex.Message });
         }
     }
 
     /// <summary>
-    /// Update an existing key in all resource files
+    /// Update an existing key in all resource files (supports occurrence parameter for duplicates)
     /// </summary>
     [HttpPut("keys/{keyName}")]
-    public ActionResult<object> UpdateKey(string keyName, [FromBody] UpdateKeyRequest request)
+    public ActionResult<OperationResponse> UpdateKey(string keyName, [FromBody] UpdateKeyRequest request)
     {
         try
         {
@@ -183,42 +266,74 @@ public class ResourcesController : ControllerBase
             // Update the key in all resource files
             foreach (var resourceFile in resourceFiles)
             {
-                var entry = resourceFile.Entries.FirstOrDefault(e => e.Key == keyName);
-                if (entry != null)
+                if (request.Occurrence.HasValue)
                 {
-                    keyFound = true;
-
-                    // Update value if provided for this language
-                    if (request.Values?.ContainsKey(resourceFile.Language.Code ?? "default") == true)
+                    // Update specific occurrence
+                    var entries = resourceFile.Entries.Where(e => e.Key == keyName).ToList();
+                    if (request.Occurrence.Value > 0 && request.Occurrence.Value <= entries.Count)
                     {
-                        entry.Value = request.Values[resourceFile.Language.Code ?? "default"];
-                    }
+                        var entry = entries[request.Occurrence.Value - 1];
+                        keyFound = true;
 
-                    // Update comment if provided
-                    if (request.Comment != null)
+                        // Update value if provided for this language
+                        if (request.Values?.ContainsKey(resourceFile.Language.Code ?? "default") == true)
+                        {
+                            entry.Value = request.Values[resourceFile.Language.Code ?? "default"];
+                        }
+
+                        // Update comment if provided
+                        if (request.Comment != null)
+                        {
+                            entry.Comment = request.Comment;
+                        }
+                    }
+                }
+                else
+                {
+                    // Update first occurrence (or all if only one exists)
+                    var entry = resourceFile.Entries.FirstOrDefault(e => e.Key == keyName);
+                    if (entry != null)
                     {
-                        entry.Comment = request.Comment;
-                    }
+                        keyFound = true;
 
+                        // Update value if provided for this language
+                        if (request.Values?.ContainsKey(resourceFile.Language.Code ?? "default") == true)
+                        {
+                            entry.Value = request.Values[resourceFile.Language.Code ?? "default"];
+                        }
+
+                        // Update comment if provided
+                        if (request.Comment != null)
+                        {
+                            entry.Comment = request.Comment;
+                        }
+                    }
+                }
+
+                if (keyFound)
+                {
                     _parser.Write(resourceFile);
                 }
             }
 
             if (!keyFound)
             {
-                return NotFound(new { error = $"Key '{keyName}' not found" });
+                return NotFound(new ErrorResponse { Error = $"Key '{keyName}' not found" });
             }
 
-            return Ok(new
+            var message = request.Occurrence.HasValue
+                ? $"Key '{keyName}' occurrence {request.Occurrence.Value} updated successfully"
+                : "Key updated successfully";
+
+            return Ok(new OperationResponse
             {
-                success = true,
-                key = keyName,
-                message = "Key updated successfully"
+                Success = true,
+                Message = message
             });
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { error = ex.Message });
+            return StatusCode(500, new ErrorResponse { Error = ex.Message });
         }
     }
 
@@ -226,7 +341,7 @@ public class ResourcesController : ControllerBase
     /// Delete a key from all resource files
     /// </summary>
     [HttpDelete("keys/{keyName}")]
-    public ActionResult<object> DeleteKey(string keyName, [FromQuery] int? occurrence)
+    public ActionResult<DeleteKeyResponse> DeleteKey(string keyName, [FromQuery] int? occurrence)
     {
         try
         {
@@ -260,33 +375,20 @@ public class ResourcesController : ControllerBase
 
             if (deletedCount == 0)
             {
-                return NotFound(new { error = $"Key '{keyName}' not found" });
+                return NotFound(new ErrorResponse { Error = $"Key '{keyName}' not found" });
             }
 
-            return Ok(new
+            return Ok(new DeleteKeyResponse
             {
-                success = true,
-                key = keyName,
-                deletedCount,
-                message = $"Deleted {deletedCount} occurrence(s) of key '{keyName}'"
+                Success = true,
+                Key = keyName,
+                DeletedCount = deletedCount,
+                Message = $"Deleted {deletedCount} occurrence(s) of key '{keyName}'"
             });
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { error = ex.Message });
+            return StatusCode(500, new ErrorResponse { Error = ex.Message });
         }
     }
-}
-
-public class AddKeyRequest
-{
-    public string Key { get; set; } = string.Empty;
-    public Dictionary<string, string?>? Values { get; set; }
-    public string? Comment { get; set; }
-}
-
-public class UpdateKeyRequest
-{
-    public Dictionary<string, string?>? Values { get; set; }
-    public string? Comment { get; set; }
 }

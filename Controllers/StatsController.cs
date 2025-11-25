@@ -3,6 +3,7 @@
 
 using Microsoft.AspNetCore.Mvc;
 using LocalizationManager.Core;
+using LocalizationManager.Models.Api;
 
 namespace LocalizationManager.Controllers;
 
@@ -25,7 +26,7 @@ public class StatsController : ControllerBase
     /// Get translation coverage statistics
     /// </summary>
     [HttpGet]
-    public ActionResult<object> GetStats()
+    public ActionResult<StatsResponse> GetStats()
     {
         try
         {
@@ -50,23 +51,23 @@ public class StatsController : ControllerBase
 
                 var coverage = totalKeys > 0 ? (double)translatedCount / totalKeys * 100 : 0;
 
-                return new
+                return new LanguageStats
                 {
-                    language = file.Language.Code ?? "default",
-                    isDefault = file.Language.IsDefault,
-                    totalKeys = file.Entries.Select(e => e.Key).Distinct().Count(),
-                    translatedKeys = translatedCount,
-                    missingKeys = totalKeys - translatedCount,
-                    coverage = Math.Round(coverage, 2)
+                    LanguageCode = file.Language.Code ?? "default",
+                    FilePath = file.Language.FilePath,
+                    IsDefault = file.Language.IsDefault,
+                    TranslatedCount = translatedCount,
+                    TotalCount = totalKeys,
+                    Coverage = Math.Round(coverage, 2)
                 };
             }).ToList();
 
-            return Ok(new
+            return Ok(new StatsResponse
             {
-                totalKeys,
-                languages = languageStats,
-                overallCoverage = languageStats.Count > 0
-                    ? Math.Round(languageStats.Average(s => s.coverage), 2)
+                TotalKeys = totalKeys,
+                Languages = languageStats,
+                OverallCoverage = languageStats.Count > 0
+                    ? Math.Round(languageStats.Average(s => s.Coverage), 2)
                     : 0
             });
         }

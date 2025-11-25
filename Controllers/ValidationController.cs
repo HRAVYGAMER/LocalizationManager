@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using LocalizationManager.Core;
 using LocalizationManager.Core.Validation;
 using LocalizationManager.Shared.Enums;
+using LocalizationManager.Models.Api;
 
 namespace LocalizationManager.Controllers;
 
@@ -29,7 +30,7 @@ public class ValidationController : ControllerBase
     /// Validate all resource files
     /// </summary>
     [HttpPost("validate")]
-    public ActionResult<object> Validate([FromBody] ValidateRequest? request)
+    public ActionResult<ValidationResponse> Validate([FromBody] ValidateRequest? request)
     {
         try
         {
@@ -39,28 +40,31 @@ public class ValidationController : ControllerBase
             var placeholderTypes = request?.EnabledPlaceholderTypes ?? PlaceholderType.All;
             var result = _validator.Validate(resourceFiles, placeholderTypes);
 
-            return Ok(new
+            return Ok(new ValidationResponse
             {
-                isValid = result.IsValid,
-                missingKeys = result.MissingKeys,
-                duplicateKeys = result.DuplicateKeys,
-                emptyValues = result.EmptyValues,
-                extraKeys = result.ExtraKeys,
-                placeholderMismatches = result.PlaceholderMismatches,
-                summary = new
+                IsValid = result.IsValid,
+                MissingKeys = result.MissingKeys,
+                DuplicateKeys = result.DuplicateKeys,
+                EmptyValues = result.EmptyValues,
+                ExtraKeys = result.ExtraKeys,
+                PlaceholderMismatches = result.PlaceholderMismatches.ToDictionary(
+                    kv => kv.Key,
+                    kv => kv.Value.Select(v => v.Key).ToList()
+                ),
+                Summary = new ValidationSummary
                 {
-                    totalIssues = result.TotalIssues,
-                    missingCount = result.MissingKeys.Sum(kv => kv.Value.Count),
-                    duplicatesCount = result.DuplicateKeys.Sum(kv => kv.Value.Count),
-                    emptyCount = result.EmptyValues.Sum(kv => kv.Value.Count),
-                    extraCount = result.ExtraKeys.Sum(kv => kv.Value.Count),
-                    placeholderCount = result.PlaceholderMismatches.Sum(kv => kv.Value.Count)
+                    TotalIssues = result.TotalIssues,
+                    MissingCount = result.MissingKeys.Sum(kv => kv.Value.Count),
+                    DuplicatesCount = result.DuplicateKeys.Sum(kv => kv.Value.Count),
+                    EmptyCount = result.EmptyValues.Sum(kv => kv.Value.Count),
+                    ExtraCount = result.ExtraKeys.Sum(kv => kv.Value.Count),
+                    PlaceholderCount = result.PlaceholderMismatches.Sum(kv => kv.Value.Count)
                 }
             });
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { error = ex.Message });
+            return StatusCode(500, new ErrorResponse { Error = ex.Message });
         }
     }
 
@@ -68,7 +72,7 @@ public class ValidationController : ControllerBase
     /// Get validation issues summary
     /// </summary>
     [HttpGet("issues")]
-    public ActionResult<object> GetIssues()
+    public ActionResult<ValidationSummary> GetIssues()
     {
         try
         {
@@ -77,25 +81,20 @@ public class ValidationController : ControllerBase
 
             var result = _validator.Validate(resourceFiles);
 
-            return Ok(new
+            return Ok(new ValidationSummary
             {
-                hasIssues = !result.IsValid,
-                missingCount = result.MissingKeys.Sum(kv => kv.Value.Count),
-                duplicatesCount = result.DuplicateKeys.Sum(kv => kv.Value.Count),
-                emptyCount = result.EmptyValues.Sum(kv => kv.Value.Count),
-                extraCount = result.ExtraKeys.Sum(kv => kv.Value.Count),
-                placeholderCount = result.PlaceholderMismatches.Sum(kv => kv.Value.Count),
-                totalIssues = result.TotalIssues
+                HasIssues = !result.IsValid,
+                MissingCount = result.MissingKeys.Sum(kv => kv.Value.Count),
+                DuplicatesCount = result.DuplicateKeys.Sum(kv => kv.Value.Count),
+                EmptyCount = result.EmptyValues.Sum(kv => kv.Value.Count),
+                ExtraCount = result.ExtraKeys.Sum(kv => kv.Value.Count),
+                PlaceholderCount = result.PlaceholderMismatches.Sum(kv => kv.Value.Count),
+                TotalIssues = result.TotalIssues
             });
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { error = ex.Message });
+            return StatusCode(500, new ErrorResponse { Error = ex.Message });
         }
     }
-}
-
-public class ValidateRequest
-{
-    public PlaceholderType EnabledPlaceholderTypes { get; set; } = PlaceholderType.All;
 }

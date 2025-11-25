@@ -5,6 +5,7 @@ using System.Data;
 using System.Text;
 using System.Text.RegularExpressions;
 using LocalizationManager.Core.Models;
+using LocalizationManager.Models.Api;
 
 namespace LocalizationManager.UI.Filters;
 
@@ -307,6 +308,72 @@ public class ResourceFilterService
         _regexCache[cacheKey] = regex;
 
         return regex;
+    }
+
+    /// <summary>
+    /// Filters a list of ResourceKeyInfo based on the provided criteria (for API use).
+    /// This is a DataTable-independent overload for use with Web API.
+    /// </summary>
+    /// <param name="keys">The collection of resource keys to filter</param>
+    /// <param name="criteria">The filter criteria to apply</param>
+    /// <returns>List of keys that match the filter</returns>
+    public List<ResourceKeyInfo> FilterKeys(IEnumerable<ResourceKeyInfo> keys, FilterCriteria criteria)
+    {
+        if (string.IsNullOrWhiteSpace(criteria.SearchText))
+        {
+            return keys.ToList();
+        }
+
+        Regex? regex = null;
+        try
+        {
+            regex = GetOrCreateRegex(criteria);
+        }
+        catch (RegexParseException)
+        {
+            // Invalid regex pattern - return empty results
+            return new List<ResourceKeyInfo>();
+        }
+        catch (ArgumentException)
+        {
+            // Invalid regex pattern - return empty results
+            return new List<ResourceKeyInfo>();
+        }
+
+        return keys.Where(key => MatchesKey(key, criteria, regex)).ToList();
+    }
+
+    /// <summary>
+    /// Checks if a ResourceKeyInfo matches the filter criteria
+    /// </summary>
+    private bool MatchesKey(ResourceKeyInfo key, FilterCriteria criteria, Regex? regex)
+    {
+        regex ??= GetOrCreateRegex(criteria);
+
+        // Check key name if scope includes keys
+        if (criteria.Scope == SearchScope.KeysOnly ||
+            criteria.Scope == SearchScope.KeysAndValues ||
+            criteria.Scope == SearchScope.All)
+        {
+            if (MatchesPattern(key.Key, criteria.SearchText, regex, criteria))
+            {
+                return true;
+            }
+        }
+
+        // Check values if scope includes values
+        if (criteria.Scope == SearchScope.KeysAndValues || criteria.Scope == SearchScope.All)
+        {
+            foreach (var value in key.Values.Values)
+            {
+                if (value != null && MatchesPattern(value, criteria.SearchText, regex, criteria))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /// <summary>

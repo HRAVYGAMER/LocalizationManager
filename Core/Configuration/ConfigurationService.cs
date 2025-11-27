@@ -2,6 +2,7 @@
 // Licensed under the MIT License
 
 using System.Text.Json;
+using LocalizationManager.Core.Translation;
 
 namespace LocalizationManager.Core.Configuration;
 
@@ -101,8 +102,7 @@ public class ConfigurationService
         // Validate translation provider if specified
         if (!string.IsNullOrEmpty(config.Translation?.DefaultProvider))
         {
-            var supportedProviders = new[] { "google", "deepl", "azure", "azureopenai", "openai", "claude", "ollama", "libretranslate" };
-            if (!supportedProviders.Contains(config.Translation.DefaultProvider.ToLower()))
+            if (!TranslationProviderFactory.IsProviderSupported(config.Translation.DefaultProvider))
             {
                 errors.Add($"Unknown translation provider: {config.Translation.DefaultProvider}");
             }

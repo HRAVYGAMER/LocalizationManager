@@ -3,6 +3,7 @@
 
 using Microsoft.AspNetCore.Mvc;
 using LocalizationManager.Core.Configuration;
+using LocalizationManager.Core.Translation;
 using LocalizationManager.Models.Api;
 using LocalizationManager.Services;
 
@@ -174,7 +175,7 @@ public class ConfigurationController : ControllerBase
                             {
                                 type = "string",
                                 description = "Default translation provider",
-                                @enum = new[] { "google", "deepl", "azure", "azureopenai", "openai", "claude", "ollama", "libretranslate" }
+                                @enum = TranslationProviderFactory.GetSupportedProviders()
                             },
                             sourceLanguage = new
                             {

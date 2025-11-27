@@ -29,17 +29,14 @@ public class TranslationController : ControllerBase
     [HttpGet("providers")]
     public ActionResult<TranslationProvidersResponse> GetProviders()
     {
-        var providers = new List<TranslationProviderInfo>
-        {
-            new() { Name = "google", DisplayName = "Google Cloud Translation", RequiresApiKey = true },
-            new() { Name = "deepl", DisplayName = "DeepL", RequiresApiKey = true },
-            new() { Name = "libretranslate", DisplayName = "LibreTranslate", RequiresApiKey = false },
-            new() { Name = "ollama", DisplayName = "Ollama (Local LLM)", RequiresApiKey = false },
-            new() { Name = "openai", DisplayName = "OpenAI", RequiresApiKey = true },
-            new() { Name = "claude", DisplayName = "Anthropic Claude", RequiresApiKey = true },
-            new() { Name = "azureopenai", DisplayName = "Azure OpenAI", RequiresApiKey = true },
-            new() { Name = "azuretranslator", DisplayName = "Azure Translator", RequiresApiKey = true }
-        };
+        var providers = TranslationProviderFactory.GetProviderInfos()
+            .Select(p => new TranslationProviderInfo
+            {
+                Name = p.Name,
+                DisplayName = p.DisplayName,
+                RequiresApiKey = p.RequiresApiKey
+            })
+            .ToList();
 
         return Ok(new TranslationProvidersResponse { Providers = providers });
     }

@@ -211,6 +211,16 @@ public class AIProviderConfiguration
     /// Azure AI Translator provider settings.
     /// </summary>
     public AzureTranslatorSettings? AzureTranslator { get; set; }
+
+    /// <summary>
+    /// Lingva provider settings (free Google Translate proxy).
+    /// </summary>
+    public LingvaSettings? Lingva { get; set; }
+
+    /// <summary>
+    /// MyMemory provider settings (free translation API).
+    /// </summary>
+    public MyMemorySettings? MyMemory { get; set; }
 }
 
 /// <summary>
@@ -342,6 +352,38 @@ public class AzureTranslatorSettings
     /// <summary>
     /// Rate limit in requests per minute.
     /// Default: 100
+    /// </summary>
+    public int? RateLimitPerMinute { get; set; }
+}
+
+/// <summary>
+/// Configuration settings for Lingva provider.
+/// Lingva is a free, open-source alternative frontend for Google Translate.
+/// </summary>
+public class LingvaSettings
+{
+    /// <summary>
+    /// Lingva instance URL (e.g., "https://lingva.ml", "https://translate.plausibility.cloud").
+    /// Default: https://lingva.ml
+    /// </summary>
+    public string? InstanceUrl { get; set; }
+
+    /// <summary>
+    /// Rate limit in requests per minute.
+    /// Default: 30
+    /// </summary>
+    public int? RateLimitPerMinute { get; set; }
+}
+
+/// <summary>
+/// Configuration settings for MyMemory provider.
+/// MyMemory offers free anonymous translation (5,000 characters/day).
+/// </summary>
+public class MyMemorySettings
+{
+    /// <summary>
+    /// Rate limit in requests per minute.
+    /// Default: 20 (conservative for free tier)
     /// </summary>
     public int? RateLimitPerMinute { get; set; }
 }

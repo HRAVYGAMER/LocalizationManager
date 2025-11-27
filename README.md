@@ -44,7 +44,7 @@ LRM solves this by providing:
 | **Terminal UI** | ✅ Interactive TUI | ❌ | ❌ | ❌ | ❌ |
 | **Web UI** | ✅ Browser-based | ❌ | ❌ | ❌ | ❌ |
 | **REST API** | ✅ Full API | ❌ | ❌ | ❌ | ❌ |
-| **Machine Translation** | ✅ 8 providers (Google/DeepL/Azure/OpenAI/Claude/Ollama) | ⚠️ External services | ❌ | ❌ | ❌ |
+| **Machine Translation** | ✅ 10 providers (Google/DeepL/Azure/OpenAI/Claude/Ollama/Lingva/MyMemory) | ⚠️ External services | ❌ | ❌ | ❌ |
 | **CI/CD Integration** | ✅ Built-in | ⚠️ Complex | ❌ | ❌ | ⚠️ Custom scripts |
 | **Automation** | ✅ Full API | ⚠️ Limited | ❌ | ❌ | ❌ |
 | **Validation** | ✅ Built-in | ✅ | ✅ | ⚠️ Build-time | ❌ |
@@ -83,9 +83,10 @@ LRM solves this by providing:
 
 ## Features
 
-- **🤖 Machine Translation** - Automatic translation using 8 providers
+- **🤖 Machine Translation** - Automatic translation using 10 providers
   - **Traditional NMT**: Google Cloud Translation, DeepL, LibreTranslate, Azure AI Translator
   - **AI-powered**: OpenAI GPT, Anthropic Claude, Azure OpenAI, Ollama (local LLM)
+  - **Free (no API key)**: Lingva (Google via proxy), MyMemory (5K chars/day)
   - Smart caching to reduce costs (30-day SQLite cache)
   - Batch processing with rate limiting
   - Pattern matching for selective translation
@@ -450,7 +451,7 @@ Launch with `lrm edit` to get a visual interface:
 - Automatic validation
 - Unsaved changes tracking
 - **In-app translation** - Translate selected keys with `Ctrl+T`
-- **8 Translation providers** - Google, DeepL, LibreTranslate, Ollama, OpenAI, Claude, Azure OpenAI, Azure Translator
+- **10 Translation providers** - Google, DeepL, LibreTranslate, Ollama, OpenAI, Claude, Azure OpenAI, Azure Translator, Lingva, MyMemory
 - **Translation context** - Shows key name, source text, and comments when translating
 
 **Keyboard Shortcuts:**

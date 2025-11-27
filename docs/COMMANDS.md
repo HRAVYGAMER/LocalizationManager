@@ -1288,7 +1288,7 @@ lrm import translations.csv --no-backup
 - Real-time filtering with debouncing (300ms)
 - Extra keys detection and warnings
 - Visual key editing with auto-translate button for specific occurrences
-- **8 translation providers** - Google, DeepL, LibreTranslate, Ollama, OpenAI, Claude, Azure OpenAI, Azure Translator
+- **10 translation providers** - Google, DeepL, LibreTranslate, Ollama, OpenAI, Claude, Azure OpenAI, Azure Translator, Lingva, MyMemory
 - **Translation context** - Shows key name, source text, and comments when translating
 - Automatic validation
 - Unsaved changes tracking
@@ -2470,7 +2470,7 @@ lrm import for_translation.csv --overwrite
 
 ## `translate` - Automatic Translation 🆕
 
-Automatically translate resource keys using machine translation providers (Google, DeepL, LibreTranslate, Azure AI Translator) or AI-powered translation (OpenAI, Claude, Azure OpenAI, Ollama).
+Automatically translate resource keys using machine translation providers (Google, DeepL, LibreTranslate, Azure AI Translator), AI-powered translation (OpenAI, Claude, Azure OpenAI, Ollama), or free providers (Lingva, MyMemory).
 
 ### Basic Usage
 
@@ -2488,7 +2488,7 @@ lrm translate [KEY_PATTERN] [OPTIONS]
 
 | Option | Description |
 |--------|-------------|
-| `--provider <PROVIDER>` | Translation provider: `google`, `deepl`, `libretranslate`, `azuretranslator`, `openai`, `claude`, `azureopenai`, `ollama` (default: from config or `google`) |
+| `--provider <PROVIDER>` | Translation provider: `google`, `deepl`, `libretranslate`, `azuretranslator`, `openai`, `claude`, `azureopenai`, `ollama`, `lingva`, `mymemory` (default: from config or `google`) |
 | `--source-language <LANG>` | Source language code (e.g., `en`, `fr`, or `default`). Always defaults to default language file (auto-detect). Specify explicitly to use a specific culture file as source |
 | `--target-languages <LANGS>` | Comma-separated target languages (e.g., `fr,de,es`). Default: all non-default languages |
 | `--only-missing` | Only translate keys with missing or empty values (safe) |
@@ -2524,6 +2524,12 @@ lrm translate --only-missing --provider deepl
 lrm translate --only-missing --provider azuretranslator
 lrm translate --only-missing --provider openai
 lrm translate --only-missing --provider ollama
+```
+
+**Use free providers (no API key needed):**
+```bash
+lrm translate --only-missing --provider lingva    # Google quality via proxy
+lrm translate --only-missing --provider mymemory  # 5K chars/day limit
 ```
 
 **Preview without saving (dry run):**
@@ -2659,7 +2665,7 @@ lrm config set-api-key --provider <PROVIDER> --key <KEY>
 ```
 
 **Options:**
-- `-p, --provider <PROVIDER>` - Provider name: `google`, `deepl`, `libretranslate`, `azuretranslator`, `openai`, `claude`, `azureopenai`, `ollama`
+- `-p, --provider <PROVIDER>` - Provider name: `google`, `deepl`, `libretranslate`, `azuretranslator`, `openai`, `claude`, `azureopenai`, `ollama`, `lingva`, `mymemory`
 - `-k, --key <KEY>` - API key to store
 
 **Example:**

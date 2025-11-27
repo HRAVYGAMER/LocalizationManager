@@ -18,7 +18,7 @@ The translation feature allows you to automatically translate resource keys from
 
 ### Key Features
 
-- **Multiple Providers**: Support for Google Cloud Translation, DeepL, LibreTranslate, Azure AI Translator, and AI services (OpenAI, Claude, Ollama, Azure OpenAI)
+- **Multiple Providers**: Support for Google Cloud Translation, DeepL, LibreTranslate, Azure AI Translator, AI services (OpenAI, Claude, Ollama, Azure OpenAI), and free providers (Lingva, MyMemory)
 - **Flexible Configuration**: 3-tier priority for API keys (environment variables → secure store → config file)
 - **Smart Caching**: SQLite-based translation cache with 30-day expiration
 - **Rate Limiting**: Built-in rate limiting to protect against API quota exhaustion
@@ -212,6 +212,86 @@ lrm translate --only-missing --provider ollama
 3. Get the endpoint URL and API key
 4. Configure in lrm.json or environment variables
 
+### Lingva Translate (Free)
+
+**Provider name**: `lingva`
+
+**Features**:
+- **Free** - No API key required
+- Uses Google Translate quality via open-source proxy
+- Multiple public instances available
+- Supports 100+ languages
+- Privacy-focused (no tracking)
+
+**Requirements**:
+- None - works out of the box
+
+**Rate limits**: Configurable (default: 30 requests/minute)
+
+**Public Instances**:
+- `https://lingva.ml` (default)
+- `https://translate.plausibility.cloud`
+- `https://lingva.lunar.icu`
+- `https://translate.projectsegfau.lt`
+
+**Setup**:
+```bash
+# Just use it - no configuration needed!
+lrm translate --only-missing --provider lingva
+
+# Use a specific instance (in lrm.json)
+{
+  "Translation": {
+    "AIProviders": {
+      "Lingva": {
+        "InstanceUrl": "https://translate.plausibility.cloud",
+        "RateLimitPerMinute": 30
+      }
+    }
+  }
+}
+```
+
+**Note**: Lingva depends on public instances. If the default instance is down, configure an alternative instance URL.
+
+### MyMemory (Free)
+
+**Provider name**: `mymemory`
+
+**Features**:
+- **Free** - No API key required for anonymous usage
+- Simple REST API
+- Supports most common languages
+- Returns translation confidence scores
+
+**Requirements**:
+- None - works out of the box
+
+**Limitations**:
+- 5,000 characters/day (anonymous)
+- 500 bytes max per request
+
+**Rate limits**: Configurable (default: 20 requests/minute)
+
+**Setup**:
+```bash
+# Just use it - no configuration needed!
+lrm translate --only-missing --provider mymemory
+
+# Configure rate limit (in lrm.json)
+{
+  "Translation": {
+    "AIProviders": {
+      "MyMemory": {
+        "RateLimitPerMinute": 20
+      }
+    }
+  }
+}
+```
+
+**Note**: MyMemory has a daily character limit. For higher volume, consider using Lingva or a paid provider.
+
 ## Configuration
 
 ### API Key Priority
@@ -319,6 +399,13 @@ Create or update `lrm.json` in your resource directory:
         "Region": "eastus",
         "Endpoint": "https://api.cognitive.microsofttranslator.com",
         "RateLimitPerMinute": 100
+      },
+      "Lingva": {
+        "InstanceUrl": "https://lingva.ml",
+        "RateLimitPerMinute": 30
+      },
+      "MyMemory": {
+        "RateLimitPerMinute": 20
       }
     }
   }
@@ -372,7 +459,7 @@ lrm translate [KEY] [OPTIONS]
   - **Required** unless `--only-missing` is used (safety feature)
 
 **Options**:
-- `--provider <PROVIDER>`: Translation provider (google, deepl, libretranslate, azuretranslator, ollama, openai, claude, azureopenai)
+- `--provider <PROVIDER>`: Translation provider (google, deepl, libretranslate, azuretranslator, ollama, openai, claude, azureopenai, lingva, mymemory)
   - Default: From config or `google`
 - `--source-language <LANG>`: Source language code (e.g., `en`, `fr`, or `default`)
   - Default: Uses default language file (auto-detect)
@@ -546,6 +633,16 @@ lrm translate --only-missing --provider claude
 Use Azure OpenAI for enterprise deployments:
 ```bash
 lrm translate --only-missing --provider azureopenai
+```
+
+Use Lingva for free Google-quality translations (no API key needed):
+```bash
+lrm translate --only-missing --provider lingva
+```
+
+Use MyMemory for free translations (5K chars/day, no API key needed):
+```bash
+lrm translate --only-missing --provider mymemory
 ```
 
 ### Only Translate Missing Values

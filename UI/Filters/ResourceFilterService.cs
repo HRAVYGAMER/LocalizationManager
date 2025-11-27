@@ -15,7 +15,7 @@ namespace LocalizationManager.UI.Filters;
 public class ResourceFilterService
 {
     private readonly Dictionary<string, Regex> _regexCache = new();
-    private const int RegexTimeoutMs = 1000;
+    private const int RegexTimeoutMs = 2000; // 2 second timeout to prevent ReDoS
 
     /// <summary>
     /// Filters rows in a DataTable based on the provided criteria

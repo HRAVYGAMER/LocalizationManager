@@ -62,9 +62,9 @@ public class ValidationController : ControllerBase
                 }
             });
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return StatusCode(500, new ErrorResponse { Error = ex.Message });
+            return StatusCode(500, new ErrorResponse { Error = "An error occurred while processing your request" });
         }
     }
 
@@ -92,9 +92,9 @@ public class ValidationController : ControllerBase
                 TotalIssues = result.TotalIssues
             });
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return StatusCode(500, new ErrorResponse { Error = ex.Message });
+            return StatusCode(500, new ErrorResponse { Error = "An error occurred while processing your request" });
         }
     }
 }

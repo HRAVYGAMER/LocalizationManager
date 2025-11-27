@@ -1,6 +1,8 @@
 // Copyright (c) 2025 Nikolaos Protopapas
 // Licensed under the MIT License
 
+using System.ComponentModel.DataAnnotations;
+
 namespace LocalizationManager.Models.Api;
 
 /// <summary>
@@ -11,11 +13,13 @@ public class SearchRequest
     /// <summary>
     /// The search pattern (text, wildcard, or regex depending on FilterMode)
     /// </summary>
+    [StringLength(500, ErrorMessage = "Search pattern cannot exceed 500 characters")]
     public string? Pattern { get; set; }
 
     /// <summary>
     /// The filtering mode: "substring" (default), "wildcard", or "regex"
     /// </summary>
+    [RegularExpression(@"^(substring|wildcard|regex)$", ErrorMessage = "FilterMode must be 'substring', 'wildcard', or 'regex'")]
     public string FilterMode { get; set; } = "substring";
 
     /// <summary>
@@ -26,6 +30,7 @@ public class SearchRequest
     /// <summary>
     /// Search scope: "keys", "values", "keysAndValues" (default), "comments", or "all"
     /// </summary>
+    [RegularExpression(@"^(keys|values|keysAndValues|comments|all)$", ErrorMessage = "SearchScope must be 'keys', 'values', 'keysAndValues', 'comments', or 'all'")]
     public string SearchScope { get; set; } = "keysAndValues";
 
     /// <summary>
@@ -37,11 +42,13 @@ public class SearchRequest
     /// <summary>
     /// Maximum number of results to return (for pagination)
     /// </summary>
+    [Range(1, 10000, ErrorMessage = "Limit must be between 1 and 10000")]
     public int? Limit { get; set; }
 
     /// <summary>
     /// Number of results to skip (for pagination)
     /// </summary>
+    [Range(0, int.MaxValue, ErrorMessage = "Offset must be non-negative")]
     public int? Offset { get; set; }
 }
 

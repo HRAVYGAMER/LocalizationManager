@@ -67,9 +67,9 @@ public class MergeDuplicatesController : ControllerBase
                 TotalDuplicateKeys = duplicateKeys.Count
             });
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return StatusCode(500, new ErrorResponse { Error = ex.Message });
+            return StatusCode(500, new ErrorResponse { Error = "An error occurred while processing your request" });
         }
     }
 
@@ -170,9 +170,9 @@ public class MergeDuplicatesController : ControllerBase
                 Message = message
             });
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return StatusCode(500, new ErrorResponse { Error = ex.Message });
+            return StatusCode(500, new ErrorResponse { Error = "An error occurred while processing your request" });
         }
     }
 }

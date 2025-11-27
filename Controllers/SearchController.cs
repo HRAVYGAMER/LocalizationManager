@@ -107,9 +107,9 @@ public class SearchController : ControllerBase
                 AppliedFilterMode = request.FilterMode
             });
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return StatusCode(500, new ErrorResponse { Error = ex.Message });
+            return StatusCode(500, new ErrorResponse { Error = "An error occurred while processing your request" });
         }
     }
 

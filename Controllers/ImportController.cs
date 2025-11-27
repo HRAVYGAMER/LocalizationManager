@@ -125,9 +125,9 @@ public class ImportController : ControllerBase
                 Errors = errors.Any() ? errors : null
             });
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return StatusCode(500, new ErrorResponse { Error = ex.Message });
+            return StatusCode(500, new ErrorResponse { Error = "An error occurred while processing your request" });
         }
     }
 

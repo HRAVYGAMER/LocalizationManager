@@ -143,11 +143,16 @@ public class TranslationController : ControllerBase
                     }
                     catch (Exception ex)
                     {
+                        // Sanitize error message - only include generic translation failure info
+                        var sanitizedError = ex is HttpRequestException
+                            ? "Translation service unavailable"
+                            : "Translation failed";
+
                         errors.Add(new TranslationError
                         {
                             Key = key,
                             Language = targetLang,
-                            Error = ex.Message
+                            Error = sanitizedError
                         });
                     }
                 }
@@ -169,9 +174,9 @@ public class TranslationController : ControllerBase
                 DryRun = request.DryRun
             });
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return StatusCode(500, new ErrorResponse { Error = ex.Message });
+            return StatusCode(500, new ErrorResponse { Error = "An error occurred while processing your request" });
         }
     }
 }

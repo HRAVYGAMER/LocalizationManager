@@ -41,9 +41,9 @@ public class ResourcesController : ControllerBase
             });
             return Ok(result);
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return StatusCode(500, new ErrorResponse { Error = ex.Message });
+            return StatusCode(500, new ErrorResponse { Error = "An error occurred while processing your request" });
         }
     }
 
@@ -90,9 +90,9 @@ public class ResourcesController : ControllerBase
 
             return Ok(keysWithValues);
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return StatusCode(500, new ErrorResponse { Error = ex.Message });
+            return StatusCode(500, new ErrorResponse { Error = "An error occurred while processing your request" });
         }
     }
 
@@ -197,9 +197,9 @@ public class ResourcesController : ControllerBase
                 Occurrences = duplicateOccurrences
             });
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return StatusCode(500, new ErrorResponse { Error = ex.Message });
+            return StatusCode(500, new ErrorResponse { Error = "An error occurred while processing your request" });
         }
     }
 
@@ -244,9 +244,9 @@ public class ResourcesController : ControllerBase
                 Message = "Key added successfully to all resource files"
             });
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return StatusCode(500, new ErrorResponse { Error = ex.Message });
+            return StatusCode(500, new ErrorResponse { Error = "An error occurred while processing your request" });
         }
     }
 
@@ -331,9 +331,9 @@ public class ResourcesController : ControllerBase
                 Message = message
             });
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return StatusCode(500, new ErrorResponse { Error = ex.Message });
+            return StatusCode(500, new ErrorResponse { Error = "An error occurred while processing your request" });
         }
     }
 
@@ -386,9 +386,9 @@ public class ResourcesController : ControllerBase
                 Message = $"Deleted {deletedCount} occurrence(s) of key '{keyName}'"
             });
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return StatusCode(500, new ErrorResponse { Error = ex.Message });
+            return StatusCode(500, new ErrorResponse { Error = "An error occurred while processing your request" });
         }
     }
 }

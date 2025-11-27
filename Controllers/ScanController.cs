@@ -81,9 +81,9 @@ public class ScanController : ControllerBase
                 }).ToList()
             });
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return StatusCode(500, new ErrorResponse { Error = ex.Message });
+            return StatusCode(500, new ErrorResponse { Error = "An error occurred while processing your request" });
         }
     }
 
@@ -113,9 +113,9 @@ public class ScanController : ControllerBase
 
             return Ok(new UnusedKeysResponse { UnusedKeys = result.UnusedKeys });
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return StatusCode(500, new ErrorResponse { Error = ex.Message });
+            return StatusCode(500, new ErrorResponse { Error = "An error occurred while processing your request" });
         }
     }
 
@@ -145,9 +145,9 @@ public class ScanController : ControllerBase
 
             return Ok(new MissingKeysResponse { MissingKeys = result.MissingKeys.Select(k => k.Key).ToList() });
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return StatusCode(500, new ErrorResponse { Error = ex.Message });
+            return StatusCode(500, new ErrorResponse { Error = "An error occurred while processing your request" });
         }
     }
 
@@ -188,9 +188,9 @@ public class ScanController : ControllerBase
                 }).ToList()
             });
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return StatusCode(500, new ErrorResponse { Error = ex.Message });
+            return StatusCode(500, new ErrorResponse { Error = "An error occurred while processing your request" });
         }
     }
 }

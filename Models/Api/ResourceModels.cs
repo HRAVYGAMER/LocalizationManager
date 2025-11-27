@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace LocalizationManager.Models.Api;
 
 // Responses
@@ -41,15 +43,25 @@ public class DuplicateOccurrence
 // Requests
 public class AddKeyRequest
 {
+    [Required(ErrorMessage = "Key is required")]
+    [StringLength(500, MinimumLength = 1, ErrorMessage = "Key must be between 1 and 500 characters")]
+    [RegularExpression(@"^[\w\.\-\[\]\s]+$", ErrorMessage = "Key contains invalid characters")]
     public string Key { get; set; } = string.Empty;
+
     public Dictionary<string, string>? Values { get; set; }
+
+    [StringLength(2000, ErrorMessage = "Comment cannot exceed 2000 characters")]
     public string? Comment { get; set; }
 }
 
 public class UpdateKeyRequest
 {
     public Dictionary<string, string>? Values { get; set; }
+
+    [StringLength(2000, ErrorMessage = "Comment cannot exceed 2000 characters")]
     public string? Comment { get; set; }
+
+    [Range(1, 100, ErrorMessage = "Occurrence must be between 1 and 100")]
     public int? Occurrence { get; set; }
 }
 

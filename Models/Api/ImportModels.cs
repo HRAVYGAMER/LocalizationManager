@@ -1,9 +1,14 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace LocalizationManager.Models.Api;
 
 // Request
 public class ImportCsvRequest
 {
+    [Required(ErrorMessage = "CSV data is required")]
+    [StringLength(10_485_760, MinimumLength = 1, ErrorMessage = "CSV data cannot exceed 10MB")]
     public string CsvData { get; set; } = string.Empty;
+
     public bool UpdateExisting { get; set; } = true;
     public bool DryRun { get; set; } = false;
 }

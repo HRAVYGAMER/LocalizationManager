@@ -65,9 +65,9 @@ public class LanguageController : ControllerBase
 
             return Ok(new LanguagesResponse { Languages = result });
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return StatusCode(500, new ErrorResponse { Error = ex.Message });
+            return StatusCode(500, new ErrorResponse { Error = "An error occurred while processing your request" });
         }
     }
 
@@ -123,9 +123,9 @@ public class LanguageController : ControllerBase
                 DisplayName = _languageManager.GetCultureDisplayName(request.CultureCode)
             });
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return StatusCode(500, new ErrorResponse { Error = ex.Message });
+            return StatusCode(500, new ErrorResponse { Error = "An error occurred while processing your request" });
         }
     }
 
@@ -160,9 +160,9 @@ public class LanguageController : ControllerBase
                 Message = "Language file deleted successfully"
             });
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return StatusCode(500, new ErrorResponse { Error = ex.Message });
+            return StatusCode(500, new ErrorResponse { Error = "An error occurred while processing your request" });
         }
     }
 }

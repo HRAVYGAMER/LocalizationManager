@@ -24,6 +24,44 @@ public class BackupController : ControllerBase
     }
 
     /// <summary>
+    /// Validates a file name to prevent path traversal attacks
+    /// </summary>
+    private bool IsValidFileName(string? fileName, out string? error)
+    {
+        error = null;
+
+        if (string.IsNullOrWhiteSpace(fileName))
+        {
+            error = "File name is required";
+            return false;
+        }
+
+        // Block path traversal attempts
+        if (fileName.Contains("..") || fileName.Contains('/') || fileName.Contains('\\') || fileName.Contains(':'))
+        {
+            error = "Invalid file name";
+            return false;
+        }
+
+        // Must end with .resx
+        if (!fileName.EndsWith(".resx", StringComparison.OrdinalIgnoreCase))
+        {
+            error = "File must be a .resx file";
+            return false;
+        }
+
+        // Additional check: file name must only contain safe characters
+        var invalidChars = Path.GetInvalidFileNameChars();
+        if (fileName.Any(c => invalidChars.Contains(c)))
+        {
+            error = "File name contains invalid characters";
+            return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
     /// List all backups
     /// </summary>
     [HttpGet]
@@ -33,6 +71,10 @@ public class BackupController : ControllerBase
         {
             if (!string.IsNullOrEmpty(fileName))
             {
+                if (!IsValidFileName(fileName, out var error))
+                {
+                    return BadRequest(new ErrorResponse { Error = error! });
+                }
                 var backups = await _backupManager.ListBackupsAsync(fileName, _resourcePath);
                 return Ok(new BackupListResponse
                 {
@@ -76,9 +118,9 @@ public class BackupController : ControllerBase
                 return Ok(new BackupListResponse { Backups = allBackups });
             }
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return StatusCode(500, new ErrorResponse { Error = ex.Message });
+            return StatusCode(500, new ErrorResponse { Error = "An error occurred while processing your request" });
         }
     }
 
@@ -94,6 +136,11 @@ public class BackupController : ControllerBase
 
             if (!string.IsNullOrEmpty(request.FileName))
             {
+                if (!IsValidFileName(request.FileName, out var error))
+                {
+                    return BadRequest(new ErrorResponse { Error = error! });
+                }
+
                 var languages = _discovery.DiscoverLanguages(_resourcePath);
                 var language = languages.FirstOrDefault(l => l.Name == request.FileName);
                 if (language == null)
@@ -143,9 +190,9 @@ public class BackupController : ControllerBase
                 });
             }
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return StatusCode(500, new ErrorResponse { Error = ex.Message });
+            return StatusCode(500, new ErrorResponse { Error = "An error occurred while processing your request" });
         }
     }
 
@@ -157,6 +204,16 @@ public class BackupController : ControllerBase
     {
         try
         {
+            if (!IsValidFileName(fileName, out var error))
+            {
+                return BadRequest(new ErrorResponse { Error = error! });
+            }
+
+            if (version < 1)
+            {
+                return BadRequest(new ErrorResponse { Error = "Version must be a positive integer" });
+            }
+
             var backup = await _backupManager.GetBackupAsync(fileName, version, _resourcePath);
 
             if (backup == null)
@@ -175,9 +232,9 @@ public class BackupController : ControllerBase
                 ChangedKeyNames = backup.ChangedKeyNames
             });
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return StatusCode(500, new ErrorResponse { Error = ex.Message });
+            return StatusCode(500, new ErrorResponse { Error = "An error occurred while processing your request" });
         }
     }
 
@@ -189,6 +246,16 @@ public class BackupController : ControllerBase
     {
         try
         {
+            if (!IsValidFileName(fileName, out var error))
+            {
+                return BadRequest(new ErrorResponse { Error = error! });
+            }
+
+            if (version < 1)
+            {
+                return BadRequest(new ErrorResponse { Error = "Version must be a positive integer" });
+            }
+
             var parser = new ResourceFileParser();
             var restoreService = new BackupRestoreService(_backupManager);
             var languages = _discovery.DiscoverLanguages(_resourcePath);
@@ -268,9 +335,9 @@ public class BackupController : ControllerBase
                 });
             }
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return StatusCode(500, new ErrorResponse { Error = ex.Message });
+            return StatusCode(500, new ErrorResponse { Error = "An error occurred while processing your request" });
         }
     }
 
@@ -282,6 +349,16 @@ public class BackupController : ControllerBase
     {
         try
         {
+            if (!IsValidFileName(fileName, out var error))
+            {
+                return BadRequest(new ErrorResponse { Error = error! });
+            }
+
+            if (version < 1)
+            {
+                return BadRequest(new ErrorResponse { Error = "Version must be a positive integer" });
+            }
+
             var deleted = await _backupManager.DeleteBackupAsync(fileName, version, _resourcePath);
 
             if (!deleted)
@@ -297,9 +374,9 @@ public class BackupController : ControllerBase
                 Message = "Backup deleted successfully"
             });
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return StatusCode(500, new ErrorResponse { Error = ex.Message });
+            return StatusCode(500, new ErrorResponse { Error = "An error occurred while processing your request" });
         }
     }
 
@@ -311,6 +388,11 @@ public class BackupController : ControllerBase
     {
         try
         {
+            if (!IsValidFileName(fileName, out var error))
+            {
+                return BadRequest(new ErrorResponse { Error = error! });
+            }
+
             await _backupManager.DeleteAllBackupsAsync(fileName, _resourcePath);
 
             return Ok(new OperationResponse
@@ -319,9 +401,9 @@ public class BackupController : ControllerBase
                 Message = "All backups deleted successfully"
             });
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return StatusCode(500, new ErrorResponse { Error = ex.Message });
+            return StatusCode(500, new ErrorResponse { Error = "An error occurred while processing your request" });
         }
     }
 }

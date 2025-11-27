@@ -38,9 +38,9 @@ public class ConfigurationController : ControllerBase
                 Message = "Configuration loaded successfully"
             });
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return StatusCode(500, new ErrorResponse { Error = ex.Message });
+            return StatusCode(500, new ErrorResponse { Error = "An error occurred while processing your request" });
         }
     }
 
@@ -72,9 +72,9 @@ public class ConfigurationController : ControllerBase
                 Message = "Configuration updated and reloaded successfully"
             });
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return StatusCode(500, new ErrorResponse { Error = ex.Message });
+            return StatusCode(500, new ErrorResponse { Error = "An error occurred while processing your request" });
         }
     }
 
@@ -106,13 +106,13 @@ public class ConfigurationController : ControllerBase
                 Message = "Configuration file created successfully"
             });
         }
-        catch (InvalidOperationException ex)
+        catch (InvalidOperationException)
         {
-            return Conflict(new ErrorResponse { Error = ex.Message });
+            return Conflict(new ErrorResponse { Error = "Configuration validation failed" });
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return StatusCode(500, new ErrorResponse { Error = ex.Message });
+            return StatusCode(500, new ErrorResponse { Error = "An error occurred while processing your request" });
         }
     }
 
@@ -132,9 +132,9 @@ public class ConfigurationController : ControllerBase
                 Errors = errors.Any() ? errors : null
             });
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return StatusCode(500, new ErrorResponse { Error = ex.Message });
+            return StatusCode(500, new ErrorResponse { Error = "An error occurred while processing your request" });
         }
     }
 
@@ -270,9 +270,9 @@ public class ConfigurationController : ControllerBase
                 Message = "Schema-enriched configuration generated successfully"
             });
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return StatusCode(500, new ErrorResponse { Error = ex.Message });
+            return StatusCode(500, new ErrorResponse { Error = "An error occurred while processing your request" });
         }
     }
 }

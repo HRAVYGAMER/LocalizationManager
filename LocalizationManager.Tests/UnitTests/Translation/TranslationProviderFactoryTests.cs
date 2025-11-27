@@ -131,7 +131,7 @@ public class TranslationProviderFactoryTests
 
         // Assert
         Assert.NotNull(providers);
-        Assert.Equal(8, providers.Length);
+        Assert.Equal(10, providers.Length);
         Assert.Contains("google", providers);
         Assert.Contains("deepl", providers);
         Assert.Contains("libretranslate", providers);
@@ -140,6 +140,8 @@ public class TranslationProviderFactoryTests
         Assert.Contains("openai", providers);
         Assert.Contains("claude", providers);
         Assert.Contains("azureopenai", providers);
+        Assert.Contains("lingva", providers);
+        Assert.Contains("mymemory", providers);
     }
 
     [Theory]

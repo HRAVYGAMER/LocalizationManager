@@ -25,50 +25,50 @@
 
 ## Architecture Overview
 
-### Selected Architecture: Hybrid (API + CLI)
+### Selected Architecture: Hybrid (API + CLI) with Bundled Binary
 
 ```
-┌─────────────────────────────────────────────┐
-│         VS Code Extension (TypeScript)       │
-│  ┌─────────────┐  ┌──────────────────────┐  │
-│  │  Extension  │  │   WebView Panels     │  │
-│  │   Host      │  │  (Editor/Dashboard)  │  │
-│  └──────┬──────┘  └──────────────────────┘  │
-│         │                                     │
-│  ┌──────▼───────────────────────────────┐   │
-│  │     Language Server Protocol         │   │
-│  │  (Diagnostics, CodeLens, Actions)    │   │
-│  └──────┬───────────────────────────────┘   │
-└─────────┼─────────────────────────────────┘
-          │
-    ┌─────▼─────┐
-    │  Backend  │
-    └─────┬─────┘
-          │
-    ┌─────┴──────────────────┐
-    │                        │
-┌───▼────┐            ┌──────▼──────┐
-│REST API│            │ CLI Process │
-│(Port   │            │  Executor   │
-│ 5000)  │            │             │
-└───┬────┘            └──────┬──────┘
-    │                        │
-    └────────┬───────────────┘
-             │
-    ┌────────▼─────────┐
-    │  LRM Core (.NET) │
-    │  - Translation   │
-    │  - Validation    │
-    │  - Scanning      │
-    │  - Backup        │
-    └──────────────────┘
+┌──────────────────────────────────────────────────┐
+│          VS Code Extension (TypeScript)           │
+│  ┌─────────────┐  ┌──────────────────────┐       │
+│  │  Extension  │  │   WebView Panels     │       │
+│  │   Host      │  │  (Editor/Dashboard)  │       │
+│  └──────┬──────┘  └──────────────────────┘       │
+│         │                                         │
+│  ┌──────▼───────────────────────────────┐        │
+│  │     Language Server Protocol         │        │
+│  │  (Diagnostics, CodeLens, Actions)    │        │
+│  └──────┬───────────────────────────────┘        │
+│         │                                         │
+│  ┌──────▼───────────────────────────────┐        │
+│  │           Backend Service            │        │
+│  │  ┌─────────────┐  ┌──────────────┐   │        │
+│  │  │  REST API   │  │ CLI Process  │   │        │
+│  │  │(Random Port)│  │  Executor    │   │        │
+│  │  └──────┬──────┘  └──────┬───────┘   │        │
+│  └─────────┼────────────────┼───────────┘        │
+│            └────────┬───────┘                    │
+│                     │                            │
+│  ┌──────────────────▼────────────────────────┐   │
+│  │  BUNDLED LRM Binary (Self-Contained)      │   │
+│  │  bin/{platform}-{arch}/lrm[.exe]          │   │
+│  │  ├── win32-x64/lrm.exe    (~72MB)         │   │
+│  │  ├── linux-x64/lrm        (~72MB)         │   │
+│  │  ├── linux-arm64/lrm      (~72MB)         │   │
+│  │  ├── darwin-x64/lrm       (~72MB)         │   │
+│  │  └── darwin-arm64/lrm     (~72MB)         │   │
+│  └───────────────────────────────────────────┘   │
+└──────────────────────────────────────────────────┘
 ```
 
-### Why Hybrid?
+### Why This Architecture?
+- ✅ **Zero Dependencies**: No .NET runtime installation required
+- ✅ **Bundled Binary**: LRM self-contained executable included in extension
 - ✅ **API**: Real-time validation, interactive editing
 - ✅ **CLI**: Batch operations, translation, scanning
 - ✅ **Reuses**: All 13K+ lines of tested business logic
-- ✅ **Maintainable**: Updates to LRM CLI benefit extension automatically
+- ✅ **Same Repo**: Extension lives in `vscode-extension/` subdirectory
+- ✅ **Version Aligned**: Extension always ships with matching LRM version
 
 ---
 
@@ -92,8 +92,11 @@
 ### 1.1 Project Setup
 **Status**: ⬜ Not Started | **Estimated**: 4 hours
 
-- [ ] Initialize VS Code extension project
+- [ ] Create extension directory in existing repo
   ```bash
+  cd LocalizationManager
+  mkdir -p vscode-extension
+  cd vscode-extension
   npm install -g yo generator-code
   yo code
   # Choose: New Extension (TypeScript)
@@ -113,30 +116,38 @@
   ```bash
   npm install --save-dev eslint prettier eslint-config-prettier
   ```
-- [ ] Initialize Git repository
-  ```bash
-  git init
-  git remote add origin <repo-url>
+- [ ] Create initial file structure (within existing repo):
   ```
-- [ ] Create initial file structure:
+  LocalizationManager/                    # Existing repo root
+  ├── LocalizationManager/                # Existing .NET CLI project
+  ├── LocalizationManager.Tests/          # Existing tests
+  ├── vscode-extension/                   # NEW: VS Code extension
+  │   ├── src/
+  │   │   ├── extension.ts
+  │   │   ├── backend/
+  │   │   ├── providers/
+  │   │   ├── views/
+  │   │   ├── commands/
+  │   │   └── utils/
+  │   ├── bin/                            # Bundled LRM binaries (built by CI)
+  │   │   ├── win32-x64/lrm.exe
+  │   │   ├── linux-x64/lrm
+  │   │   ├── linux-arm64/lrm
+  │   │   ├── darwin-x64/lrm
+  │   │   └── darwin-arm64/lrm
+  │   ├── syntaxes/
+  │   ├── package.json
+  │   └── README.md
+  ├── docs/
+  └── ...
   ```
-  vscode-localization-manager/
-  ├── src/
-  │   ├── extension.ts
-  │   ├── backend/
-  │   ├── providers/
-  │   ├── views/
-  │   ├── commands/
-  │   └── utils/
-  ├── syntaxes/
-  ├── package.json
-  └── README.md
-  ```
+- [ ] Add `vscode-extension/bin/` to `.gitignore` (binaries built by CI)
 
 **Acceptance Criteria**:
 - ✓ Extension loads in VS Code debug mode
 - ✓ Hello World command executes successfully
 - ✓ TypeScript compiles without errors
+- ✓ Extension directory is part of main LocalizationManager repo
 
 ---
 
@@ -145,41 +156,112 @@
 
 **File**: `src/backend/lrmService.ts`
 
-- [ ] Implement LRM process manager
-  - [ ] Detect if `lrm` is installed (check `which lrm` or `where lrm`)
-  - [ ] Start `lrm web` process on activation
+- [ ] Implement LRM process manager using **bundled binary**
+  - [ ] Get platform-specific binary path from extension's `bin/` directory
+  - [ ] **Find random available port** in dynamic range (49152-65535) to avoid conflicts with .NET apps
+  - [ ] Start `lrm web` process with `--port {random} --no-open-browser`
   - [ ] Health check endpoint (`GET /api/stats`)
-  - [ ] Auto-restart on crash
+  - [ ] Auto-restart on crash (with new random port if needed)
   - [ ] Graceful shutdown on deactivation
-  - [ ] Port conflict handling (try 5000-5010)
   - [ ] Output channel for LRM logs
+  - [ ] Make binary executable on first run (chmod +x on Unix)
+
+**Why Random Port?**
+- Port 5000 is the default for ASP.NET Core apps - would conflict for .NET developers
+- Random port allows multiple VS Code workspaces to run simultaneously
+- Each extension instance gets its own isolated LRM server
+- No user configuration needed
 
 **Implementation Checklist**:
 ```typescript
 // src/backend/lrmService.ts
 class LrmService {
-  - [ ] constructor()
+  private port: number;
+  private process: ChildProcess | null = null;
+
+  - [ ] constructor(extensionPath: string, resourcesPath: string)
+  - [ ] getBinaryPath(): string  // Returns path to bundled lrm binary
+  - [ ] async findAvailablePort(): Promise<number>  // Find random available port
+  - [ ] async ensureExecutable(): Promise<void>  // chmod +x on Unix
   - [ ] async start(): Promise<void>
   - [ ] async stop(): Promise<void>
   - [ ] async healthCheck(): Promise<boolean>
   - [ ] async restart(): Promise<void>
-  - [ ] getBaseUrl(): string
+  - [ ] getBaseUrl(): string  // Returns http://localhost:{port}
+  - [ ] getPort(): number
   - [ ] isRunning(): boolean
+}
+
+// Platform detection for bundled binary
+private getBinaryPath(): string {
+  const platform = process.platform;  // 'win32', 'linux', 'darwin'
+  const arch = process.arch;          // 'x64', 'arm64'
+  const ext = platform === 'win32' ? '.exe' : '';
+  const platformArch = `${platform}-${arch}`;
+  return path.join(this.extensionPath, 'bin', platformArch, `lrm${ext}`);
+}
+
+// Find available port in dynamic/private range (49152-65535)
+// This avoids conflicts with ASP.NET Core (5000) and other common dev ports
+private async findAvailablePort(): Promise<number> {
+  const net = require('net');
+  const MIN_PORT = 49152;
+  const MAX_PORT = 65535;
+
+  return new Promise((resolve, reject) => {
+    const tryPort = () => {
+      const port = Math.floor(Math.random() * (MAX_PORT - MIN_PORT + 1)) + MIN_PORT;
+      const server = net.createServer();
+
+      server.listen(port, '127.0.0.1', () => {
+        server.close(() => resolve(port));
+      });
+
+      server.on('error', () => tryPort()); // Port busy, try another
+    };
+    tryPort();
+  });
+}
+
+// Start LRM web server
+async start(): Promise<void> {
+  this.port = await this.findAvailablePort();
+  await this.ensureExecutable();
+
+  const binaryPath = this.getBinaryPath();
+  this.process = spawn(binaryPath, [
+    'web',
+    '--port', this.port.toString(),
+    '--no-open-browser',      // Extension handles UI, don't open browser
+    '--path', this.resourcesPath
+  ]);
+
+  // Wait for health check to pass
+  await this.waitForHealthy(5000);
+}
+
+getBaseUrl(): string {
+  return `http://localhost:${this.port}`;
 }
 ```
 
 **Test Cases**:
-- [ ] Service starts successfully
-- [ ] Service restarts after crash
+- [ ] Service starts successfully using bundled binary
+- [ ] Random port selected in range 49152-65535
+- [ ] No conflict with ASP.NET Core app running on port 5000
+- [ ] Multiple workspaces can run simultaneously (different ports)
+- [ ] Service restarts after crash (gets new port)
 - [ ] Service stops on extension deactivation
-- [ ] Port conflict handled gracefully
-- [ ] Error messages shown if LRM not installed
+- [ ] Binary made executable on Unix platforms
+- [ ] Correct platform binary selected (win32-x64, linux-x64, etc.)
 
 **Acceptance Criteria**:
-- ✓ LRM web server starts automatically
+- ✓ LRM web server starts on random available port
+- ✓ No conflicts with .NET development servers
 - ✓ Health check passes within 5 seconds
 - ✓ Logs visible in Output channel
 - ✓ Service stops cleanly on extension reload
+- ✓ No external LRM installation required
 
 ---
 
@@ -190,6 +272,10 @@ class LrmService {
 
 - [ ] Generate TypeScript client from Swagger
   ```bash
+  # Start LRM locally first to get Swagger spec
+  # (for development, the extension uses random port at runtime)
+  lrm web --port 5000 --no-open-browser
+
   # Option 1: openapi-typescript
   npm install --save-dev openapi-typescript
   npx openapi-typescript http://localhost:5000/swagger/v1/swagger.json -o src/backend/api.d.ts
@@ -197,6 +283,8 @@ class LrmService {
   # Option 2: swagger-typescript-api
   npm install --save-dev swagger-typescript-api
   npx swagger-typescript-api -p http://localhost:5000/swagger/v1/swagger.json -o src/backend/api
+
+  # Note: At runtime, extension discovers port dynamically via LrmService.getBaseUrl()
   ```
 - [ ] Implement API client wrapper
   - [ ] axios HTTP client
@@ -369,11 +457,9 @@ class CliRunner {
           "type": "string",
           "enum": ["google", "deepL", "openAI", "claude", ...],
           "default": "google"
-        },
-        "lrm.web.port": {
-          "type": "number",
-          "default": 5000
         }
+        // Note: No port setting needed - extension uses random available port
+        // to avoid conflicts with ASP.NET Core and other dev servers
       }
     }
   }
@@ -1570,7 +1656,7 @@ describe('Validation Workflow', () => {
   - [ ] Feature highlights
   - [ ] Screenshot/GIF demos
   - [ ] Installation instructions
-  - [ ] Prerequisites (.NET 9 runtime)
+  - [ ] Prerequisites: None (LRM binary bundled with extension)
 - [ ] Quick Start
   - [ ] First-time setup
   - [ ] Basic workflow (validate, edit, translate)
@@ -1654,7 +1740,8 @@ describe('Validation Workflow', () => {
   - [ ] Exclude source files (src/*)
   - [ ] Exclude tests
   - [ ] Exclude dev dependencies
-  - [ ] Include only compiled code (out/*)
+  - [ ] Include compiled code (out/*)
+  - [ ] **Include bundled binaries (bin/)**
 - [ ] Update `package.json`
   - [ ] Version: 1.0.0
   - [ ] Publisher name
@@ -1665,17 +1752,40 @@ describe('Validation Workflow', () => {
   - [ ] Icon
   - [ ] Marketplace badge
 - [ ] Create icon (128x128)
-- [ ] Package extension
+- [ ] Package extension (after bundling binaries)
   ```bash
   vsce package
-  # Creates: localization-manager-1.0.0.vsix
+  # Creates: localization-manager-1.0.0.vsix (~75MB with bundled binaries)
   ```
 
+#### Build LRM Binaries for Bundling
+**NEW STEP**: Build self-contained LRM binaries for all platforms before packaging extension.
+
+```bash
+# Build self-contained binaries for all platforms
+cd LocalizationManager
+dotnet publish -c Release -r win-x64 --self-contained -p:PublishSingleFile=true -o ../vscode-extension/bin/win32-x64
+dotnet publish -c Release -r linux-x64 --self-contained -p:PublishSingleFile=true -o ../vscode-extension/bin/linux-x64
+dotnet publish -c Release -r linux-arm64 --self-contained -p:PublishSingleFile=true -o ../vscode-extension/bin/linux-arm64
+dotnet publish -c Release -r osx-x64 --self-contained -p:PublishSingleFile=true -o ../vscode-extension/bin/darwin-x64
+dotnet publish -c Release -r osx-arm64 --self-contained -p:PublishSingleFile=true -o ../vscode-extension/bin/darwin-arm64
+
+# Rename binaries to consistent name
+mv vscode-extension/bin/win32-x64/LocalizationManager.exe vscode-extension/bin/win32-x64/lrm.exe
+mv vscode-extension/bin/linux-x64/LocalizationManager vscode-extension/bin/linux-x64/lrm
+mv vscode-extension/bin/linux-arm64/LocalizationManager vscode-extension/bin/linux-arm64/lrm
+mv vscode-extension/bin/darwin-x64/LocalizationManager vscode-extension/bin/darwin-x64/lrm
+mv vscode-extension/bin/darwin-arm64/LocalizationManager vscode-extension/bin/darwin-arm64/lrm
+```
+
 #### CI/CD Pipeline
-**File**: `.github/workflows/ci.yml`
+**File**: `.github/workflows/vscode-extension.yml`
 
 - [ ] Build workflow
   - [ ] Checkout code
+  - [ ] Setup .NET SDK 9.0
+  - [ ] **Build LRM for all 5 platforms**
+  - [ ] **Copy binaries to extension bin/ directory**
   - [ ] Install Node.js
   - [ ] Install dependencies
   - [ ] Compile TypeScript
@@ -1685,56 +1795,156 @@ describe('Validation Workflow', () => {
   - [ ] Upload artifact
 
 ```yaml
-name: CI
+name: VS Code Extension CI
 
-on: [push, pull_request]
+on:
+  push:
+    paths:
+      - 'vscode-extension/**'
+      - 'LocalizationManager/**'
+  pull_request:
+    paths:
+      - 'vscode-extension/**'
+      - 'LocalizationManager/**'
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
+      - uses: actions/checkout@v4
+
+      # Build LRM binaries for all platforms
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
         with:
-          node-version: '18'
-      - run: npm ci
-      - run: npm run compile
-      - run: npm run lint
-      - run: npm test
-      - run: npm run package
-      - uses: actions/upload-artifact@v3
+          dotnet-version: '9.0.x'
+
+      - name: Build LRM for all platforms
+        run: |
+          mkdir -p vscode-extension/bin/{win32-x64,linux-x64,linux-arm64,darwin-x64,darwin-arm64}
+
+          dotnet publish LocalizationManager/LocalizationManager.csproj \
+            -c Release -r win-x64 --self-contained -p:PublishSingleFile=true \
+            -o vscode-extension/bin/win32-x64
+          mv vscode-extension/bin/win32-x64/LocalizationManager.exe vscode-extension/bin/win32-x64/lrm.exe
+
+          dotnet publish LocalizationManager/LocalizationManager.csproj \
+            -c Release -r linux-x64 --self-contained -p:PublishSingleFile=true \
+            -o vscode-extension/bin/linux-x64
+          mv vscode-extension/bin/linux-x64/LocalizationManager vscode-extension/bin/linux-x64/lrm
+
+          dotnet publish LocalizationManager/LocalizationManager.csproj \
+            -c Release -r linux-arm64 --self-contained -p:PublishSingleFile=true \
+            -o vscode-extension/bin/linux-arm64
+          mv vscode-extension/bin/linux-arm64/LocalizationManager vscode-extension/bin/linux-arm64/lrm
+
+          dotnet publish LocalizationManager/LocalizationManager.csproj \
+            -c Release -r osx-x64 --self-contained -p:PublishSingleFile=true \
+            -o vscode-extension/bin/darwin-x64
+          mv vscode-extension/bin/darwin-x64/LocalizationManager vscode-extension/bin/darwin-x64/lrm
+
+          dotnet publish LocalizationManager/LocalizationManager.csproj \
+            -c Release -r osx-arm64 --self-contained -p:PublishSingleFile=true \
+            -o vscode-extension/bin/darwin-arm64
+          mv vscode-extension/bin/darwin-arm64/LocalizationManager vscode-extension/bin/darwin-arm64/lrm
+
+      # Build extension
+      - uses: actions/setup-node@v4
         with:
-          name: extension
-          path: '*.vsix'
+          node-version: '20'
+
+      - name: Install dependencies
+        working-directory: vscode-extension
+        run: npm ci
+
+      - name: Compile & Lint
+        working-directory: vscode-extension
+        run: |
+          npm run compile
+          npm run lint
+
+      - name: Run tests
+        working-directory: vscode-extension
+        run: npm test
+
+      - name: Package extension
+        working-directory: vscode-extension
+        run: npx vsce package
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vscode-extension
+          path: 'vscode-extension/*.vsix'
 ```
 
 #### Release Workflow
-**File**: `.github/workflows/release.yml`
+**File**: `.github/workflows/vscode-release.yml`
 
 - [ ] Release workflow
-  - [ ] Trigger on tag push (v*)
-  - [ ] Build extension
+  - [ ] Trigger on tag push (vscode-v*)
+  - [ ] Build LRM for all platforms
+  - [ ] Build extension with bundled binaries
   - [ ] Publish to Marketplace
   - [ ] Create GitHub release
 
 ```yaml
-name: Release
+name: VS Code Extension Release
 
 on:
   push:
     tags:
-      - 'v*'
+      - 'vscode-v*'  # Separate tag pattern for extension releases
 
 jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
-      - run: npm ci
-      - run: npm run package
-      - run: vsce publish -p ${{ secrets.VSCE_PAT }}
-      - uses: actions/create-release@v1
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Build LRM for all platforms
+        run: |
+          mkdir -p vscode-extension/bin/{win32-x64,linux-x64,linux-arm64,darwin-x64,darwin-arm64}
+
+          for runtime in win-x64 linux-x64 linux-arm64 osx-x64 osx-arm64; do
+            case $runtime in
+              win-x64) dir="win32-x64"; ext=".exe" ;;
+              linux-x64) dir="linux-x64"; ext="" ;;
+              linux-arm64) dir="linux-arm64"; ext="" ;;
+              osx-x64) dir="darwin-x64"; ext="" ;;
+              osx-arm64) dir="darwin-arm64"; ext="" ;;
+            esac
+
+            dotnet publish LocalizationManager/LocalizationManager.csproj \
+              -c Release -r $runtime --self-contained -p:PublishSingleFile=true \
+              -o vscode-extension/bin/$dir
+
+            mv "vscode-extension/bin/$dir/LocalizationManager$ext" "vscode-extension/bin/$dir/lrm$ext"
+          done
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build & Package Extension
+        working-directory: vscode-extension
+        run: |
+          npm ci
+          npm run compile
+          npx vsce package
+
+      - name: Publish to Marketplace
+        working-directory: vscode-extension
+        run: npx vsce publish -p ${{ secrets.VSCE_PAT }}
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: vscode-extension/*.vsix
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
@@ -1742,15 +1952,17 @@ jobs:
 **Marketplace Setup**:
 - [ ] Create Azure DevOps account
 - [ ] Create Personal Access Token (PAT)
-- [ ] Add PAT to GitHub secrets
+- [ ] Add PAT to GitHub secrets (VSCE_PAT)
 - [ ] Verify publisher profile
 
 **Acceptance Criteria**:
-- ✓ Extension packaged successfully
+- ✓ Extension packaged with bundled LRM binaries
+- ✓ All 5 platform binaries included (win32-x64, linux-x64, linux-arm64, darwin-x64, darwin-arm64)
 - ✓ CI pipeline runs on every commit
 - ✓ All CI checks pass
 - ✓ Release workflow tested
 - ✓ Marketplace credentials configured
+- ✓ Extension works without external .NET installation
 
 ---
 
@@ -1878,96 +2090,107 @@ jobs:
 
 ### File Structure (Detailed)
 
+The VS Code extension lives in the same repository as the main LRM project:
+
 ```
-vscode-localization-manager/
+LocalizationManager/                    # EXISTING REPO ROOT
 ├── .github/
 │   └── workflows/
-│       ├── ci.yml                      # Build + test pipeline
-│       └── release.yml                 # Publish to Marketplace
-├── .vscode/
-│   ├── launch.json                     # Debug configuration
-│   ├── tasks.json                      # Build tasks
-│   └── settings.json                   # Workspace settings
-├── src/
-│   ├── extension.ts                    # Extension entry point
-│   ├── backend/
-│   │   ├── lrmService.ts              # LRM web service manager
-│   │   ├── apiClient.ts               # REST API client
-│   │   ├── cliRunner.ts               # CLI command executor
-│   │   └── api.d.ts                   # Generated TypeScript types
-│   ├── providers/
-│   │   ├── diagnostics.ts             # Validation diagnostics
-│   │   ├── codeActions.ts             # Quick fixes
-│   │   ├── references.ts              # Find references
-│   │   ├── definition.ts              # Go to definition
-│   │   ├── codeLens.ts                # Reference counts
-│   │   ├── symbols.ts                 # Document symbols
-│   │   ├── folding.ts                 # Folding ranges
-│   │   └── hover.ts                   # Hover tooltips
-│   ├── views/
-│   │   ├── resourceExplorer.ts        # TreeView in Activity Bar
-│   │   ├── editorPanel.ts             # Key editor WebView
-│   │   ├── translationUI.ts           # Translation workflow
-│   │   ├── dashboard.ts               # Statistics dashboard
-│   │   ├── statusBar.ts               # Status bar item
-│   │   ├── backupTimeline.ts          # Timeline provider
-│   │   ├── backupDiff.ts              # Backup diff viewer
-│   │   └── settingsUI.ts              # Settings WebView
-│   ├── commands/
-│   │   ├── validate.ts
-│   │   ├── addKey.ts
-│   │   ├── editKey.ts
-│   │   ├── deleteKey.ts
-│   │   ├── translate.ts
-│   │   ├── scan.ts
-│   │   ├── import.ts
-│   │   ├── export.ts
-│   │   ├── backup.ts
-│   │   └── refresh.ts
-│   ├── utils/
-│   │   ├── config.ts                  # Configuration loader
-│   │   ├── logger.ts                  # Logging utility
-│   │   ├── xmlParser.ts               # .resx XML parser
-│   │   └── notifications.ts           # User notifications
-│   └── webview/
-│       ├── editor.html                # Key editor UI
-│       ├── translation.html           # Translation UI
-│       ├── dashboard.html             # Dashboard UI
-│       ├── settings.html              # Settings UI
-│       ├── diff.html                  # Diff viewer UI
-│       └── styles.css                 # Shared styles
-├── syntaxes/
-│   └── resx.tmLanguage.json           # TextMate grammar
-├── images/
-│   ├── icon.png                       # Extension icon (128x128)
-│   └── screenshots/                   # Documentation screenshots
-├── test/
-│   ├── unit/                          # Unit tests
+│       ├── ci.yml                      # Main LRM build pipeline
+│       ├── release.yml                 # Main LRM release
+│       ├── vscode-extension.yml        # NEW: Extension CI pipeline
+│       └── vscode-release.yml          # NEW: Extension release
+├── LocalizationManager/                # Existing .NET CLI project
+├── LocalizationManager.Tests/          # Existing tests
+├── docs/                               # Existing docs
+│
+├── vscode-extension/                   # NEW: VS Code extension subdirectory
+│   ├── .vscode/
+│   │   ├── launch.json                 # Debug configuration
+│   │   ├── tasks.json                  # Build tasks
+│   │   └── settings.json               # Workspace settings
+│   ├── bin/                            # BUNDLED LRM BINARIES (built by CI)
+│   │   ├── win32-x64/lrm.exe           # Windows x64 (~72MB)
+│   │   ├── linux-x64/lrm               # Linux x64 (~72MB)
+│   │   ├── linux-arm64/lrm             # Linux ARM64 (~72MB)
+│   │   ├── darwin-x64/lrm              # macOS x64 (~72MB)
+│   │   └── darwin-arm64/lrm            # macOS ARM64 (~72MB)
+│   ├── src/
+│   │   ├── extension.ts                # Extension entry point
 │   │   ├── backend/
+│   │   │   ├── lrmService.ts           # LRM service manager (uses bundled binary)
+│   │   │   ├── apiClient.ts            # REST API client
+│   │   │   ├── cliRunner.ts            # CLI command executor
+│   │   │   └── api.d.ts                # Generated TypeScript types
 │   │   ├── providers/
-│   │   └── utils/
-│   ├── integration/                   # Integration tests
-│   │   └── workflows/
-│   └── fixtures/                      # Test data
-│       ├── test.resx
-│       ├── test.fr.resx
-│       └── Sample.cs
-├── docs/
-│   ├── USER_GUIDE.md
-│   ├── API.md
-│   └── DEVELOPMENT.md
-├── .vscodeignore                      # Exclude from package
-├── .gitignore
-├── .eslintrc.json                     # ESLint config
-├── .prettierrc.json                   # Prettier config
-├── package.json                       # Extension manifest
-├── package-lock.json
-├── tsconfig.json                      # TypeScript config
-├── esbuild.js                         # Build script
-├── LICENSE                            # MIT License
-├── README.md                          # Marketplace README
-└── CHANGELOG.md                       # Version history
+│   │   │   ├── diagnostics.ts          # Validation diagnostics
+│   │   │   ├── codeActions.ts          # Quick fixes
+│   │   │   ├── references.ts           # Find references
+│   │   │   ├── definition.ts           # Go to definition
+│   │   │   ├── codeLens.ts             # Reference counts
+│   │   │   ├── symbols.ts              # Document symbols
+│   │   │   ├── folding.ts              # Folding ranges
+│   │   │   └── hover.ts                # Hover tooltips
+│   │   ├── views/
+│   │   │   ├── resourceExplorer.ts     # TreeView in Activity Bar
+│   │   │   ├── editorPanel.ts          # Key editor WebView
+│   │   │   ├── translationUI.ts        # Translation workflow
+│   │   │   ├── dashboard.ts            # Statistics dashboard
+│   │   │   ├── statusBar.ts            # Status bar item
+│   │   │   ├── backupTimeline.ts       # Timeline provider
+│   │   │   ├── backupDiff.ts           # Backup diff viewer
+│   │   │   └── settingsUI.ts           # Settings WebView
+│   │   ├── commands/
+│   │   │   ├── validate.ts
+│   │   │   ├── addKey.ts
+│   │   │   ├── editKey.ts
+│   │   │   ├── deleteKey.ts
+│   │   │   ├── translate.ts
+│   │   │   ├── scan.ts
+│   │   │   ├── import.ts
+│   │   │   ├── export.ts
+│   │   │   ├── backup.ts
+│   │   │   └── refresh.ts
+│   │   ├── utils/
+│   │   │   ├── config.ts               # Configuration loader
+│   │   │   ├── logger.ts               # Logging utility
+│   │   │   ├── xmlParser.ts            # .resx XML parser
+│   │   │   └── notifications.ts        # User notifications
+│   │   └── webview/
+│   │       ├── editor.html             # Key editor UI
+│   │       ├── translation.html        # Translation UI
+│   │       ├── dashboard.html          # Dashboard UI
+│   │       ├── settings.html           # Settings UI
+│   │       ├── diff.html               # Diff viewer UI
+│   │       └── styles.css              # Shared styles
+│   ├── syntaxes/
+│   │   └── resx.tmLanguage.json        # TextMate grammar
+│   ├── images/
+│   │   ├── icon.png                    # Extension icon (128x128)
+│   │   └── screenshots/                # Documentation screenshots
+│   ├── test/
+│   │   ├── unit/                       # Unit tests
+│   │   ├── integration/                # Integration tests
+│   │   └── fixtures/                   # Test data
+│   ├── docs/
+│   │   ├── USER_GUIDE.md
+│   │   ├── API.md
+│   │   └── DEVELOPMENT.md
+│   ├── .vscodeignore                   # Exclude from package (but include bin/)
+│   ├── .eslintrc.json                  # ESLint config
+│   ├── .prettierrc.json                # Prettier config
+│   ├── package.json                    # Extension manifest
+│   ├── package-lock.json
+│   ├── tsconfig.json                   # TypeScript config
+│   ├── esbuild.js                      # Build script
+│   ├── LICENSE                         # MIT License
+│   ├── README.md                       # Marketplace README
+│   └── CHANGELOG.md                    # Version history
+│
+└── .gitignore                          # Add: vscode-extension/bin/
 ```
+
+**Note**: The `vscode-extension/bin/` directory is in `.gitignore` since binaries are built by CI/CD. For local development, run the build script to populate the binaries.
 
 ### Dependencies
 

@@ -266,6 +266,8 @@ public class ResourcesController : ControllerBase
             // Update the key in all resource files
             foreach (var resourceFile in resourceFiles)
             {
+                var langCode = string.IsNullOrEmpty(resourceFile.Language.Code) ? "default" : resourceFile.Language.Code;
+
                 if (request.Occurrence.HasValue)
                 {
                     // Update specific occurrence
@@ -275,15 +277,27 @@ public class ResourcesController : ControllerBase
                         var entry = entries[request.Occurrence.Value - 1];
                         keyFound = true;
 
-                        // Update value if provided for this language
-                        if (request.Values?.ContainsKey(resourceFile.Language.Code ?? "default") == true)
+                        // Update value and comment if provided for this language
+                        if (request.Values?.TryGetValue(langCode, out var resourceValue) == true)
                         {
-                            entry.Value = request.Values[resourceFile.Language.Code ?? "default"];
-                        }
+                            if (resourceValue.Value != null)
+                            {
+                                entry.Value = resourceValue.Value;
+                            }
 
-                        // Update comment if provided
-                        if (request.Comment != null)
+                            // Per-language comment takes priority over global comment
+                            if (resourceValue.Comment != null)
+                            {
+                                entry.Comment = resourceValue.Comment;
+                            }
+                            else if (request.Comment != null)
+                            {
+                                entry.Comment = request.Comment;
+                            }
+                        }
+                        else if (request.Comment != null)
                         {
+                            // No value for this language, but global comment provided
                             entry.Comment = request.Comment;
                         }
                     }
@@ -296,15 +310,27 @@ public class ResourcesController : ControllerBase
                     {
                         keyFound = true;
 
-                        // Update value if provided for this language
-                        if (request.Values?.ContainsKey(resourceFile.Language.Code ?? "default") == true)
+                        // Update value and comment if provided for this language
+                        if (request.Values?.TryGetValue(langCode, out var resourceValue) == true)
                         {
-                            entry.Value = request.Values[resourceFile.Language.Code ?? "default"];
-                        }
+                            if (resourceValue.Value != null)
+                            {
+                                entry.Value = resourceValue.Value;
+                            }
 
-                        // Update comment if provided
-                        if (request.Comment != null)
+                            // Per-language comment takes priority over global comment
+                            if (resourceValue.Comment != null)
+                            {
+                                entry.Comment = resourceValue.Comment;
+                            }
+                            else if (request.Comment != null)
+                            {
+                                entry.Comment = request.Comment;
+                            }
+                        }
+                        else if (request.Comment != null)
                         {
+                            // No value for this language, but global comment provided
                             entry.Comment = request.Comment;
                         }
                     }

@@ -500,8 +500,14 @@
         {
             var request = new UpdateKeyRequest
             {
-                Values = editedValues.ToDictionary(kvp => kvp.Key, kvp => kvp.Value.Value ?? string.Empty),
-                Comment = editedValues.Values.FirstOrDefault()?.Comment,
+                // Pass full ResourceValue objects with both Value and Comment per language
+                Values = editedValues.ToDictionary(
+                    kvp => kvp.Key,
+                    kvp => new ResourceValue
+                    {
+                        Value = kvp.Value.Value ?? string.Empty,
+                        Comment = kvp.Value.Comment
+                    }),
                 Occurrence = keyDetails?.HasDuplicates == true ? selectedOccurrence : null
             };
 

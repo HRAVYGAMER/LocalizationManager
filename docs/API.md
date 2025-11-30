@@ -127,7 +127,7 @@ Add a new localization key.
 ```
 PUT /api/resources/keys/{keyName}
 ```
-Update an existing key's values.
+Update an existing key's values and comments.
 
 **Parameters:**
 - `occurrence` (optional): Specific occurrence index for duplicate keys
@@ -136,10 +136,17 @@ Update an existing key's values.
 ```json
 {
   "values": {
-    "default": { "value": "Updated value", "comment": "Updated comment" }
-  }
+    "default": { "value": "Updated value", "comment": "Comment for default language" },
+    "el": { "value": "Ενημερωμένη τιμή", "comment": "Comment for Greek" }
+  },
+  "comment": "Global fallback comment (used if per-language comment not provided)"
 }
 ```
+
+**Notes:**
+- Each language entry in `values` contains a `value` (required) and optional `comment`
+- Per-language `comment` takes priority over the global `comment` field
+- Only languages included in `values` are updated; others remain unchanged
 
 #### Delete Key
 ```

@@ -56,8 +56,14 @@ public class AddKeyRequest
 
 public class UpdateKeyRequest
 {
-    public Dictionary<string, string>? Values { get; set; }
+    /// <summary>
+    /// Values per language. Each entry can contain a value and optionally a comment.
+    /// </summary>
+    public Dictionary<string, ResourceValue>? Values { get; set; }
 
+    /// <summary>
+    /// Global comment to apply to all languages (used as fallback if per-language comment not provided).
+    /// </summary>
     [StringLength(2000, ErrorMessage = "Comment cannot exceed 2000 characters")]
     public string? Comment { get; set; }
 

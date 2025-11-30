@@ -70,6 +70,56 @@ jobs:
           ./build.sh
           echo "✓ Built all platforms"
 
+      # ═══════════════════════════════════════════════════════════════
+      # VS Code Extension - Platform-Specific Builds
+      # ═══════════════════════════════════════════════════════════════
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install extension dependencies
+        run: |
+          cd vscode-extension
+          npm install
+
+      - name: Build platform-specific extensions
+        run: |
+          cd vscode-extension
+          npm run compile
+
+          # Package for each platform (each gets its own binary bundled)
+          for platform in win32-x64 win32-arm64 linux-x64 linux-arm64 darwin-x64 darwin-arm64; do
+            echo "══════════════════════════════════════════════════════"
+            echo "Packaging for $platform"
+            echo "══════════════════════════════════════════════════════"
+
+            # Bundle only this platform's binary
+            ../scripts/bundle-extension-binaries.sh --target $platform
+
+            # Package with platform target
+            npx vsce package --target $platform
+          done
+
+          echo ""
+          echo "Generated VSIX files:"
+          ls -la *.vsix
+
+      - name: Publish to VS Code Marketplace
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: |
+          cd vscode-extension
+
+          # Publish each platform-specific VSIX
+          for vsix in *.vsix; do
+            echo "Publishing $vsix..."
+            npx vsce publish --packagePath "$vsix" --pat "$VSCE_PAT"
+          done
+
+          echo "✓ All platform packages published to Marketplace"
+
       - name: Install Debian packaging tools
         run: |
           sudo apt-get update
@@ -183,6 +233,17 @@ jobs:
             - **x64:** `lrm-win-x64.zip`
             - **ARM64:** `lrm-win-arm64.zip`
 
+            ## 🧩 VS Code Extension
+
+            Install from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=nickprotop.localization-manager):
+            ```
+            ext install nickprotop.localization-manager
+            ```
+
+            The marketplace automatically provides the correct version for your platform.
+
+            Platform-specific VSIX files are also attached below for manual installation.
+
             ## 📖 Installation
 
             See the [Installation Guide](https://github.com/${{ github.repository }}/blob/main/docs/INSTALLATION.md) for detailed instructions.
@@ -199,5 +260,6 @@ jobs:
             publish/lrm-win-arm64.zip
             publish/deb/lrm-standalone_${{ steps.version.outputs.version }}-1_amd64.deb
             publish/deb/lrm-standalone_${{ steps.version.outputs.version }}-1_arm64.deb
+            vscode-extension/*.vsix
           draft: false
           prerelease: false

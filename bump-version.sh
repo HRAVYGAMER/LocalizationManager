@@ -14,6 +14,7 @@ NC='\033[0m' # No Color
 # Files to update
 CSPROJ_FILE="LocalizationManager.csproj"
 SHARED_CSPROJ_FILE="LocalizationManager.Shared/LocalizationManager.Shared.csproj"
+VSCODE_PACKAGE_JSON="vscode-extension/package.json"
 
 # Function to display usage
 usage() {
@@ -109,6 +110,13 @@ update_csproj() {
     sed -i "s|<FileVersion>$old_assembly</FileVersion>|<FileVersion>$new_assembly</FileVersion>|g" "$csproj_file"
 }
 
+# Function to update VS Code extension version
+update_vscode_extension() {
+    local new_version=$1
+    if [ -f "$VSCODE_PACKAGE_JSON" ]; then
+        sed -i 's/"version": "[^"]*"/"version": "'"$new_version"'"/' "$VSCODE_PACKAGE_JSON"
+    fi
+}
 
 # Main script
 main() {
@@ -153,6 +161,7 @@ main() {
     echo "Files to update:"
     echo -e "  ${BLUE}•${NC} $CSPROJ_FILE"
     echo -e "  ${BLUE}•${NC} $SHARED_CSPROJ_FILE"
+    echo -e "  ${BLUE}•${NC} $VSCODE_PACKAGE_JSON"
     echo ""
 
     # Confirmation prompt (unless -y flag)
@@ -174,6 +183,9 @@ main() {
 
     update_csproj "$CURRENT_VERSION" "$NEW_VERSION" "$SHARED_CSPROJ_FILE"
     echo -e "${GREEN}✓${NC} Updated $SHARED_CSPROJ_FILE"
+
+    update_vscode_extension "$NEW_VERSION"
+    echo -e "${GREEN}✓${NC} Updated $VSCODE_PACKAGE_JSON"
 
     # Success message
     echo ""

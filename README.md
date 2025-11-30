@@ -22,6 +22,8 @@
 
 ![VS Code Extension](vscode-extension/images/dashboard.png)
 
+**👉 [See VS Code Extension Documentation →](vscode-extension/README.md)**
+
 Manage localization directly in VS Code with real-time diagnostics, code scanning, and translation support.
 
 **Features:**

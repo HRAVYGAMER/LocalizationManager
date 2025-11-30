@@ -83,6 +83,7 @@ export interface TranslateRequest {
     provider: string;
     targetLanguages: string[];
     onlyMissing: boolean;
+    dryRun?: boolean;  // If true, only return translations without saving to files
 }
 
 export interface TranslateResponse {
@@ -135,8 +136,14 @@ export interface AddKeyRequest {
     comment?: string;
 }
 
+export interface ResourceValueUpdate {
+    value: string;
+    comment?: string | null;
+}
+
 export interface UpdateKeyRequest {
-    values: { [language: string]: { value: string; comment?: string } };
+    values: { [language: string]: ResourceValueUpdate };
+    comment?: string;  // Global fallback comment
 }
 
 export interface AddLanguageRequest {

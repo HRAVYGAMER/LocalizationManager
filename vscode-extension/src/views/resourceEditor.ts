@@ -52,7 +52,14 @@ export class ResourceEditorPanel {
                         await this.handleLoadResources();
                         return;
                     case 'updateKey':
-                        await this.handleUpdateKey(message.key, message.language, message.value, message.comment);
+                        // Support both inline edit (single language) and modal edit (all languages)
+                        if (message.values && typeof message.values === 'object' && !message.language) {
+                            // Modal edit - multiple languages in values object
+                            await this.handleUpdateKeyMultiple(message.key, message.values);
+                        } else {
+                            // Inline edit - single language
+                            await this.handleUpdateKey(message.key, message.language, message.value, message.comment);
+                        }
                         return;
                     case 'addKey':
                         await this.handleAddKey(message.key, message.values);
@@ -118,9 +125,12 @@ export class ResourceEditorPanel {
 
     private async handleUpdateKey(key: string, language: string, value: string, comment?: string) {
         try {
+            // Normalize empty string to "default" for the default language
+            const langCode = language || 'default';
+            console.log(`Updating key "${key}" for language "${langCode}" with value "${value}"`);
             await this.apiClient.updateKey(key, {
                 values: {
-                    [language]: { value, comment }
+                    [langCode]: { value, comment: comment ?? undefined }
                 }
             });
 
@@ -132,6 +142,38 @@ export class ResourceEditorPanel {
             // Reload resources to reflect changes
             await this.handleLoadResources();
         } catch (error: any) {
+            console.error('Failed to update key:', error);
+            this._panel.webview.postMessage({
+                command: 'error',
+                message: `Failed to update key: ${error.message}`
+            });
+        }
+    }
+
+    private async handleUpdateKeyMultiple(key: string, values: { [language: string]: { value: string; comment?: string | null } }) {
+        try {
+            console.log(`Updating key "${key}" for multiple languages:`, Object.keys(values));
+            // Convert to ResourceValueUpdate format for backend API
+            // Normalize empty string to "default" for the default language
+            const resourceValues: { [language: string]: { value: string; comment?: string } } = {};
+            for (const [lang, data] of Object.entries(values)) {
+                const langCode = lang || 'default';
+                resourceValues[langCode] = {
+                    value: data.value,
+                    comment: data.comment ?? undefined
+                };
+            }
+            await this.apiClient.updateKey(key, { values: resourceValues });
+
+            this._panel.webview.postMessage({
+                command: 'updateSuccess',
+                key
+            });
+
+            // Reload resources to reflect changes
+            await this.handleLoadResources();
+        } catch (error: any) {
+            console.error('Failed to update key (multiple):', error);
             this._panel.webview.postMessage({
                 command: 'error',
                 message: `Failed to update key: ${error.message}`
@@ -175,15 +217,16 @@ export class ResourceEditorPanel {
         }
     }
 
-    private async handleTranslateKey(key: string, provider: string, languages: string[], onlyMissing: boolean = true) {
+    private async handleTranslateKey(key: string, provider: string, languages: string[], onlyMissing: boolean = true, dryRun: boolean = true) {
         try {
-            console.log(`Translating key: ${key}, provider: ${provider}, languages: ${languages.join(', ')}`);
+            console.log(`Translating key: ${key}, provider: ${provider}, languages: ${languages.join(', ')}, dryRun: ${dryRun}`);
 
             const result = await this.apiClient.translate({
                 keys: [key],
                 provider,
                 targetLanguages: languages,
-                onlyMissing
+                onlyMissing,
+                dryRun  // Don't save directly - populate dialog fields instead
             });
 
             console.log('Translation result:', result);
@@ -259,7 +302,8 @@ export class ResourceEditorPanel {
                             keys: [key.key],
                             provider,
                             targetLanguages: targetLangs,
-                            onlyMissing
+                            onlyMissing,
+                            dryRun: false  // Actually save translations when translating all
                         });
                     }
 
@@ -1078,6 +1122,15 @@ export class ResourceEditorPanel {
                     cell.dataset.language = lang.code;
                     cell.dataset.originalValue = value;
 
+                    // Clear "(empty)" placeholder on focus
+                    cell.addEventListener('focus', (e) => {
+                        const target = e.target;
+                        if (target.textContent === '(empty)') {
+                            target.textContent = '';
+                            target.classList.remove('empty-value');
+                        }
+                    });
+
                     cell.addEventListener('blur', handleCellEdit);
                     cell.addEventListener('keydown', (e) => {
                         if (e.key === 'Enter') {
@@ -1085,7 +1138,14 @@ export class ResourceEditorPanel {
                             e.target.blur();
                         }
                         if (e.key === 'Escape') {
-                            e.target.textContent = e.target.dataset.originalValue || '(empty)';
+                            const originalValue = e.target.dataset.originalValue;
+                            if (!originalValue) {
+                                e.target.textContent = '(empty)';
+                                e.target.classList.add('empty-value');
+                            } else {
+                                e.target.textContent = originalValue;
+                                e.target.classList.remove('empty-value');
+                            }
                             e.target.blur();
                         }
                     });
@@ -1121,15 +1181,24 @@ export class ResourceEditorPanel {
             const cell = e.target;
             const key = cell.dataset.key;
             const language = cell.dataset.language;
-            const originalValue = cell.dataset.originalValue;
+            const originalValue = cell.dataset.originalValue || '';
             let newValue = cell.textContent.trim();
 
             if (newValue === '(empty)') {
                 newValue = '';
             }
 
+            // Restore "(empty)" display if the value is empty
+            if (!newValue) {
+                cell.textContent = '(empty)';
+                cell.classList.add('empty-value');
+            } else {
+                cell.classList.remove('empty-value');
+            }
+
             if (newValue !== originalValue) {
                 setStatus('Saving...');
+                console.log('Inline edit - saving key:', key, 'lang:', language, 'value:', newValue);
                 vscode.postMessage({
                     command: 'updateKey',
                     key: key,

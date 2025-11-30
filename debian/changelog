@@ -1,5 +1,5 @@
-lrm (0.6.19-1) noble; urgency=medium
+lrm (0.6.20-1) noble; urgency=medium
 
-  * Fixed: Fix VS Code extension display name for marketplace\n
+  * Added: Add IntelliSense autocomplete for localization keys\n
 
- -- Nikolaos Protopapas <nikolaos.protopapas@gmail.com>  Sun, 30 Nov 2025 17:05:17 +0200
+ -- Nikolaos Protopapas <nikolaos.protopapas@gmail.com>  Sun, 30 Nov 2025 17:34:41 +0200

@@ -5,6 +5,7 @@ import { CodeDiagnosticProvider } from './providers/codeDiagnostics';
 import { ResxDiagnosticProvider } from './providers/resxDiagnostics';
 import { ResourceTreeView } from './views/resourceTreeView';
 import { QuickFixProvider } from './providers/quickFix';
+import { LocalizationCompletionProvider } from './providers/completionProvider';
 import { ResourceEditorPanel } from './views/resourceEditor';
 import { StatusBarManager } from './views/statusBar';
 import { DashboardPanel } from './views/dashboard';
@@ -16,6 +17,7 @@ let statusBarManager: StatusBarManager;
 let codeDiagnostics: CodeDiagnosticProvider;
 let resxDiagnostics: ResxDiagnosticProvider;
 let resourceTreeView: ResourceTreeView;
+let completionProvider: LocalizationCompletionProvider;
 let outputChannel: vscode.OutputChannel;
 
 export async function activate(context: vscode.ExtensionContext) {
@@ -60,6 +62,23 @@ export async function activate(context: vscode.ExtensionContext) {
                 }
             )
         );
+
+        // Register Completion provider for localization key autocomplete
+        completionProvider = new LocalizationCompletionProvider(apiClient);
+        context.subscriptions.push(
+            vscode.languages.registerCompletionItemProvider(
+                [
+                    { language: 'csharp', scheme: 'file' },
+                    { language: 'razor', scheme: 'file' },
+                    { language: 'aspnetcorerazor', scheme: 'file' },
+                    { pattern: '**/*.cshtml' },
+                    { pattern: '**/*.xaml' }
+                ],
+                completionProvider,
+                '.', '"', "'", '['  // Trigger characters
+            )
+        );
+        outputChannel.appendLine('Completion provider registered');
 
         // Enable diagnostic providers based on settings
         const config = vscode.workspace.getConfiguration('lrm');
@@ -181,16 +200,25 @@ function setupEventListeners(context: vscode.ExtensionContext, enableRealtimeSca
     resxWatcher.onDidChange(async () => {
         await resxDiagnostics.validateAllResources();
         await resourceTreeView.loadResources();
+        if (completionProvider) {
+            completionProvider.invalidateCache();
+        }
     });
 
     resxWatcher.onDidCreate(async () => {
         await resxDiagnostics.validateAllResources();
         await resourceTreeView.loadResources();
+        if (completionProvider) {
+            completionProvider.invalidateCache();
+        }
     });
 
     resxWatcher.onDidDelete(async () => {
         await resxDiagnostics.validateAllResources();
         await resourceTreeView.loadResources();
+        if (completionProvider) {
+            completionProvider.invalidateCache();
+        }
     });
 
     context.subscriptions.push(resxWatcher);

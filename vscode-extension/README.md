@@ -2,7 +2,7 @@
 
 Manage .NET .resx localization files with real-time validation, translation, and code scanning.
 
-![Dashboard](images/dashboard.png)
+![Dashboard](https://raw.githubusercontent.com/nickprotop/LocalizationManager/main/vscode-extension/images/dashboard.png)
 
 ## Features
 
@@ -12,27 +12,32 @@ View translation coverage, validation issues, and quick actions at a glance.
 ### Resource Editor
 Edit all languages side-by-side with search, filtering, and bulk actions.
 
-![Resource Editor](images/editor.png)
+![Resource Editor](https://raw.githubusercontent.com/nickprotop/LocalizationManager/main/vscode-extension/images/editor.png)
 
 ### Real-time Code Diagnostics
 Get inline warnings for missing localization keys as you type.
 
-![Quick Fix](images/quick-fix.png)
+![Quick Fix](https://raw.githubusercontent.com/nickprotop/LocalizationManager/main/vscode-extension/images/quick-fix.png)
+
+### IntelliSense Autocomplete
+Get autocomplete suggestions for localization keys as you type. Supports `Resources.`, `GetString("`, `_localizer["` and more patterns.
+
+![Autocomplete](https://raw.githubusercontent.com/nickprotop/LocalizationManager/main/vscode-extension/images/autocomplete.png)
 
 ### Code Scanning
 Find missing and unused keys across your codebase.
 
-![Code Scan](images/code-scan.png)
+![Code Scan](https://raw.githubusercontent.com/nickprotop/LocalizationManager/main/vscode-extension/images/code-scan.png)
 
 ### Key References
 See exactly where each key is used in your code.
 
-![References](images/references.png)
+![References](https://raw.githubusercontent.com/nickprotop/LocalizationManager/main/vscode-extension/images/references.png)
 
 ### Resource Tree
 Browse keys organized by resource file in the Explorer sidebar.
 
-![Tree View](images/tree-view.png)
+![Tree View](https://raw.githubusercontent.com/nickprotop/LocalizationManager/main/vscode-extension/images/tree-view.png)
 
 ### Translation
 Translate missing values using free or paid providers.

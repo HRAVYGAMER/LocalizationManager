@@ -364,7 +364,29 @@ Scan a single source code file for localization key references. Useful for edito
 **Request:**
 ```json
 {
+  "filePath": "/path/to/Controllers/HomeController.cs",
+  "content": "optional file content string"
+}
+```
+
+**Parameters:**
+- `filePath` (required): Absolute path to the file to scan (used for extension detection and result paths)
+- `content` (optional): File content as a string. If provided, this content will be scanned instead of reading the file from disk. This is useful for scanning unsaved editor changes.
+
+**Request Examples:**
+
+Scan file from disk:
+```json
+{
   "filePath": "/path/to/Controllers/HomeController.cs"
+}
+```
+
+Scan in-memory content (e.g., unsaved editor changes):
+```json
+{
+  "filePath": "/path/to/Controllers/HomeController.cs",
+  "content": "public class HomeController {\n  var msg = Resources.NewUnsavedKey;\n}"
 }
 ```
 
@@ -417,6 +439,8 @@ Returns the same format as full codebase scan (`ScanResponse`), but with `scanne
 
 **Notes:**
 - The `filePath` should be an absolute path to a supported file type (.cs, .razor, .xaml, .cshtml)
+- When `content` is provided, the file doesn't need to exist on disk - only the extension is used for scanner selection
+- The `content` parameter enables real-time scanning of unsaved editor changes
 - Only supported file extensions will be scanned
 - Response format is identical to full codebase scan for consistency
 - `scannedFiles` will always be `1` for single-file scans

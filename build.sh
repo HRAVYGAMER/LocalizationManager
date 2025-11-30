@@ -148,6 +148,8 @@ declare -a platforms=(
     "linux-arm64"
     "win-x64"
     "win-arm64"
+    "osx-x64"
+    "osx-arm64"
 )
 
 # Build for each platform

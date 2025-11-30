@@ -13,8 +13,9 @@
     "vscode": "^1.80.0"
   },
   "categories": [
-    "Other",
-    "Programming Languages"
+    "Linters",
+    "Programming Languages",
+    "Other"
   ],
   "keywords": [
     "localization",
@@ -22,7 +23,10 @@
     "i18n",
     "translation",
     "dotnet",
-    "csharp"
+    "csharp",
+    "internationalization",
+    "resources",
+    "l10n"
   ],
   "activationEvents": [
     "workspaceContains:**/*.resx"

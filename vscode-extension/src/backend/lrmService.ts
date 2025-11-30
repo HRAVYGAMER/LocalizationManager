@@ -39,6 +39,10 @@ export class LrmService implements vscode.Disposable {
         return this.process !== null && this.port !== 0;
     }
 
+    public getResourcePath(): string | null {
+        return this.resourcePath;
+    }
+
     public async start(): Promise<void> {
         if (this.isRunning()) {
             this.outputChannel.appendLine('Backend already running');

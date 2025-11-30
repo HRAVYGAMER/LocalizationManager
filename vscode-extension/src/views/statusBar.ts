@@ -1,13 +1,16 @@
 import * as vscode from 'vscode';
 import { ApiClient } from '../backend/apiClient';
+import { LrmService } from '../backend/lrmService';
 
 export class StatusBarManager {
     private statusBarItem: vscode.StatusBarItem;
     private apiClient: ApiClient;
+    private lrmService: LrmService;
     private updateInterval: NodeJS.Timeout | undefined;
 
-    constructor(apiClient: ApiClient) {
+    constructor(apiClient: ApiClient, lrmService: LrmService) {
         this.apiClient = apiClient;
+        this.lrmService = lrmService;
 
         // Create status bar item (aligned to right, priority 100)
         this.statusBarItem = vscode.window.createStatusBarItem(
@@ -15,8 +18,8 @@ export class StatusBarManager {
             100
         );
 
-        this.statusBarItem.command = 'lrm.openDashboard';
-        this.statusBarItem.tooltip = 'Click to open Localization Manager Dashboard';
+        this.statusBarItem.command = 'lrm.showQuickActions';
+        this.statusBarItem.tooltip = 'Click for LRM quick actions';
         this.statusBarItem.show();
 
         // Update every 30 seconds
@@ -78,9 +81,13 @@ export class StatusBarManager {
 
     private buildTooltip(stats: any, avgCoverage: number, totalMissing: number): string {
         const languages = stats.languages || [];
+        const resourcePath = this.lrmService.getResourcePath() || 'Not configured';
 
         const lines = [
             'Localization Manager',
+            '',
+            `📁 Resource Folder:`,
+            `  ${resourcePath}`,
             '',
             `Translation Coverage: ${avgCoverage}%`,
             `  Total Keys: ${stats.totalKeys}`,
@@ -103,7 +110,7 @@ export class StatusBarManager {
                 return `  ${langName}: ${Math.round(lang.coverage)}%`;
             }),
             '',
-            'Click to open dashboard'
+            'Click for quick actions'
         ];
 
         return lines.join('\n');

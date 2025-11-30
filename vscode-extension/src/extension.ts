@@ -105,11 +105,41 @@ export async function activate(context: vscode.ExtensionContext) {
         await resxDiagnostics.validateAllResources();
 
         // Initialize status bar manager
-        statusBarManager = new StatusBarManager(apiClient);
+        statusBarManager = new StatusBarManager(apiClient, lrmService);
         context.subscriptions.push(statusBarManager);
 
         // Set up document event listeners
         setupEventListeners(context, enableRealtimeScan, scanOnSave);
+
+        // Listen for configuration changes (e.g., resource path changed in settings)
+        context.subscriptions.push(
+            vscode.workspace.onDidChangeConfiguration(async (e) => {
+                if (e.affectsConfiguration('lrm.resourcePath')) {
+                    const newConfig = vscode.workspace.getConfiguration('lrm');
+                    const newPath = newConfig.get<string>('resourcePath');
+                    if (newPath && lrmService.isRunning()) {
+                        try {
+                            outputChannel.appendLine(`Resource path changed in settings: ${newPath}`);
+                            await lrmService.setResourcePath(newPath);
+
+                            // Recreate API client with new port
+                            apiClient = new ApiClient(lrmService.getBaseUrl());
+
+                            // Refresh views
+                            await resourceTreeView.loadResources();
+                            await resxDiagnostics.validateAllResources();
+                            if (statusBarManager) {
+                                await statusBarManager.update();
+                            }
+
+                            vscode.window.showInformationMessage(`Resource path updated to: ${newPath}`);
+                        } catch (error: any) {
+                            vscode.window.showErrorMessage(`Failed to update resource path: ${error.message}`);
+                        }
+                    }
+                }
+            })
+        );
 
         // Set context for views
         vscode.commands.executeCommand('setContext', 'lrm.hasResources', true);
@@ -760,6 +790,89 @@ function registerCommands(context: vscode.ExtensionContext) {
     context.subscriptions.push(
         vscode.commands.registerCommand('lrm.openSettings', () => {
             SettingsPanel.createOrShow(apiClient);
+        })
+    );
+
+    // Show Quick Actions (status bar click)
+    context.subscriptions.push(
+        vscode.commands.registerCommand('lrm.showQuickActions', async () => {
+            interface QuickActionItem extends vscode.QuickPickItem {
+                action: string;
+            }
+
+            const resourcePath = lrmService.getResourcePath() || 'Not configured';
+            const isRunning = lrmService.isRunning();
+
+            const items: QuickActionItem[] = [
+                {
+                    label: '$(folder) Resource Folder',
+                    description: resourcePath,
+                    detail: 'Change the resource folder location',
+                    action: 'setPath'
+                },
+                {
+                    label: isRunning ? '$(refresh) Restart Backend' : '$(play) Start Backend',
+                    detail: isRunning ? 'Restart the LRM backend service' : 'Start the LRM backend service',
+                    action: 'restart'
+                },
+                {
+                    label: '$(gear) Open Settings',
+                    detail: 'Configure translation providers and API keys',
+                    action: 'settings'
+                },
+                {
+                    label: '$(dashboard) Open Dashboard',
+                    detail: 'View translation coverage and statistics',
+                    action: 'dashboard'
+                },
+                {
+                    label: '$(edit) Open Resource Editor',
+                    detail: 'Edit localization resources',
+                    action: 'editor'
+                },
+                {
+                    label: '$(output) Show Logs',
+                    detail: 'View backend output and logs',
+                    action: 'logs'
+                },
+                {
+                    label: '$(settings-gear) Open Workspace Settings',
+                    detail: 'Open VS Code settings for LRM extension',
+                    action: 'workspaceSettings'
+                }
+            ];
+
+            const selected = await vscode.window.showQuickPick(items, {
+                placeHolder: 'LRM Quick Actions',
+                matchOnDescription: true,
+                matchOnDetail: true
+            });
+
+            if (selected) {
+                switch (selected.action) {
+                    case 'setPath':
+                        vscode.commands.executeCommand('lrm.setResourcePath');
+                        break;
+                    case 'restart':
+                        vscode.commands.executeCommand('lrm.restartBackend');
+                        break;
+                    case 'settings':
+                        vscode.commands.executeCommand('lrm.openSettings');
+                        break;
+                    case 'dashboard':
+                        vscode.commands.executeCommand('lrm.openDashboard');
+                        break;
+                    case 'editor':
+                        vscode.commands.executeCommand('lrm.openResourceEditor');
+                        break;
+                    case 'logs':
+                        vscode.commands.executeCommand('lrm.showLogs');
+                        break;
+                    case 'workspaceSettings':
+                        vscode.commands.executeCommand('workbench.action.openSettings', '@ext:nickprotop.localization-manager');
+                        break;
+                }
+            }
         })
     );
 }

